@@ -1,3 +1,7 @@
+# big input files
+dataset/test_set.h5
+dataset/train_set.h5
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
