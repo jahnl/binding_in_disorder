@@ -25,12 +25,12 @@ def sort_dataset(file):
 if __name__ == '__main__':
     # match the annotation with the data actually used
     # sort the train and test set to enable fast access later
-    with open('./dataset/test_set.fasta', 'r') as test_set:
+    with open('../dataset/test_set.fasta', 'r') as test_set:
         test_list = sort_dataset(test_set)
-    with open('./dataset/train_set.fasta', 'r') as train_set:
+    with open('../dataset/train_set.fasta', 'r') as train_set:
         train_list = sort_dataset(train_set)
 
-    with open('./dataset/disprot_annotations.txt', 'r') as annotation:
+    with open('../dataset/disprot_annotations.txt', 'r') as annotation:
         # sort annotation
         ann_list = list()
         last_id = ''
@@ -106,13 +106,13 @@ if __name__ == '__main__':
         # print('ann_id ' + ann_id + '\n last_id ' + last_id + '\n test_id ' + test_id + '\n test_hit ' + str(test_hit) +
         #      '\n test_pointer ' + str(test_pointer) + '\n')
 
-    with open('./dataset/test_set_annotation.tsv', 'w') as out_test:
+    with open('../dataset/test_set_annotation.tsv', 'w') as out_test:
         out_test.write('ID\tsequence\tmax.Region.ID\tResidues\tAnnotations\tBindEmbed\t\n')
         for entry in test_list:
             for tab in entry:
                 out_test.write(tab + '\t')
             out_test.write('\n')
-    with open('./dataset/train_set_annotation.tsv', 'w') as out_train:
+    with open('../dataset/train_set_annotation.tsv', 'w') as out_train:
         out_train.write('ID\tsequence\tmax.Region.ID\tResidues\tAnnotations\tBindEmbed\t\n')
         for entry in train_list:
             for tab in entry:
