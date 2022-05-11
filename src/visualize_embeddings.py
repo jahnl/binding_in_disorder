@@ -12,6 +12,7 @@ if __name__ == '__main__':
     data = 'train'   # test/train
     unit = 'residue'    # residue/protein
     subset = 'disorder'  # disorder/all
+    mode = 'reduce'     # reduce/all; only when disorder and residue
 
 
     embeddings_in = '../dataset/' + data + '_set.h5'
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     else:
         raise ValueError('subset must be "all" or "disorder"')
 
-
+    mode_text = ''
     if unit == 'protein':
         # Average the Per-Residue embeddings to Protein embeddings
         clustering_input = [np.mean(x, axis=0) for x in embeddings_selection]
@@ -63,16 +64,29 @@ if __name__ == '__main__':
         residue_label = list()
         residue_ID = list()
         for i, emb in enumerate(embeddings_selection):
-            clustering_input.extend(emb)
+            if mode != 'reduce' or subset != 'disorder':
+                clustering_input.extend(emb)
+            else:
+                # reduce by using only the middle residue
+                clustering_input.append(emb[int(len(emb)/2)])
+                mode_text = '_reduced'
             if subset == 'disorder':
-                residue_label.extend([labels_ordered[i] for _ in emb])
+                if mode == 'reduce':
+                    residue_label.append(labels_ordered[i])
+                elif mode == 'all':
+                    residue_label.extend([labels_ordered[i] for _ in emb])
+                else:
+                    raise ValueError('mode must be "reduce" or "all"')
             elif subset == 'all':
                 for j, res in enumerate(emb):
                     if j in disorder_residues[i]:
                         residue_label.append(labels_ordered[i])
                     else:
                         residue_label.append('structured residue')
-            residue_ID.extend([ids_ordered[i] for _ in emb])
+            if mode != 'reduce' or subset != 'disorder':
+                residue_ID.extend([ids_ordered[i] for _ in emb])
+            else:
+                residue_ID.append(ids_ordered[i])
         ids_ordered = residue_ID
         labels_ordered = residue_label
         unit_text_title = 'Residue'
@@ -115,7 +129,7 @@ if __name__ == '__main__':
     plt.title('T-SNE Clustering of ' + unit_text_title + ' Embeddings')
     plt.xlabel("")
     plt.ylabel("")
-    plt.savefig('../results/plots/' + data + '_tsne_' + unit_text + '_' + subset_text + '.png', bbox_inches="tight", dpi=600)
+    plt.savefig('../results/plots/' + data + '_tsne_' + unit_text + '_' + subset_text + mode_text + '.png', bbox_inches="tight", dpi=600)
     plt.show()
 
     umap_plot = sns.scatterplot(
@@ -132,5 +146,5 @@ if __name__ == '__main__':
     plt.title('UMAP Clustering of ' + unit_text_title + ' Embeddings')
     plt.xlabel("")
     plt.ylabel("")
-    plt.savefig('../results/plots/' + data + '_umap_' + unit_text + '_' + subset_text + '.png', bbox_inches="tight", dpi=600)
+    plt.savefig('../results/plots/' + data + '_umap_' + unit_text + '_' + subset_text + mode_text + '.png', bbox_inches="tight", dpi=600)
     plt.show()
