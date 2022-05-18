@@ -29,6 +29,7 @@ if __name__ == '__main__':
         labels_ordered = list()
         embeddings_ordered = list()
         disorder_residues = list()
+        sequences_ordered = list()
         for i in labels.readlines()[1:]:
             tabs = i.split("\t")
             ids_ordered.append(tabs[0])
@@ -39,6 +40,7 @@ if __name__ == '__main__':
             # create list of unique binding partner classes
             binding = sorted(list(set(tabs[4].split(','))))
             labels_ordered.append(','.join(binding))
+            sequences_ordered.append(tabs[1])
 
     tsne_instance = TSNE(random_state=1, n_iter=250, metric='cosine')
     umap_instance = UMAP(n_neighbors=15, min_dist=0.3, metric='correlation')
@@ -72,6 +74,8 @@ if __name__ == '__main__':
                 mode_text = '_reduced'
             if subset == 'disorder':
                 if mode == 'reduce':
+                    # use the first line instead if you want to label the points by AA
+                    # residue_label.append(sequences_ordered[i][int(len(emb)/2)])
                     residue_label.append(labels_ordered[i])
                 elif mode == 'all':
                     residue_label.extend([labels_ordered[i] for _ in emb])
