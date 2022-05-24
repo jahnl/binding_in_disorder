@@ -1,7 +1,7 @@
 
 """
 input: ./dataset/disprot_annotations.txt, ./dataset/test_set.fasta, ./dataset/train_set.fasta
-output: statistics about the dataset
+output: statistics about the dataset, an annotation with more information, the input labels for the ML model
 """
 
 def sort_dataset(file):
@@ -20,6 +20,48 @@ def sort_dataset(file):
     return sorted(ls, key=lambda x: x[0])
 
 
+def ML_input_labels(t_list, t_set):
+    ligands = {'non-binding': '_', 'protein': 'P', 'nuc': 'N',
+               'lipid': 'O', 'small': 'O', 'metal': 'O', 'ion': 'O', 'carbohydrate': 'O'}
+    with open('../dataset/' + t_set + '_set_input.txt', 'w') as out:
+        special_case = False
+        disorder_str = ''
+        ligand_str = ''
+        for entry in t_list:
+            if not special_case:
+                out.write('>' + entry[0] + '\n')
+                out.write(entry[1] + '\n')
+                disorder_str = '-' * len(entry[1])
+            for residue in entry[3].split(','):
+                disorder_str = disorder_str[:int(residue) - 1] + 'D' + disorder_str[int(residue):]
+            binding = list(set(sorted(entry[4].split(','))))
+            for i, item in enumerate(binding):
+                binding[i] = ligands[item]
+            binding = set(binding)
+            if len(binding) == 1:
+                ligand_class = binding.pop()
+            elif len(binding) == 3:
+                ligand_class = 'A'
+            else:
+                if 'P' in binding and 'N' in binding:
+                    ligand_class = 'X'
+                elif 'P' in binding and 'O' in binding:
+                    ligand_class = 'Y'
+                else:
+                    ligand_class = 'Z'
+            if not special_case:
+                ligand_str = disorder_str.replace('D', ligand_class)
+            else:
+                for i, d_residue in enumerate(disorder_str):
+                    if d_residue == 'D' and ligand_str[i] == '-':
+                        ligand_str = ligand_str[:i] + ligand_class + ligand_str[i + 1:]
+
+            if entry[6] == '>1 regions':
+                special_case = True
+            else:
+                special_case = False
+                out.write(disorder_str + '\n')
+                out.write(ligand_str + '\n')
 
 
 if __name__ == '__main__':
@@ -84,7 +126,7 @@ if __name__ == '__main__':
             test_pointer += 1
 
             # unite list of bindings to sets
-            binding = set(entry[3].split(','))
+            binding = set(sorted(entry[3].split(',')))
             try:
                 bind_counts_test[str(binding)] += 1
             except KeyError:
@@ -118,6 +160,12 @@ if __name__ == '__main__':
             for tab in entry:
                 out_train.write(tab + '\t')
             out_train.write('\n')
+
+    # write input labels for ML
+    ML_input_labels(test_list, 'test')
+    ML_input_labels(train_list, 'train')
+
+
 
     print('test bind counts: ', bind_counts_test)
     print('train bind counts: ', bind_counts_train)
