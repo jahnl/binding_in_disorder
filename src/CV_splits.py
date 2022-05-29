@@ -1,6 +1,7 @@
 from sklearn.model_selection import KFold
 
-if __name__ == '__main__':
+
+def split():
     # Input Training Data
     data_dir = '../dataset/'
     with open(data_dir + "train_set_input.txt", 'r') as train_set_labels:
@@ -13,6 +14,10 @@ if __name__ == '__main__':
         # for each subset write annotation to a new file
         for i in enumerate(subsets):
             with open(data_dir + 'folds/' + f"CV_fold_{i[0]}_labels.txt", mode="w") as output_labels:
-                entries = [''.join(label_lines[4*x:4*x+4]) for x in subsets[i[0]]]
+                entries = [''.join(label_lines[4 * x:4 * x + 4]) for x in subsets[i[0]]]
                 for j in entries:
                     output_labels.write(j)
+
+
+if __name__ == '__main__':
+    split()
