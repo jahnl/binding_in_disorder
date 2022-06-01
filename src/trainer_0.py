@@ -12,6 +12,12 @@ import numpy as np
 import h5py
 from Bio import SeqIO
 import re
+import torch.tensor
+from torch.utils.data import Dataset
+from torch import nn, optim
+import torch.nn.functional as F
+import datetime
+import copy
 
 
 def read_labels(fold):
@@ -39,9 +45,9 @@ def get_ML_data(labels, embeddings):
         conf_feature = np.array(conf_feature, dtype=float)
         emb_with_conf = np.column_stack((embeddings[id], conf_feature))
         input.append(emb_with_conf)
-        # for target: 0 = non-binding, 1 = binding, 2 = not in disordered region
+        # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesnt work!)
         binding = str(labels[id][2])
-        binding = binding.replace('-', '2').replace('_', '0')
+        binding = re.sub(r'-|_', '0', binding)
         binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
         target.append(binding)
@@ -50,6 +56,58 @@ def get_ML_data(labels, embeddings):
             print(emb_with_conf.shape)
             print(binding)
     return input, target
+
+
+# build the dataset
+class BindingDataset(Dataset):
+    def __init__(self, embeddings, binding_labels):
+        self.inputs = embeddings
+        self.labels = binding_labels
+
+    def __len__(self):
+        # return sum([len(protein) for protein in self.labels])
+        # this time the batch size = number of proteins = number of datapoints for the dataloader
+        return len(self.labels)
+
+    def __getitem__(self, index):
+        #k = 0  # k is the current protein index, index gets transformed to the position in the sequence
+        #protein_length = len(self.labels[k])
+        #while index >= protein_length:
+        #    index = index - protein_length
+        #    k += 1
+        #    protein_length = len(self.labels[k])
+        #return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index])
+
+        # I have to provide 3-dimensional input to conv1d, so proteins must be organised in batches
+        try:
+            return torch.tensor(self.inputs[index]).float(), torch.tensor(self.labels[index], dtype=torch.long)
+        except IndexError:
+            return None
+
+
+
+
+class CNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # self.conv1 = nn.Conv1d(1025, 512, 1025, kernel_size=5, padding=2)
+        self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
+        # --> out: (32, proteins_length)
+        self.relu = nn.ReLU()   # self.pool = nn.MaxPool1d(2)
+        self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
+        # --> out: (1, protein_length)
+            # self.fc1 = nn.Linear(16 * 5 * 5, 120)
+            # self.fc2 = nn.Linear(120, 84)
+            # self.fc3 = nn.Linear(84, output_size)
+
+
+    def forward(self, input):
+        x = self.conv1(input.transpose(1, 2).contiguous())
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        #x = x.view(-1, 16 * 5 * 5)
+        return x
 
 
 if __name__ == '__main__':
@@ -86,6 +144,100 @@ if __name__ == '__main__':
         this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings)
 
         # instantiate the dataset
-        # TODO next
+        training_dataset = BindingDataset(this_fold_input, this_fold_target)
+        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
+
+        # look at some data:
+        for i in range(50, 54):
+           input, label = training_dataset[i]
+           print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print("device: " + device)
+        model = CNN().to(device)  # parameter = output size
+        criterion = nn.BCELoss()    # loss function for binary problem
+        optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)  # TODO: tune these parameters
+
+
+        def train(dataset, model, loss_function, optimizer, device, output):
+            avg_train_loss = 0
+            batch_size = 1
+            train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+            nr_samples = len(dataset)
+            for i, (input, label) in enumerate(train_loader):
+                input, label = input.to(device), label[None, :].to(device)  # ensure both have same dimensions
+
+                # make a prediction
+                prediction = model(input)
+                # print(f'prediction: {prediction, prediction.dtype}')
+                # print(f'label: {label, label.dtype}')
+                # compute loss
+                loss = loss_function(prediction, label.to(torch.float32))
+                avg_train_loss += loss.item()
+
+                # backpropagation
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                # if i % 500 == 0:
+                #    print(f'\tLoss: {loss.item()} \t batch:{i}/{int(nr_samples / batch_size)}')
+            avg_train_loss /= int(nr_samples / batch_size)
+            print("\tAvg_train_loss: " + str(avg_train_loss))
+            output.write(f"\tTraining set: Avg loss: {avg_train_loss:>8f} \n")
+
+
+        def test_performance(dataset, model, loss_function, device, output):
+            test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
+            size = len(test_loader.dataset)
+            print(size)
+            model.eval()
+            test_loss, correct = 0, 0
+            with torch.no_grad():
+                for input, label in test_loader:
+                    input, label = input.to(device), label[None, :].to(device)
+                    prediction = model(input)
+                    test_loss += loss_function(prediction, label.to(torch.float32)).item()
+                    correct += (prediction.argmax(1) == label).type(torch.float).sum().item()
+                test_loss /= size
+                correct /= size
+                print(f"\tAccuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+                output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+            return test_loss
+
+        # initialize training parameters for early stopping
+        epochs = 200
+        min_val_loss = np.Inf
+        epochs_no_improvement = 0
+        n_epochs_stop = 5
+        best_state_dict = None
+
+        output_file = open("../results/logs/training_progress_0_simple_fold_" + str(fold) + ".txt", "w")
+
+        for epoch in range(epochs):
+            print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}\n')
+            output_file.write(f'{datetime.datetime.now()}\tEpoch {epoch + 1}\n')
+            train(training_dataset, model, criterion, optimizer, device, output_file)
+            test_loss = test_performance(validation_dataset, model, criterion, device, output_file)
+
+            # early stopping
+            if test_loss < min_val_loss:    # improvement
+                min_val_loss = test_loss
+                epochs_no_improvement = 0
+                best_state_dict = copy.deepcopy(model.state_dict())
+
+            else:                           # no improvement
+                epochs_no_improvement += 1
+                if epochs_no_improvement == n_epochs_stop:
+                    break   # -> early stopping
+
+
+
+        # save best model of this fold
+        torch.save(best_state_dict, "binding_regions_model_0_simple_fold_" + str(fold) + ".pth")
+        output_file.flush()
+        output_file.close()
+
+
 
 
