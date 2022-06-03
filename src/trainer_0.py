@@ -65,9 +65,12 @@ class BindingDataset(Dataset):
         self.labels = binding_labels
 
     def __len__(self):
-        # return sum([len(protein) for protein in self.labels])
         # this time the batch size = number of proteins = number of datapoints for the dataloader
         return len(self.labels)
+
+    def number_residues(self):
+        return sum([len(protein) for protein in self.labels])
+
 
     def __getitem__(self, index):
         #k = 0  # k is the current protein index, index gets transformed to the position in the sequence
@@ -95,6 +98,8 @@ class CNN(nn.Module):
         # --> out: (32, proteins_length)
         self.relu = nn.ReLU()   # self.pool = nn.MaxPool1d(2)
         self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
+        self.softmax = nn.LogSoftmax(dim=1)
+        # self.sigmoid = nn.Sigmoid()
         # --> out: (1, protein_length)
             # self.fc1 = nn.Linear(16 * 5 * 5, 120)
             # self.fc2 = nn.Linear(120, 84)
@@ -105,7 +110,9 @@ class CNN(nn.Module):
         x = self.conv1(input.transpose(1, 2).contiguous())
         x = self.relu(x)
         x = self.conv2(x)
-        x = self.relu(x)
+        # x = self.softmax(x)
+        # x = self.sigmoid(x)
+        # x = self.relu(x)
         #x = x.view(-1, 16 * 5 * 5)
         return x
 
@@ -147,16 +154,19 @@ if __name__ == '__main__':
         training_dataset = BindingDataset(this_fold_input, this_fold_target)
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
 
+        """
         # look at some data:
         for i in range(50, 54):
            input, label = training_dataset[i]
            print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
+        """
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
         model = CNN().to(device)  # parameter = output size
-        criterion = nn.BCELoss()    # loss function for binary problem
-        optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)  # TODO: tune these parameters
+        criterion = nn.BCEWithLogitsLoss()    # loss function for binary problem
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        # optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)  # TODO: tune these parameters
 
 
         def train(dataset, model, loss_function, optimizer, device, output):
@@ -169,10 +179,14 @@ if __name__ == '__main__':
 
                 # make a prediction
                 prediction = model(input)
-                # print(f'prediction: {prediction, prediction.dtype}')
-                # print(f'label: {label, label.dtype}')
                 # compute loss
                 loss = loss_function(prediction, label.to(torch.float32))
+
+                #if i == 260:
+                    #print(f'protein 260: prediction: {prediction, prediction.dtype}')
+                    #print(f'protein 260: label:      {label, label.dtype}')
+                #    print(f'protein 260: loss:       {loss}')
+
                 avg_train_loss += loss.item()
 
                 # backpropagation
@@ -189,8 +203,8 @@ if __name__ == '__main__':
 
         def test_performance(dataset, model, loss_function, device, output):
             test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
-            size = len(test_loader.dataset)
-            print(size)
+            size = dataset.number_residues()
+            # print(size)
             model.eval()
             test_loss, correct = 0, 0
             with torch.no_grad():
@@ -198,7 +212,13 @@ if __name__ == '__main__':
                     input, label = input.to(device), label[None, :].to(device)
                     prediction = model(input)
                     test_loss += loss_function(prediction, label.to(torch.float32)).item()
+                    if correct == 0:
+                        print(f'val_prediction: {prediction}')
+                        print(f'val_labels: {label}')
+                        print(f'loss: {test_loss}')
+                        print(f'correct: {(prediction.argmax(1) == label).type(torch.float).sum().item()}')
                     correct += (prediction.argmax(1) == label).type(torch.float).sum().item()
+
                 test_loss /= size
                 correct /= size
                 print(f"\tAccuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
@@ -215,7 +235,7 @@ if __name__ == '__main__':
         output_file = open("../results/logs/training_progress_0_simple_fold_" + str(fold) + ".txt", "w")
 
         for epoch in range(epochs):
-            print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}\n')
+            print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
             output_file.write(f'{datetime.datetime.now()}\tEpoch {epoch + 1}\n')
             train(training_dataset, model, criterion, optimizer, device, output_file)
             test_loss = test_performance(validation_dataset, model, criterion, device, output_file)
@@ -234,7 +254,7 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, "binding_regions_model_0_simple_fold_" + str(fold) + ".pth")
+        torch.save(best_state_dict, "../results/models/binding_regions_model_0_simple_fold_" + str(fold) + ".pth")
         output_file.flush()
         output_file.close()
 
