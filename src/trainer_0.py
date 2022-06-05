@@ -20,8 +20,8 @@ import datetime
 import copy
 
 
-def read_labels(fold):
-    with open(f'../dataset/folds/CV_fold_{fold}_labels.txt') as handle:
+def read_labels(fold, oversampling):
+    with open(f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -98,8 +98,8 @@ class CNN(nn.Module):
         # --> out: (32, proteins_length)
         self.relu = nn.ReLU()   # self.pool = nn.MaxPool1d(2)
         self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
-        self.softmax = nn.LogSoftmax(dim=1)
-        # self.sigmoid = nn.Sigmoid()
+        # self.softmax = nn.LogSoftmax(dim=1)
+        self.sigmoid = nn.Sigmoid()
         # --> out: (1, protein_length)
             # self.fc1 = nn.Linear(16 * 5 * 5, 120)
             # self.fc2 = nn.Linear(120, 84)
@@ -110,6 +110,7 @@ class CNN(nn.Module):
         x = self.conv1(input.transpose(1, 2).contiguous())
         x = self.relu(x)
         x = self.conv2(x)
+        x = x+2
         # x = self.softmax(x)
         # x = self.sigmoid(x)
         # x = self.relu(x)
@@ -118,8 +119,9 @@ class CNN(nn.Module):
 
 
 if __name__ == '__main__':
-    # apply cross-validation on training dataset
-    #CV_splits.split()
+    # apply cross-validation and oversampling on training dataset
+    oversampling = 'binary'
+    CV_splits.split(oversampling)
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -138,11 +140,11 @@ if __name__ == '__main__':
 
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold)
+        val_labels = read_labels(fold, oversampling)
         train_labels = {}
         for train_fold in range(5):     # TODO: link number of files to config file
             if train_fold != fold:
-                train_labels.update(read_labels(train_fold))
+                train_labels.update(read_labels(train_fold, oversampling))
         print(len(val_labels), len(train_labels))
 
         # create the input and target data exactly how it's fed into the ML model
@@ -165,7 +167,7 @@ if __name__ == '__main__':
         print("device: " + device)
         model = CNN().to(device)  # parameter = output size
         criterion = nn.BCEWithLogitsLoss()    # loss function for binary problem
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        optimizer = optim.Adam(model.parameters(), lr=0.1)
         # optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)  # TODO: tune these parameters
 
 
@@ -182,9 +184,9 @@ if __name__ == '__main__':
                 # compute loss
                 loss = loss_function(prediction, label.to(torch.float32))
 
-                #if i == 260:
-                    #print(f'protein 260: prediction: {prediction, prediction.dtype}')
-                    #print(f'protein 260: label:      {label, label.dtype}')
+                # if i == 260:
+                #    print(f'protein 260: prediction: {prediction, prediction.dtype}')
+                #    print(f'protein 260: label:      {label, label.dtype}')
                 #    print(f'protein 260: loss:       {loss}')
 
                 avg_train_loss += loss.item()
@@ -212,11 +214,13 @@ if __name__ == '__main__':
                     input, label = input.to(device), label[None, :].to(device)
                     prediction = model(input)
                     test_loss += loss_function(prediction, label.to(torch.float32)).item()
+
                     if correct == 0:
                         print(f'val_prediction: {prediction}')
-                        print(f'val_labels: {label}')
+                        # print(f'val_labels: {label}')
                         print(f'loss: {test_loss}')
                         print(f'correct: {(prediction.argmax(1) == label).type(torch.float).sum().item()}')
+
                     correct += (prediction.argmax(1) == label).type(torch.float).sum().item()
 
                 test_loss /= size
