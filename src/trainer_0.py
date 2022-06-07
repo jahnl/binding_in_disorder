@@ -93,28 +93,17 @@ class BindingDataset(Dataset):
 class CNN(nn.Module):
     def __init__(self):
         super().__init__()
-        # self.conv1 = nn.Conv1d(1025, 512, 1025, kernel_size=5, padding=2)
         self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
         # --> out: (32, proteins_length)
-        self.relu = nn.ReLU()   # self.pool = nn.MaxPool1d(2)
+        self.relu = nn.ReLU()
         self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
-        # self.softmax = nn.LogSoftmax(dim=1)
-        self.sigmoid = nn.Sigmoid()
         # --> out: (1, protein_length)
-            # self.fc1 = nn.Linear(16 * 5 * 5, 120)
-            # self.fc2 = nn.Linear(120, 84)
-            # self.fc3 = nn.Linear(84, output_size)
-
 
     def forward(self, input):
         x = self.conv1(input.transpose(1, 2).contiguous())
         x = self.relu(x)
         x = self.conv2(x)
         x = x+2
-        # x = self.softmax(x)
-        # x = self.sigmoid(x)
-        # x = self.relu(x)
-        #x = x.view(-1, 16 * 5 * 5)
         return x
 
 
@@ -163,12 +152,12 @@ if __name__ == '__main__':
            print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
         """
 
+        # TODO: tune these parameters
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
         model = CNN().to(device)  # parameter = output size
         criterion = nn.BCEWithLogitsLoss()    # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=0.1)
-        # optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)  # TODO: tune these parameters
 
 
         def train(dataset, model, loss_function, optimizer, device, output):
@@ -177,7 +166,7 @@ if __name__ == '__main__':
             train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
             nr_samples = len(dataset)
             for i, (input, label) in enumerate(train_loader):
-                input, label = input.to(device), label[None, :].to(device)  # ensure both have same dimensions
+                input, label = input.to(device), label[None, :].to(device)  # make sure both have same dimensions
 
                 # make a prediction
                 prediction = model(input)
@@ -208,32 +197,43 @@ if __name__ == '__main__':
             size = dataset.number_residues()
             # print(size)
             model.eval()
-            test_loss, correct = 0, 0
+            test_loss, correct, tp, p = 0, 0, 0, 0
             with torch.no_grad():
                 for input, label in test_loader:
                     input, label = input.to(device), label[None, :].to(device)
                     prediction = model(input)
                     test_loss += loss_function(prediction, label.to(torch.float32)).item()
+                    # apply activation function to prediction to enable classification
+                    prediction_act = torch.sigmoid(prediction)
+                    # prediction_max = prediction_act.argmax(1)     # argmax only if its multi-class
+                    prediction_max = prediction_act > 0.2
+                    # metrics
+                    correct += (prediction_max == label).type(torch.float).sum().item()
+                    tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
+                    p += (label == 1).type(torch.float).sum().item()
 
-                    if correct == 0:
+                    if correct < 150:
                         print(f'val_prediction: {prediction}')
+                        print(f'val_prediction_activated: {prediction_act}')
+                        print(f'val_prediction_max: {prediction_max}')
                         # print(f'val_labels: {label}')
                         print(f'loss: {test_loss}')
-                        print(f'correct: {(prediction.argmax(1) == label).type(torch.float).sum().item()}')
+                        print(f'correct: {correct}')
+                        print(f'tp: {tp}, p: {p}')
 
-                    correct += (prediction.argmax(1) == label).type(torch.float).sum().item()
+
 
                 test_loss /= size
                 correct /= size
-                print(f"\tAccuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
-                output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+                print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/p)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+                output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/p)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
             return test_loss
 
         # initialize training parameters for early stopping
         epochs = 200
         min_val_loss = np.Inf
         epochs_no_improvement = 0
-        n_epochs_stop = 5
+        n_epochs_stop = 10
         best_state_dict = None
 
         output_file = open("../results/logs/training_progress_0_simple_fold_" + str(fold) + ".txt", "w")
@@ -261,7 +261,3 @@ if __name__ == '__main__':
         torch.save(best_state_dict, "../results/models/binding_regions_model_0_simple_fold_" + str(fold) + ".pth")
         output_file.flush()
         output_file.close()
-
-
-
-
