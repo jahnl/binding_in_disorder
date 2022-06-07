@@ -15,7 +15,6 @@ import re
 import torch.tensor
 from torch.utils.data import Dataset
 from torch import nn, optim
-import torch.nn.functional as F
 import datetime
 import copy
 
@@ -95,12 +94,14 @@ class CNN(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
         # --> out: (32, proteins_length)
+        # self.dropout = nn.Dropout(p=0.2)
         self.relu = nn.ReLU()
         self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
         # --> out: (1, protein_length)
 
     def forward(self, input):
         x = self.conv1(input.transpose(1, 2).contiguous())
+        # x = self.dropout(x)   # dropout makes it worse...
         x = self.relu(x)
         x = self.conv2(x)
         x = x+2
@@ -122,7 +123,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in [0]:     # range(5):    TODO: use required fold, (use config file later on)
+    for fold in range(5):     # range(5):    TODO: use required fold, (use config file later on)
         print("Fold: " + str(fold))
         # for training use all training IDs except for the ones in the current fold.
         # for validation use the training IDs in the current fold
@@ -197,7 +198,7 @@ if __name__ == '__main__':
             size = dataset.number_residues()
             # print(size)
             model.eval()
-            test_loss, correct, tp, p = 0, 0, 0, 0
+            test_loss, correct, tp, tp_fn, tp_fp = 0, 0, 0, 0, 0
             with torch.no_grad():
                 for input, label in test_loader:
                     input, label = input.to(device), label[None, :].to(device)
@@ -210,23 +211,24 @@ if __name__ == '__main__':
                     # metrics
                     correct += (prediction_max == label).type(torch.float).sum().item()
                     tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
-                    p += (label == 1).type(torch.float).sum().item()
+                    tp_fn += (label == 1).type(torch.float).sum().item()
+                    tp_fp += (prediction_max == 1).type(torch.float).sum().item()
 
-                    if correct < 150:
+                    if 150 < correct < 250:
                         print(f'val_prediction: {prediction}')
                         print(f'val_prediction_activated: {prediction_act}')
                         print(f'val_prediction_max: {prediction_max}')
-                        # print(f'val_labels: {label}')
+                        print(f'val_labels: {label}')
                         print(f'loss: {test_loss}')
                         print(f'correct: {correct}')
-                        print(f'tp: {tp}, p: {p}')
+                        print(f'tp: {tp}, tp+fn: {tp_fn}, tp+fp: {tp_fp}')
 
 
 
                 test_loss /= size
                 correct /= size
-                print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/p)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
-                output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/p)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+                print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/tp_fn)): >0.1f}%, Precision: {(100 * (tp/tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+                output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/tp_fn)): >0.1f}%, Precision: {(100 * (tp/tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
             return test_loss
 
         # initialize training parameters for early stopping
