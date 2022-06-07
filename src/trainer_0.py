@@ -111,7 +111,7 @@ class CNN(nn.Module):
 if __name__ == '__main__':
     # apply cross-validation and oversampling on training dataset
     oversampling = 'binary'
-    CV_splits.split(oversampling)
+    #CV_splits.split(oversampling)
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
