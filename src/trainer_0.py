@@ -3,7 +3,6 @@ starting point for predictor development:
 simple model, binary prediction of binding/non-binding,
 given embeddings + confounding feature: disorder
 labels: anything vs '_' in 4th line of labels per protein
-no oversampling yet
 """
 
 
