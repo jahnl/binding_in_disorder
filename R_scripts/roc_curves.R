@@ -1,7 +1,7 @@
 library(data.table)
 library(ggplot2)
 
-data <- read.table('../results/logs/validation_0_simple_without_dropout.txt', sep = '\t', header = TRUE)
+data <- read.table('../results/logs/validation_1_5_layers.txt', sep = '\t', header = TRUE)
 
 
 ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = Cutoff))+   # change color to Fold to get match lines with folds

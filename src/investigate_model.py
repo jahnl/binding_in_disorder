@@ -68,21 +68,47 @@ class BindingDataset(Dataset):
 class CNN(nn.Module):
     def __init__(self):
         super().__init__()
+        """
+        # version 0: 2 C layers
         self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
         # --> out: (32, proteins_length)
         # self.dropout = nn.Dropout(p=0.2)
         self.relu = nn.ReLU()
         self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
         # --> out: (1, protein_length)
+        """
+        # version 1: 5 C layers
+        self.conv1 = nn.Conv1d(in_channels=1025, out_channels=512, kernel_size=5, padding=2)
+        self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
+        self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
+        self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
+        self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=5, padding=2)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=0.2)
+        # --> out: (1, protein_length)
+
 
     def forward(self, input):
+        """
+        # version 0: 2 C layers
         x = self.conv1(input.transpose(1, 2).contiguous())
         # x = self.dropout(x)   # dropout makes it worse...
         x = self.relu(x)
         x = self.conv2(x)
         x = x+2
+        """
+        # version 1: 5 C layers
+        x = self.conv1(input.transpose(1, 2).contiguous())
+        # x = self.dropout(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.conv3(x)
+        x = self.relu(x)
+        x = self.conv4(x)
+        x = self.relu(x)
+        x = self.conv5(x)
         return x
-
 
 
 if __name__ == '__main__':
@@ -99,7 +125,7 @@ if __name__ == '__main__':
 
     def try_cutoffs():
         # iterate over folds
-        with open("../results/logs/validation_0_simple_without_dropout.txt", "w") as output_file:
+        with open("../results/logs/validation_1_5_layers.txt", "w") as output_file:
             output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
             for fold in range(5):
                 print("Fold: " + str(fold))
@@ -130,7 +156,7 @@ if __name__ == '__main__':
                     model.eval()
                     with torch.no_grad():
                         # try out different cutoffs
-                        for cutoff in (0.01 * np.arange(0, 41, step=0.5)):   # mult. works around floating point precision issue
+                        for cutoff in (0.01 * np.arange(0, 40, step=0.5)):   # mult. works around floating point precision issue
                             test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
                             for input, label in test_loader:
                                 input, label = input.to(device), label[None, :].to(device)
@@ -149,22 +175,29 @@ if __name__ == '__main__':
 
                             test_loss /= size
                             correct /= size
-                            print(
+                            try:
+                                print(
                                 f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp / (tp+fn))): >0.1f}%, Precision: {(100 * (tp / (tp+fp))): >0.1f}%, Avg loss: {test_loss:>8f}")
-                            output.write('\t'.join([str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
+                                output.write('\t'.join([str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
                                                     str(round(100 * (tp / (tp+fp)), 1)), str(round(100 * (tp / (tp+fn)),1)),
                                                     str(tp), str(fp), str(tn), str(fn)]) + '\n')
+                            except ZeroDivisionError:
+                                print(
+                                    f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: NA, Precision: NA, Avg loss: {test_loss:>8f}")
+                                output.write('\t'.join(
+                                    [str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
+                                     'NA', 'NA', str(tp), str(fp), str(tn), str(fn)]) + '\n')
 
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 model = CNN().to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_0_simple_fold_{fold}_without_dropout.pth"))
+                    torch.load(f"../results/models/binding_regions_model_1_5layers_fold_{fold}.pth"))
                 # test performance again, should be the same
                 criterion = nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, criterion, device, output_file)
 
     def predict(cutoff, fold):
-        with open(f"../results/logs/predict_val_0_simple_without_dropout_{fold}_{cutoff}.txt", "w") as output_file:
+        with open(f"../results/logs/predict_val_1_5layers_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
@@ -183,7 +216,7 @@ if __name__ == '__main__':
             device = "cuda" if torch.cuda.is_available() else "cpu"
             model = CNN().to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_0_simple_fold_{fold}_without_dropout.pth"))
+                torch.load(f"../results/models/binding_regions_model_1_5layers_fold_{fold}.pth"))
             # test performance again, should be the same
 
             test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1, shuffle=False)
@@ -205,8 +238,8 @@ if __name__ == '__main__':
     # try_cutoffs()  # expensive!
 
     # get predictions for chosen cutoff, fold
-    cutoff = 0.315
-    fold = 0
+    cutoff = 0.075
+    fold = 4
     predict(cutoff, fold)
 
 

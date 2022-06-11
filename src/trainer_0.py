@@ -29,8 +29,10 @@ def read_labels(fold, oversampling):
             seqs.append(record.seq[int(len(record.seq) / 3):2 * int(len(record.seq) / 3)])
             seqs.append(record.seq[2 * int(len(record.seq) / 3):])
             labels[record.id] = seqs
+            """
             if record.id == 'Q98157':
                 print(record.id, labels[record.id])
+            """
     return labels
 
 
@@ -49,10 +51,12 @@ def get_ML_data(labels, embeddings):
         binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
         target.append(binding)
+        """
         if id == 'Q98157':
             print(conf_feature)
             print(emb_with_conf.shape)
             print(binding)
+        """
     return input, target
 
 
@@ -91,19 +95,47 @@ class BindingDataset(Dataset):
 class CNN(nn.Module):
     def __init__(self):
         super().__init__()
+        """
+        # version 0: 2 C layers
         self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
         # --> out: (32, proteins_length)
         # self.dropout = nn.Dropout(p=0.2)
         self.relu = nn.ReLU()
         self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
         # --> out: (1, protein_length)
+        """
+        # version 1: 5 C layers
+        self.conv1 = nn.Conv1d(in_channels=1025, out_channels=512, kernel_size=5, padding=2)
+        self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
+        self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
+        self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
+        self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=5, padding=2)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=0.2)
+        # --> out: (1, protein_length)
+
 
     def forward(self, input):
+        """
+        # version 0: 2 C layers
         x = self.conv1(input.transpose(1, 2).contiguous())
         # x = self.dropout(x)   # dropout makes it worse...
         x = self.relu(x)
         x = self.conv2(x)
         x = x+2
+        """
+        # version 1: 5 C layers
+        x = self.conv1(input.transpose(1, 2).contiguous())
+        # x = self.dropout(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.conv3(x)
+        x = self.relu(x)
+        x = self.conv4(x)
+        x = self.relu(x)
+        x = self.conv5(x)
+        x += 3
         return x
 
 
@@ -122,7 +154,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in range(5):
+    for fold in [0]:  #range(5):
         print("Fold: " + str(fold))
         # for training use all training IDs except for the ones in the current fold.
         # for validation use the training IDs in the current fold
@@ -156,7 +188,7 @@ if __name__ == '__main__':
         print("device: " + device)
         model = CNN().to(device)  # parameter = output size
         criterion = nn.BCEWithLogitsLoss()    # loss function for binary problem
-        optimizer = optim.Adam(model.parameters(), lr=0.1)
+        optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 
         def train(dataset, model, loss_function, optimizer, device, output):
@@ -205,17 +237,17 @@ if __name__ == '__main__':
                     # apply activation function to prediction to enable classification
                     prediction_act = torch.sigmoid(prediction)
                     # prediction_max = prediction_act.argmax(1)     # argmax only if its multi-class
-                    prediction_max = prediction_act > 0.2
+                    prediction_max = prediction_act > 0.1
                     # metrics
                     correct += (prediction_max == label).type(torch.float).sum().item()
                     tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
                     tp_fn += (label == 1).type(torch.float).sum().item()
                     tp_fp += (prediction_max == 1).type(torch.float).sum().item()
 
-                    if 150 < correct < 250:
-                        print(f'val_prediction: {prediction}')
+                    if correct < 130:
+                        # print(f'val_prediction: {prediction}')
                         print(f'val_prediction_activated: {prediction_act}')
-                        print(f'val_prediction_max: {prediction_max}')
+                        # print(f'val_prediction_max: {prediction_max}')
                         print(f'val_labels: {label}')
                         print(f'loss: {test_loss}')
                         print(f'correct: {correct}')
@@ -225,18 +257,28 @@ if __name__ == '__main__':
 
                 test_loss /= size
                 correct /= size
-                print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/tp_fn)): >0.1f}%, Precision: {(100 * (tp/tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
-                output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/tp_fn)): >0.1f}%, Precision: {(100 * (tp/tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+                try:
+                    print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/tp_fn)): >0.1f}%, "
+                          f"Precision: {(100 * (tp/tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+                    output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, "
+                                 f"Sensitivity: {(100 * (tp / tp_fn)): >0.1f}%, "
+                                 f"Precision: {(100 * (tp / tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+                except ZeroDivisionError:
+                    print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: NA, Precision: NA, "
+                          f"Avg loss: {test_loss:>8f} \n")
+                    output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, "
+                                 f"Sensitivity: NA%, Precision: NA, Avg loss: {test_loss:>8f} \n")
+
             return test_loss
 
         # initialize training parameters for early stopping
         epochs = 200
         min_val_loss = np.Inf
         epochs_no_improvement = 0
-        n_epochs_stop = 10
+        n_epochs_stop = 5
         best_state_dict = None
 
-        output_file = open("../results/logs/training_progress_0_simple_fold_" + str(fold) + "_new_loss.txt", "w")
+        output_file = open("../results/logs/training_progress_1_5layers_fold_" + str(fold) + ".txt", "w")
 
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
@@ -258,6 +300,6 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, "../results/models/binding_regions_model_0_simple_fold_" + str(fold) + "_new_loss.pth")
+        torch.save(best_state_dict, "../results/models/binding_regions_model_1_5layers_fold_" + str(fold) + ".pth")
         output_file.flush()
         output_file.close()
