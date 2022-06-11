@@ -122,7 +122,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in range(5):     # range(5):    TODO: use required fold, (use config file later on)
+    for fold in range(5):
         print("Fold: " + str(fold))
         # for training use all training IDs except for the ones in the current fold.
         # for validation use the training IDs in the current fold
@@ -152,7 +152,6 @@ if __name__ == '__main__':
            print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
         """
 
-        # TODO: tune these parameters
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
         model = CNN().to(device)  # parameter = output size
@@ -164,7 +163,7 @@ if __name__ == '__main__':
             avg_train_loss = 0
             batch_size = 1
             train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
-            nr_samples = len(dataset)
+            nr_samples = dataset.number_residues()
             for i, (input, label) in enumerate(train_loader):
                 input, label = input.to(device), label[None, :].to(device)  # make sure both have same dimensions
 
@@ -237,7 +236,7 @@ if __name__ == '__main__':
         n_epochs_stop = 10
         best_state_dict = None
 
-        output_file = open("../results/logs/training_progress_0_simple_fold_" + str(fold) + ".txt", "w")
+        output_file = open("../results/logs/training_progress_0_simple_fold_" + str(fold) + "_new_loss.txt", "w")
 
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
@@ -259,6 +258,6 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, "../results/models/binding_regions_model_0_simple_fold_" + str(fold) + ".pth")
+        torch.save(best_state_dict, "../results/models/binding_regions_model_0_simple_fold_" + str(fold) + "_new_loss.pth")
         output_file.flush()
         output_file.close()
