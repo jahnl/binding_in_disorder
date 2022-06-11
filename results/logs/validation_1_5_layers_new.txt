@@ -1,0 +1,1 @@
+Fold	Avg_Loss	Cutoff	Acc	Prec	Rec	TP	FP	TN	FN	Acc_D	Prec_D	Rec_D	TP_D	FP_D	TN_D	FN_D

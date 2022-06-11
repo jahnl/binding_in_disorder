@@ -142,6 +142,7 @@ if __name__ == '__main__':
                 # instantiate the dataset
                 validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
 
+
                 """
                 # look at some data:
                 for i in range(50, 54):
@@ -156,7 +157,7 @@ if __name__ == '__main__':
                     model.eval()
                     with torch.no_grad():
                         # try out different cutoffs
-                        for cutoff in (0.01 * np.arange(0, 40, step=0.5)):   # mult. works around floating point precision issue
+                        for cutoff in (0.01 * np.arange(0, 30, step=0.5)):   # mult. works around floating point precision issue
                             test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
                             for input, label in test_loader:
                                 input, label = input.to(device), label[None, :].to(device)
@@ -238,9 +239,9 @@ if __name__ == '__main__':
     # try_cutoffs()  # expensive!
 
     # get predictions for chosen cutoff, fold
-    cutoff = 0.075
+    cutoff = 0.01
     fold = 4
-    predict(cutoff, fold)
+    # predict(cutoff, fold)
 
 
 
