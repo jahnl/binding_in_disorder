@@ -5,6 +5,7 @@ import h5py
 from Bio import SeqIO
 import re
 import torch.tensor
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch import nn, optim
 import datetime
@@ -51,18 +52,33 @@ class BindingDataset(Dataset):
 
     def __len__(self):
         # this time the batch size = number of proteins = number of datapoints for the dataloader
-        return len(self.labels)
+        # For CNN:
+        # return len(self.labels)
+        # For FNN:
+        return sum([len(protein) for protein in self.labels])
 
     def number_residues(self):
         return sum([len(protein) for protein in self.labels])
 
-
+    # for CNN
+    """
     def __getitem__(self, index):
         # I have to provide 3-dimensional input to conv1d, so proteins must be organised in batches
         try:
             return torch.tensor(self.inputs[index]).float(), torch.tensor(self.labels[index], dtype=torch.long)
         except IndexError:
             return None
+    """
+    # for FNN
+    def __getitem__(self, index):
+        k = 0  # k is the current protein index, index gets transformed to the position in the sequence
+        protein_length = len(self.labels[k])
+        while index >= protein_length:
+            index = index - protein_length
+            k += 1
+            protein_length = len(self.labels[k])
+        return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index])
+
 
 
 class CNN(nn.Module):
@@ -111,6 +127,21 @@ class CNN(nn.Module):
         return x
 
 
+class FNN(nn.Module):
+    def __init__(self, input_size, output_size):
+        super(FNN, self).__init__()
+        self.input_layer = nn.Linear(input_size, input_size)
+        self.hidden_layer = nn.Linear(input_size, int(input_size / 2))
+        self.output_layer = nn.Linear(int(input_size / 2), output_size)
+
+    def forward(self, input):
+        x = F.relu(self.input_layer(input))
+        x = F.relu(self.hidden_layer(x))
+        # output = torch.sigmoid(self.output_layer(x))
+        output = self.output_layer(x)   # rather without sigmoid to apply BCEWithLogitsLoss later
+        return output
+
+
 if __name__ == '__main__':
     oversampling = 'binary'
 
@@ -125,7 +156,7 @@ if __name__ == '__main__':
 
     def try_cutoffs():
         # iterate over folds
-        with open("../results/logs/validation_1_5_layers.txt", "w") as output_file:
+        with open("../results/logs/validation_2_FNN.txt", "w") as output_file:
             output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
             for fold in range(5):
                 print("Fold: " + str(fold))
@@ -151,16 +182,17 @@ if __name__ == '__main__':
                 """
 
                 def test_performance(dataset, model, loss_function, device, output):
-                    test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
+                    batch_size = 512
+                    test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
                     size = dataset.number_residues()
                     # print(size)
                     model.eval()
                     with torch.no_grad():
                         # try out different cutoffs
-                        for cutoff in (0.01 * np.arange(0, 30, step=0.5)):   # mult. works around floating point precision issue
+                        for cutoff in (0.01 * np.arange(0, 60, step=2)):   # mult. works around floating point precision issue
                             test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
                             for input, label in test_loader:
-                                input, label = input.to(device), label[None, :].to(device)
+                                input, label = input.to(device), label[:, None].to(device)
                                 prediction = model(input)
                                 test_loss += loss_function(prediction, label.to(torch.float32)).item()
                                 # apply activation function to prediction to enable classification
@@ -174,7 +206,7 @@ if __name__ == '__main__':
                                 fn += (prediction_max != label)[label == 1].type(torch.float).sum().item()
 
 
-                            test_loss /= size
+                            test_loss /= int(size/batch_size)
                             correct /= size
                             try:
                                 print(
@@ -190,15 +222,15 @@ if __name__ == '__main__':
                                      'NA', 'NA', str(tp), str(fp), str(tn), str(fn)]) + '\n')
 
                 device = "cuda" if torch.cuda.is_available() else "cpu"
-                model = CNN().to(device)
+                model = FNN(input_size=1025, output_size=1).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_1_5layers_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_2_FNN_fold_{fold}.pth"))
                 # test performance again, should be the same
                 criterion = nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, criterion, device, output_file)
 
     def predict(cutoff, fold):
-        with open(f"../results/logs/predict_val_1_5layers_{fold}_{cutoff}.txt", "w") as output_file:
+        with open(f"../results/logs/predict_val_2_FNN_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
@@ -215,16 +247,16 @@ if __name__ == '__main__':
             validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            model = CNN().to(device)
+            model = FNN(1025, 1).to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_1_5layers_fold_{fold}.pth"))
+                torch.load(f"../results/models/binding_regions_model_2_FNN_fold_{fold}.pth"))
             # test performance again, should be the same
 
-            test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1, shuffle=False)
+            test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
             model.eval()
             with torch.no_grad():
                 for i, (input, label) in enumerate(test_loader):
-                    input, label = input.to(device), label[None, :].to(device)
+                    input, label = input.to(device), label[:, None].to(device)
                     prediction = model(input)
                     # apply activation function to prediction to enable classification
                     prediction_act = torch.sigmoid(prediction)
@@ -239,9 +271,9 @@ if __name__ == '__main__':
     # try_cutoffs()  # expensive!
 
     # get predictions for chosen cutoff, fold
-    cutoff = 0.01
-    fold = 4
-    # predict(cutoff, fold)
+    cutoff = 0.06
+    fold = 0
+    predict(cutoff, fold)
 
 
 
