@@ -38,27 +38,36 @@ def read_labels(fold, oversampling):
     return labels
 
 
-def get_ML_data(labels, embeddings):
+def get_ML_data(labels, embeddings, mode):
     input = list()
     target = list()
     for id in labels.keys():
-        conf_feature = str(labels[id][1])
-        conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
-        conf_feature = np.array(conf_feature, dtype=float)
-        emb_with_conf = np.column_stack((embeddings[id], conf_feature))
-        input.append(emb_with_conf)
+        if mode == 'all':
+            conf_feature = str(labels[id][1])
+            conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
+            conf_feature = np.array(conf_feature, dtype=float)
+            emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            input.append(emb_with_conf)
+        elif mode == 'disorder_only':
+            bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+            input.append(embeddings[id][bool_list])
         # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesnt work!, would be multi-class)
         binding = str(labels[id][2])
-        binding = re.sub(r'-|_', '0', binding)
+        if mode == 'all':
+            binding = re.sub(r'-|_', '0', binding)
+        elif mode == 'disorder_only':
+            binding = binding.replace('-', '').replace('_', '0')
         binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
         target.append(binding)
+
         """
         if id == 'Q98157':
-            print(conf_feature)
-            print(emb_with_conf.shape)
+            print(input[-1])
+            print(input[-1].shape)
             print(binding)
         """
+
     return input, target
 
 
@@ -107,6 +116,8 @@ if __name__ == '__main__':
     oversampling = 'binary'
     #CV_splits.split(oversampling)
 
+    mode = 'disorder_only'  # disorder_only or all
+
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
     embeddings = dict()
@@ -133,8 +144,8 @@ if __name__ == '__main__':
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_input, this_fold_target = get_ML_data(train_labels, embeddings)
-        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings)
+        this_fold_input, this_fold_target = get_ML_data(train_labels, embeddings, mode)
+        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode)
 
         # instantiate the dataset
         training_dataset = BindingDataset(this_fold_input, this_fold_target)
@@ -149,7 +160,8 @@ if __name__ == '__main__':
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
-        model = FNN(input_size=1025, output_size=1).to(device)
+        input_size = 1024 if mode == 'disorder_only' else 1025
+        model = FNN(input_size=input_size, output_size=1).to(device)
         criterion = nn.BCEWithLogitsLoss()    # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=0.01)
 
@@ -244,7 +256,7 @@ if __name__ == '__main__':
         n_epochs_stop = 10
         best_state_dict = None
 
-        output_file = open("../results/logs/training_progress_2_FNN_fold_" + str(fold) + ".txt", "w")
+        output_file = open("../results/logs/training_progress_3_d_only_fold_" + str(fold) + ".txt", "w")
 
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
@@ -266,6 +278,6 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, "../results/models/binding_regions_model_2_FNN_fold_" + str(fold) + ".pth")
+        torch.save(best_state_dict, "../results/models/binding_regions_model_3_d_only_fold_" + str(fold) + ".pth")
         output_file.flush()
         output_file.close()

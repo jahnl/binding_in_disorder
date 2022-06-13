@@ -26,21 +26,36 @@ def read_labels(fold, oversampling):
     return labels
 
 
-def get_ML_data(labels, embeddings):
+def get_ML_data(labels, embeddings, mode):
     input = list()
     target = list()
     for id in labels.keys():
-        conf_feature = str(labels[id][1])
-        conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
-        conf_feature = np.array(conf_feature, dtype=float)
-        emb_with_conf = np.column_stack((embeddings[id], conf_feature))
-        input.append(emb_with_conf)
-        # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesnt work!)
+        if mode == 'all':
+            conf_feature = str(labels[id][1])
+            conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
+            conf_feature = np.array(conf_feature, dtype=float)
+            emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            input.append(emb_with_conf)
+        elif mode == 'disorder_only':
+            bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+            input.append(embeddings[id][bool_list])
+        # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesnt work!, would be multi-class)
         binding = str(labels[id][2])
-        binding = re.sub(r'-|_', '0', binding)
+        if mode == 'all':
+            binding = re.sub(r'-|_', '0', binding)
+        elif mode == 'disorder_only':
+            binding = binding.replace('-', '').replace('_', '0')
         binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
         target.append(binding)
+
+        """
+        if id == 'Q98157':
+            print(input[-1])
+            print(input[-1].shape)
+            print(binding)
+        """
+
     return input, target
 
 
@@ -154,9 +169,9 @@ if __name__ == '__main__':
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
-    def try_cutoffs():
+    def try_cutoffs(mode):
         # iterate over folds
-        with open("../results/logs/validation_2_FNN.txt", "w") as output_file:
+        with open("../results/logs/validation_3_d_only.txt", "w") as output_file:
             output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
             for fold in range(5):
                 print("Fold: " + str(fold))
@@ -168,7 +183,7 @@ if __name__ == '__main__':
 
                 # create the input and target data exactly how it's fed into the ML model
                 # and add the confounding feature of disorder to the embeddings
-                this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings)
+                this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode)
 
                 # instantiate the dataset
                 validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
@@ -222,9 +237,10 @@ if __name__ == '__main__':
                                      'NA', 'NA', str(tp), str(fp), str(tn), str(fn)]) + '\n')
 
                 device = "cuda" if torch.cuda.is_available() else "cpu"
-                model = FNN(input_size=1025, output_size=1).to(device)
+                input_size = 1024 if mode == 'disorder_only' else 1025
+                model = FNN(input_size=input_size, output_size=1).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_2_FNN_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_3_d_only_fold_{fold}.pth"))
                 # test performance again, should be the same
                 criterion = nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, criterion, device, output_file)
@@ -264,8 +280,8 @@ if __name__ == '__main__':
 
                     output_file.write(f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
-    def predictFNN(cutoff, fold):
-        with open(f"../results/logs/predict_val_2_FNN_{fold}_{cutoff}.txt", "w") as output_file:
+    def predictFNN(cutoff, fold, mode):
+        with open(f"../results/logs/predict_val_3_d_only_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
@@ -275,15 +291,16 @@ if __name__ == '__main__':
 
             # create the input and target data exactly how it's fed into the ML model
             # and add the confounding feature of disorder to the embeddings
-            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings)
+            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode)
 
             # instantiate the dataset
             validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            model = FNN(1025, 1).to(device)
+            input_size = 1025 if mode == 'all' else 1024
+            model = FNN(input_size, 1).to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_2_FNN_fold_{fold}.pth"))
+                torch.load(f"../results/models/binding_regions_model_3_d_only_fold_{fold}.pth"))
             # test performance again, should be the same
 
             test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
@@ -306,7 +323,10 @@ if __name__ == '__main__':
             delimiter_0 = 0
             delimiter_1 = 0
             for p_id in val_labels.keys():
-                delimiter_1 += len(val_labels[p_id][0])
+                if mode == 'disorder_only':
+                    delimiter_1 += len(str(val_labels[p_id][2]).replace('-', ''))
+                elif mode == 'all':
+                    delimiter_1 += len(val_labels[p_id][2])
                 output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0 : delimiter_1])}'
                                   f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
                                   f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0 : delimiter_1])}\n')
@@ -315,14 +335,14 @@ if __name__ == '__main__':
 
 
 
-
-    # try_cutoffs()  # expensive!
+    mode = 'disorder_only'  # disorder_only or all
+    # try_cutoffs(mode=mode)  # expensive!
 
     # get predictions for chosen cutoff, fold
-    cutoff = 0.06
-    fold = 0
-    # predictCNN(cutoff, fold)
-    predictFNN(cutoff, fold)
+    cutoff = 0.5
+    fold = 4
+    # predictCNN(cutoff, fold, mode)
+    predictFNN(cutoff, fold, mode)
 
 
 
