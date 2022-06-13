@@ -229,8 +229,8 @@ if __name__ == '__main__':
                 criterion = nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, criterion, device, output_file)
 
-    def predict(cutoff, fold):
-        with open(f"../results/logs/predict_val_2_FNN_{fold}_{cutoff}.txt", "w") as output_file:
+    def predictCNN(cutoff, fold):
+        with open(f"../results/logs/predict_val_1_5layers_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
@@ -249,20 +249,68 @@ if __name__ == '__main__':
             device = "cuda" if torch.cuda.is_available() else "cpu"
             model = FNN(1025, 1).to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_2_FNN_fold_{fold}.pth"))
+                torch.load(f"../results/models/binding_regions_model_1_5layers_fold_{fold}.pth"))
             # test performance again, should be the same
 
-            test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
+            test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1, shuffle=False)
             model.eval()
             with torch.no_grad():
                 for i, (input, label) in enumerate(test_loader):
-                    input, label = input.to(device), label[:, None].to(device)
+                    input, label = input.to(device), label[None, :].to(device)
                     prediction = model(input)
                     # apply activation function to prediction to enable classification
                     prediction_act = torch.sigmoid(prediction)
                     prediction_max = prediction_act > cutoff
 
                     output_file.write(f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
+
+    def predictFNN(cutoff, fold):
+        with open(f"../results/logs/predict_val_2_FNN_{fold}_{cutoff}.txt", "w") as output_file:
+            print("Fold: " + str(fold))
+            # for validation use the training IDs in the current fold
+
+            # read target data y and disorder information
+            # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
+            val_labels = read_labels(fold, oversampling)
+
+            # create the input and target data exactly how it's fed into the ML model
+            # and add the confounding feature of disorder to the embeddings
+            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings)
+
+            # instantiate the dataset
+            validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
+
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            model = FNN(1025, 1).to(device)
+            model.load_state_dict(
+                torch.load(f"../results/models/binding_regions_model_2_FNN_fold_{fold}.pth"))
+            # test performance again, should be the same
+
+            test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
+            model.eval()
+            all_prediction_act = list()
+            all_prediction_max = list()
+            all_labels = list()
+            with torch.no_grad():
+                for i, (input, label) in enumerate(test_loader):
+                    input, label = input.to(device), label[:, None].to(device)
+                    all_labels.extend(label.flatten().tolist())
+                    prediction = model(input)
+                    # apply activation function to prediction to enable classification
+                    prediction_act = torch.sigmoid(prediction)
+                    all_prediction_act.extend(prediction_act.flatten().tolist())
+                    prediction_max = prediction_act > cutoff
+                    all_prediction_max.extend(prediction_max.flatten().tolist())
+
+            # group residues back to proteins again
+            delimiter_0 = 0
+            delimiter_1 = 0
+            for p_id in val_labels.keys():
+                delimiter_1 += len(val_labels[p_id][0])
+                output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0 : delimiter_1])}'
+                                  f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
+                                  f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0 : delimiter_1])}\n')
+                delimiter_0 = delimiter_1
 
 
 
@@ -273,7 +321,8 @@ if __name__ == '__main__':
     # get predictions for chosen cutoff, fold
     cutoff = 0.06
     fold = 0
-    predict(cutoff, fold)
+    # predictCNN(cutoff, fold)
+    predictFNN(cutoff, fold)
 
 
 
