@@ -26,14 +26,17 @@ def read_labels(fold, oversampling):
         labels = dict()
         for record in records:
             # re-format input information to 3 sequences in a list per protein in dict labels{}
+            # additionally record description for data points created via oversampling of residues (*)
             seqs = list()
             seqs.append(record.seq[:int(len(record.seq) / 3)])
             seqs.append(record.seq[int(len(record.seq) / 3):2 * int(len(record.seq) / 3)])
             seqs.append(record.seq[2 * int(len(record.seq) / 3):])
+            if '*' in record.id:
+                seqs.append(record.description.split('\t')[1][:-1])
             labels[record.id] = seqs
             """
-            if record.id == 'Q98157':
-                print(record.id, labels[record.id])
+            if record.id == 'E2IHW6*':
+                print(record.id, labels[record.id], record)
             """
     return labels
 
@@ -46,7 +49,16 @@ def get_ML_data(labels, embeddings, mode):
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
-            emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            if len(labels[id]) == 3:
+                emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            elif len(labels[id]) == 4:  # data points created by residue-oversampling
+                print(f'building new embedding for data points of {id}...')
+                indices = labels[id][3].split(', ')
+                emb = np.array(embeddings[id[:-1]][int(indices[0])], dtype=float)
+                for i in indices[1:]:
+                    emb = np.row_stack((emb, embeddings[id[:-1]][int(i)]))
+                emb_with_conf = np.column_stack((emb, conf_feature))
+
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
             bool_list = [False if x == '-' else True for x in list(labels[id][2])]
@@ -113,10 +125,10 @@ class FNN(nn.Module):
 
 if __name__ == '__main__':
     # apply cross-validation and oversampling on training dataset
-    oversampling = 'binary'
+    oversampling = 'binary_residues'
     #CV_splits.split(oversampling)
 
-    mode = 'disorder_only'  # disorder_only or all
+    mode = 'all'  # disorder_only or all
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -256,7 +268,7 @@ if __name__ == '__main__':
         n_epochs_stop = 10
         best_state_dict = None
 
-        output_file = open("../results/logs/training_progress_3_d_only_fold_" + str(fold) + ".txt", "w")
+        output_file = open("../results/logs/training_progress_2-1_new_oversampling_fold_" + str(fold) + ".txt", "w")
 
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
@@ -278,6 +290,6 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, "../results/models/binding_regions_model_3_d_only_fold_" + str(fold) + ".pth")
+        torch.save(best_state_dict, "../results/models/binding_regions_model_2-1_new_oversampling_fold_" + str(fold) + ".pth")
         output_file.flush()
         output_file.close()
