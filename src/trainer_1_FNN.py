@@ -26,13 +26,10 @@ def read_labels(fold, oversampling):
         labels = dict()
         for record in records:
             # re-format input information to 3 sequences in a list per protein in dict labels{}
-            # additionally record description for data points created via oversampling of residues (*)
             seqs = list()
             seqs.append(record.seq[:int(len(record.seq) / 3)])
             seqs.append(record.seq[int(len(record.seq) / 3):2 * int(len(record.seq) / 3)])
             seqs.append(record.seq[2 * int(len(record.seq) / 3):])
-            if '*' in record.id:
-                seqs.append(record.description.split('\t')[1][:-1])
             labels[record.id] = seqs
             """
             if record.id == 'E2IHW6*':
@@ -41,23 +38,24 @@ def read_labels(fold, oversampling):
     return labels
 
 
-def get_ML_data(labels, embeddings, mode):
+def get_ML_data(labels, embeddings, mode, new_datapoints):
     input = list()
     target = list()
+    datapoint_counter = 0
     for id in labels.keys():
         if mode == 'all':
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
-            if len(labels[id]) == 3:
+            if '*' not in id:
                 emb_with_conf = np.column_stack((embeddings[id], conf_feature))
-            elif len(labels[id]) == 4:  # data points created by residue-oversampling
-                print(f'building new embedding for data points of {id}...')
-                indices = labels[id][3].split(', ')
-                emb = np.array(embeddings[id[:-1]][int(indices[0])], dtype=float)
-                for i in indices[1:]:
-                    emb = np.row_stack((emb, embeddings[id[:-1]][int(i)]))
-                emb_with_conf = np.column_stack((emb, conf_feature))
+            else:  # data points created by residue-oversampling
+                # use pre-computed embedding
+                emb_with_conf = new_datapoints[datapoint_counter]
+                datapoint_counter += 1
+                if emb_with_conf.shape[0] != len(labels[id][1]):
+                    raise ValueError(f'Wrong match between label and embedding. Label of {id} has length '
+                                     f'{len(labels[id][1])}, emb has shape {emb_with_conf.shape}')
 
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
@@ -74,11 +72,12 @@ def get_ML_data(labels, embeddings, mode):
         target.append(binding)
 
         """
-        if id == 'Q98157':
+        if id == 'P17947*':
             print(input[-1])
             print(input[-1].shape)
             print(binding)
         """
+
 
     return input, target
 
@@ -154,10 +153,20 @@ if __name__ == '__main__':
                 train_labels.update(read_labels(train_fold, oversampling))
         print(len(val_labels), len(train_labels))
 
+        # load pre-computed datapoint embeddings
+        t_datapoints = list()
+        v_datapoints = list()
+        if oversampling == 'binary_residues':
+            for f in range(5):
+                if f == fold:
+                    v_datapoints = np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{fold}.npy', allow_pickle=True)
+                else:
+                    t_datapoints.extend(np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{f}.npy', allow_pickle=True))
+
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_input, this_fold_target = get_ML_data(train_labels, embeddings, mode)
-        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode)
+        this_fold_input, this_fold_target = get_ML_data(train_labels, embeddings, mode, t_datapoints)
+        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, v_datapoints)
 
         # instantiate the dataset
         training_dataset = BindingDataset(this_fold_input, this_fold_target)
