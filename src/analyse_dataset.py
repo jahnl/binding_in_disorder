@@ -27,6 +27,8 @@ def ML_input_labels(t_list, t_set):
         special_case = False
         disorder_str = ''
         ligand_str = ''
+        # residue counters
+        b_counter, nb_counter = 0, 0
         for entry in t_list:
             if not special_case:
                 out.write('>' + entry[0] + '\n')
@@ -62,6 +64,10 @@ def ML_input_labels(t_list, t_set):
                 special_case = False
                 out.write(disorder_str + '\n')
                 out.write(ligand_str + '\n')
+                nb_c = ligand_str.count('-') + ligand_str.count('_')
+                b_counter += len(ligand_str) - nb_c
+                nb_counter += nb_c
+    print(f'# binding residues: {b_counter}, # non-binding residues: {nb_counter}')
 
 
 if __name__ == '__main__':
