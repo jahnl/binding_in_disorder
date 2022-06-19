@@ -26,15 +26,25 @@ def read_labels(fold, oversampling):
     return labels
 
 
-def get_ML_data(labels, embeddings, mode):
+def get_ML_data(labels, embeddings, mode, new_datapoints):
     input = list()
     target = list()
+    datapoint_counter = 0
     for id in labels.keys():
         if mode == 'all':
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
-            emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            if '*' not in id:
+                emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            else:  # data points created by residue-oversampling
+                # use pre-computed embedding
+                emb_with_conf = new_datapoints[datapoint_counter]
+                datapoint_counter += 1
+                if emb_with_conf.shape[0] != len(labels[id][1]):    # sanity check
+                    raise ValueError(f'Wrong match between label and embedding. Label of {id} has length '
+                                     f'{len(labels[id][1])}, emb has shape {emb_with_conf.shape}')
+
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
             bool_list = [False if x == '-' else True for x in list(labels[id][2])]
@@ -50,11 +60,12 @@ def get_ML_data(labels, embeddings, mode):
         target.append(binding)
 
         """
-        if id == 'Q98157':
+        if id == 'P17947*':
             print(input[-1])
             print(input[-1].shape)
             print(binding)
         """
+
 
     return input, target
 
@@ -158,7 +169,7 @@ class FNN(nn.Module):
 
 
 if __name__ == '__main__':
-    oversampling = 'binary'
+    oversampling = 'binary_residues'
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -171,7 +182,7 @@ if __name__ == '__main__':
 
     def try_cutoffs(mode):
         # iterate over folds
-        with open("../results/logs/validation_3_d_only.txt", "w") as output_file:
+        with open("../results/logs/validation_2-1_new_oversampling.txt", "w") as output_file:
             output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
             for fold in range(5):
                 print("Fold: " + str(fold))
@@ -181,9 +192,16 @@ if __name__ == '__main__':
                 # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
                 val_labels = read_labels(fold, oversampling)
 
+                # load pre-computed datapoint embeddings
+                v_datapoints = list()
+                if oversampling == 'binary_residues':
+                    v_datapoints = np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{fold}.npy',
+                                           allow_pickle=True)
+
+
                 # create the input and target data exactly how it's fed into the ML model
                 # and add the confounding feature of disorder to the embeddings
-                this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode)
+                this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, v_datapoints)
 
                 # instantiate the dataset
                 validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
@@ -204,7 +222,7 @@ if __name__ == '__main__':
                     model.eval()
                     with torch.no_grad():
                         # try out different cutoffs
-                        for cutoff in (0.01 * np.arange(0, 60, step=2)):   # mult. works around floating point precision issue
+                        for cutoff in (0.01 * np.arange(0, 100, step=5)):   # mult. works around floating point precision issue
                             test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
                             for input, label in test_loader:
                                 input, label = input.to(device), label[:, None].to(device)
@@ -240,7 +258,7 @@ if __name__ == '__main__':
                 input_size = 1024 if mode == 'disorder_only' else 1025
                 model = FNN(input_size=input_size, output_size=1).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_3_d_only_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_2-1_new_oversampling_fold_{fold}.pth"))
                 # test performance again, should be the same
                 criterion = nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, criterion, device, output_file)
@@ -281,7 +299,7 @@ if __name__ == '__main__':
                     output_file.write(f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
     def predictFNN(cutoff, fold, mode):
-        with open(f"../results/logs/predict_val_3_d_only_{fold}_{cutoff}.txt", "w") as output_file:
+        with open(f"../results/logs/predict_val_2-1_new_oversampling_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
@@ -300,7 +318,7 @@ if __name__ == '__main__':
             input_size = 1025 if mode == 'all' else 1024
             model = FNN(input_size, 1).to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_3_d_only_fold_{fold}.pth"))
+                torch.load(f"../results/models/binding_regions_model_2-1_new_oversampling_fold_{fold}.pth"))
             # test performance again, should be the same
 
             test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
@@ -335,14 +353,14 @@ if __name__ == '__main__':
 
 
 
-    mode = 'disorder_only'  # disorder_only or all
-    # try_cutoffs(mode=mode)  # expensive!
+    mode = 'all'  # disorder_only or all
+    try_cutoffs(mode=mode)  # expensive!
 
     # get predictions for chosen cutoff, fold
     cutoff = 0.5
     fold = 4
     # predictCNN(cutoff, fold, mode)
-    predictFNN(cutoff, fold, mode)
+    # predictFNN(cutoff, fold, mode)
 
 
 
