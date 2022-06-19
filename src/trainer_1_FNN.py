@@ -108,15 +108,18 @@ class BindingDataset(Dataset):
 
 
 class FNN(nn.Module):
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, p):
         super(FNN, self).__init__()
         self.input_layer = nn.Linear(input_size, input_size)
         self.hidden_layer = nn.Linear(input_size, int(input_size / 2))
         self.output_layer = nn.Linear(int(input_size / 2), output_size)
+        self.dropout = nn.Dropout(p)
 
     def forward(self, input):
         x = F.relu(self.input_layer(input))
+        x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
+        x = self.dropout(x)
         # output = torch.sigmoid(self.output_layer(x))
         output = self.output_layer(x)   # rather without sigmoid to apply BCEWithLogitsLoss later
         return output
@@ -128,6 +131,7 @@ if __name__ == '__main__':
     #CV_splits.split(oversampling)
 
     mode = 'all'  # disorder_only or all
+    dropout = 0.7
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -139,7 +143,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in range(5):
+    for fold in [0, 4]:      #  range(5):
         print("Fold: " + str(fold))
         # for training use all training IDs except for the ones in the current fold.
         # for validation use the training IDs in the current fold
@@ -182,7 +186,7 @@ if __name__ == '__main__':
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
         input_size = 1024 if mode == 'disorder_only' else 1025
-        model = FNN(input_size=input_size, output_size=1).to(device)
+        model = FNN(input_size=input_size, output_size=1, p=dropout).to(device)
         criterion = nn.BCEWithLogitsLoss()    # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=0.01)
 
@@ -277,7 +281,7 @@ if __name__ == '__main__':
         n_epochs_stop = 10
         best_state_dict = None
 
-        output_file = open("../results/logs/training_progress_2-1_new_oversampling_fold_" + str(fold) + ".txt", "w")
+        output_file = open(f"../results/logs/training_progress_2-2_dropout_{dropout}_fold_{fold}.txt", "w")
 
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
@@ -299,6 +303,6 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, "../results/models/binding_regions_model_2-1_new_oversampling_fold_" + str(fold) + ".pth")
+        torch.save(best_state_dict, f"../results/models/binding_regions_model_2-2_dropout_{dropout}_fold_{fold}.pth")
         output_file.flush()
         output_file.close()
