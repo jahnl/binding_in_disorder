@@ -154,15 +154,18 @@ class CNN(nn.Module):
 
 
 class FNN(nn.Module):
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, p):
         super(FNN, self).__init__()
         self.input_layer = nn.Linear(input_size, input_size)
         self.hidden_layer = nn.Linear(input_size, int(input_size / 2))
         self.output_layer = nn.Linear(int(input_size / 2), output_size)
+        self.dropout = nn.Dropout(p)
 
     def forward(self, input):
         x = F.relu(self.input_layer(input))
+        x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
+        x = self.dropout(x)
         # output = torch.sigmoid(self.output_layer(x))
         output = self.output_layer(x)   # rather without sigmoid to apply BCEWithLogitsLoss later
         return output
@@ -170,7 +173,6 @@ class FNN(nn.Module):
 
 if __name__ == '__main__':
     oversampling = 'binary_residues'
-
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
     embeddings = dict()
@@ -182,7 +184,7 @@ if __name__ == '__main__':
 
     def try_cutoffs(mode):
         # iterate over folds
-        with open("../results/logs/validation_2-1_new_oversampling.txt", "w") as output_file:
+        with open("../results/logs/validation_2-2_dropout_0.3_fold_4.txt", "w") as output_file:
             output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
             for fold in range(5):
                 print("Fold: " + str(fold))
@@ -256,9 +258,9 @@ if __name__ == '__main__':
 
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 input_size = 1024 if mode == 'disorder_only' else 1025
-                model = FNN(input_size=input_size, output_size=1).to(device)
+                model = FNN(input_size=input_size, output_size=1, p=dropout).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_2-1_new_oversampling_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_fold_{fold}.pth"))
                 # test performance again, should be the same
                 criterion = nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, criterion, device, output_file)
@@ -299,7 +301,7 @@ if __name__ == '__main__':
                     output_file.write(f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
     def predictFNN(cutoff, fold, mode):
-        with open(f"../results/logs/predict_val_2-1_new_oversampling_{fold}_{cutoff}.txt", "w") as output_file:
+        with open(f"../results/logs/predict_val_2-2_dropout_{dropout}_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
@@ -307,18 +309,24 @@ if __name__ == '__main__':
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
             val_labels = read_labels(fold, oversampling)
 
+            # load pre-computed datapoint embeddings
+            v_datapoints = list()
+            if oversampling == 'binary_residues':
+                v_datapoints = np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{fold}.npy',
+                                       allow_pickle=True)
+
             # create the input and target data exactly how it's fed into the ML model
             # and add the confounding feature of disorder to the embeddings
-            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode)
+            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, v_datapoints)
 
             # instantiate the dataset
             validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
             input_size = 1025 if mode == 'all' else 1024
-            model = FNN(input_size, 1).to(device)
+            model = FNN(input_size, 1, dropout).to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_2-1_new_oversampling_fold_{fold}.pth"))
+                torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_fold_{fold}.pth"))
             # test performance again, should be the same
 
             test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
@@ -354,13 +362,14 @@ if __name__ == '__main__':
 
 
     mode = 'all'  # disorder_only or all
-    try_cutoffs(mode=mode)  # expensive!
+    dropout = 0.3
+    # try_cutoffs(mode=mode)  # expensive!
 
     # get predictions for chosen cutoff, fold
-    cutoff = 0.5
+    cutoff = 0.75
     fold = 4
     # predictCNN(cutoff, fold, mode)
-    # predictFNN(cutoff, fold, mode)
+    predictFNN(cutoff, fold, mode)
 
 
 

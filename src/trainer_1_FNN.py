@@ -131,7 +131,7 @@ if __name__ == '__main__':
     #CV_splits.split(oversampling)
 
     mode = 'all'  # disorder_only or all
-    dropout = 0.7
+    dropout = 0.2
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
