@@ -63,11 +63,11 @@ def get_ML_data(labels, embeddings, new_datapoints):
 
         # for target: 0 = non-binding or not in disordered region, 1 = binding, 3-dimensions per residue
         binding = str(labels[id][2])
-        binding_encoded = np.array([], [], [], dtype=float)
+        binding_encoded = [[], [], []]
         binding_encoded[0] = list(re.sub(r'P|X|Y|A', '1', re.sub(r'-|_|N|O|Z', '0', binding)))  # protein-binding?
         binding_encoded[1] = list(re.sub(r'N|X|Z|A', '1', re.sub(r'-|_|P|O|Y', '0', binding)))  # nucleic-acid-binding?
         binding_encoded[2] = list(re.sub(r'O|Y|Z|A', '1', re.sub(r'-|_|P|N|X', '0', binding)))  # other-binding?
-        target.append(binding_encoded.T)
+        target.append(np.array(binding_encoded, dtype=float).T)
 
         """
         if id == 'P17947*':
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in range(5):
+    for fold in [0]:     # range(5):
         print("Fold: " + str(fold))
         # for training use all training IDs except for the ones in the current fold.
         # for validation use the training IDs in the current fold, but without oversampling
@@ -176,11 +176,20 @@ if __name__ == '__main__':
            print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
         """
 
+        def criterion(loss_func, prediction, label):    # sum over all classification heads
+            losses = 0
+            prediction = prediction.T
+            label = label.T
+            for i, _ in enumerate(prediction):     # for each class (-> 1-dimensional loss)
+                losses += loss_func(prediction[i], label[i])
+            return losses
+
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
         input_size = 1025
         model = FNN(input_size=input_size, output_size=3, p=dropout).to(device)
-        criterion = nn.CrossEntropyLoss()
+        # loss_function = nn.CrossEntropyLoss()
+        loss_function = nn.BCELoss()    # not multi-class when applied to each dimension individually
         optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 
@@ -195,7 +204,8 @@ if __name__ == '__main__':
                 # make a prediction
                 prediction = model(input)
                 # compute loss
-                loss = loss_function(prediction, label.to(torch.float32))
+                loss = criterion(loss_function, prediction, label.to(torch.float32))
+                # loss = loss_function(prediction, label.to(torch.long))    # not suitable for multi-label
 
                 # if i == 260:
                 #    print(f'protein 260: prediction: {prediction, prediction.dtype}')
@@ -279,8 +289,8 @@ if __name__ == '__main__':
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
             output_file.write(f'{datetime.datetime.now()}\tEpoch {epoch + 1}\n')
-            train(training_dataset, model, criterion, optimizer, device, output_file)
-            test_loss = test_performance(validation_dataset, model, criterion, device, output_file)
+            train(training_dataset, model, loss_function, optimizer, device, output_file)
+            test_loss = test_performance(validation_dataset, model, loss_function, device, output_file)
 
             # early stopping
             if test_loss < min_val_loss:    # improvement
