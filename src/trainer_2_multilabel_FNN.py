@@ -139,7 +139,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in [0]:     # range(5):
+    for fold in range(5):
         print("Fold: " + str(fold))
         # for training use all training IDs except for the ones in the current fold.
         # for validation use the training IDs in the current fold, but without oversampling
@@ -207,10 +207,13 @@ if __name__ == '__main__':
                 loss = criterion(loss_function, prediction, label.to(torch.float32))
                 # loss = loss_function(prediction, label.to(torch.long))    # not suitable for multi-label
 
-                # if i == 260:
-                #    print(f'protein 260: prediction: {prediction, prediction.dtype}')
-                #    print(f'protein 260: label:      {label, label.dtype}')
-                #    print(f'protein 260: loss:       {loss}')
+                """
+                if i == 50:
+                    torch.set_printoptions(threshold=10_000)
+                    print(f'batch {i}: prediction: \n{prediction.T, prediction.dtype}')
+                    print(f'batch {i}: label:      \n{label.T, label.dtype}')
+                    print(f'batch {i}: loss:       {loss}')
+                """
 
                 avg_train_loss += loss.item()
 
@@ -241,7 +244,7 @@ if __name__ == '__main__':
                     # apply activation function to prediction to enable classification
                     prediction_act = torch.sigmoid(prediction)
                     # prediction_max = prediction_act.argmax(1)     # argmax only if its multi-class
-                    prediction_max = prediction_act > 0.3
+                    prediction_max = prediction_act > 0.5
                     # metrics
                     correct += (prediction_max == label).type(torch.float).sum().item()
                     tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
