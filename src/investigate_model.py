@@ -13,7 +13,11 @@ import copy
 
 
 def read_labels(fold, oversampling):
-    with open(f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt') as handle:
+    if oversampling is None:        # no oversampling on validation set!
+        file_name = f'../dataset/folds/CV_fold_{fold}_labels.txt'
+    else:
+        file_name = f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt'
+    with open(file_name) as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -26,12 +30,12 @@ def read_labels(fold, oversampling):
     return labels
 
 
-def get_ML_data(labels, embeddings, mode, new_datapoints):
+def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
     input = list()
     target = list()
     datapoint_counter = 0
     for id in labels.keys():
-        if mode == 'all':
+        if mode == 'all' or multilabel:
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
@@ -49,15 +53,25 @@ def get_ML_data(labels, embeddings, mode, new_datapoints):
         elif mode == 'disorder_only':
             bool_list = [False if x == '-' else True for x in list(labels[id][2])]
             input.append(embeddings[id][bool_list])
-        # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesnt work!, would be multi-class)
-        binding = str(labels[id][2])
-        if mode == 'all':
-            binding = re.sub(r'-|_', '0', binding)
-        elif mode == 'disorder_only':
-            binding = binding.replace('-', '').replace('_', '0')
-        binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
-        binding = np.array(binding, dtype=float)
-        target.append(binding)
+
+        if not multilabel:
+            # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesnt work!, would be multi-class)
+            binding = str(labels[id][2])
+            if mode == 'all':
+                binding = re.sub(r'-|_', '0', binding)
+            elif mode == 'disorder_only':
+                binding = binding.replace('-', '').replace('_', '0')
+            binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
+            binding = np.array(binding, dtype=float)
+            target.append(binding)
+        else:
+            # for target: 0 = non-binding or not in disordered region, 1 = binding, 3-dimensions per residue
+            binding = str(labels[id][2])
+            binding_encoded = [[], [], []]
+            binding_encoded[0] = list(re.sub(r'P|X|Y|A', '1', re.sub(r'-|_|N|O|Z', '0', binding)))  # protein-binding?
+            binding_encoded[1] = list(re.sub(r'N|X|Z|A', '1', re.sub(r'-|_|P|O|Y', '0', binding)))  # nucleic-acid-binding?
+            binding_encoded[2] = list(re.sub(r'O|Y|Z|A', '1', re.sub(r'-|_|P|N|X', '0', binding)))  # other-binding?
+            target.append(np.array(binding_encoded, dtype=float).T)
 
         """
         if id == 'P17947*':
@@ -161,13 +175,15 @@ class FNN(nn.Module):
         self.output_layer = nn.Linear(int(input_size / 2), output_size)
         self.dropout = nn.Dropout(p)
 
-    def forward(self, input):
+    def forward(self, input, multilabel):
         x = F.relu(self.input_layer(input))
         x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
         x = self.dropout(x)
-        # output = torch.sigmoid(self.output_layer(x))
-        output = self.output_layer(x)   # rather without sigmoid to apply BCEWithLogitsLoss later
+        if multilabel:
+            output = torch.sigmoid(self.output_layer(x))
+        else:
+            output = self.output_layer(x)   # rather without sigmoid to apply BCEWithLogitsLoss later
         return output
 
 
@@ -181,28 +197,23 @@ if __name__ == '__main__':
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
-    def try_cutoffs(mode):
+    def try_cutoffs(mode, multilabel):
         # iterate over folds
-        with open("../results/logs/validation_2-1_new_oversampling_old_val.txt", "w") as output_file:
-            output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
-            for fold in [0]:    # range(5):
+        with open("../results/logs/validation_4_multilabel.txt", "w") as output_file:
+            output_file.write('Fold\tAvg_Loss\tCutoff\tP_Acc\tP_Prec\tP_Rec\tP_TP\tP_FP\tP_TN\tP_FN\t'
+                              'N_Acc\tN_Prec\tN_Rec\tN_TP\tN_FP\tN_TN\tN_FN\t'
+                              'O_Acc\tO_Prec\tO_Rec\tO_TP\tO_FP\tO_TN\tO_FN\t\n')
+            for fold in range(5):
                 print("Fold: " + str(fold))
                 # for validation use the training IDs in the current fold
 
                 # read target data y and disorder information
                 # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-                val_labels = read_labels(fold, oversampling)
-
-                # load pre-computed datapoint embeddings
-                v_datapoints = list()
-                if oversampling == 'binary_residues':
-                    v_datapoints = np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{fold}.npy',
-                                           allow_pickle=True)
-
+                val_labels = read_labels(fold, None)    # no oversampling on validation labels
 
                 # create the input and target data exactly how it's fed into the ML model
                 # and add the confounding feature of disorder to the embeddings
-                this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, v_datapoints)
+                this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, multilabel, None)
 
                 # instantiate the dataset
                 validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
@@ -215,7 +226,15 @@ if __name__ == '__main__':
                    print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
                 """
 
-                def test_performance(dataset, model, loss_function, device, output):
+                def criterion(loss_func, prediction, label):  # sum over all classification heads
+                    losses = 0
+                    prediction = prediction.T
+                    label = label.T
+                    for i, _ in enumerate(prediction):  # for each class (-> 1-dimensional loss)
+                        losses += loss_func(prediction[i], label[i])
+                    return losses
+
+                def test_performance(dataset, model, loss_function, device, output, multilabel):
                     batch_size = 512
                     test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
                     size = dataset.number_residues()
@@ -223,46 +242,118 @@ if __name__ == '__main__':
                     model.eval()
                     with torch.no_grad():
                         # try out different cutoffs
-                        for cutoff in (0.01 * np.arange(0, 10, step=5)):   # mult. works around floating point precision issue
-                            test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
-                            for input, label in test_loader:
-                                input, label = input.to(device), label[:, None].to(device)
-                                prediction = model(input)
-                                test_loss += loss_function(prediction, label.to(torch.float32)).item()
-                                # apply activation function to prediction to enable classification
-                                prediction_act = torch.sigmoid(prediction)
-                                prediction_max = prediction_act > cutoff
-                                # metrics
-                                correct += (prediction_max == label).type(torch.float).sum().item()
-                                tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
-                                fp += (prediction_max != label)[label == 0].type(torch.float).sum().item()
-                                tn += (prediction_max == label)[label == 0].type(torch.float).sum().item()
-                                fn += (prediction_max != label)[label == 1].type(torch.float).sum().item()
+                        for cutoff in (0.01 * np.arange(0, 100, step=5)):   # mult. works around floating point precision issue
+                            if multilabel:
+                                test_loss = 0
+                                p_correct, p_tp, p_fp, p_tn, p_fn = 0, 0, 0, 0, 0
+                                n_correct, n_tp, n_fp, n_tn, n_fn = 0, 0, 0, 0, 0
+                                o_correct, o_tp, o_fp, o_tn, o_fn = 0, 0, 0, 0, 0
+                                for input, label in test_loader:
+                                    input, label = input.to(device), label.to(device)
+                                    prediction = model(input, multilabel)
+                                    test_loss += criterion(loss_function, prediction, label.to(torch.float32)).item()
+                                    # apply activation function to prediction to enable classification and transpose matrices
+                                    prediction_max = (prediction > cutoff).T
+                                    label = label.T
 
+                                    # metrics
+                                    p_correct += (prediction_max[0] == label[0]).type(torch.float).sum().item()
+                                    p_tp += (prediction_max[0] == label[0])[label[0] == 1].type(torch.float).sum().item()
+                                    p_fp += (prediction_max[0] != label[0])[label[0] == 0].type(torch.float).sum().item()
+                                    p_tn += (prediction_max[0] == label[0])[label[0] == 0].type(torch.float).sum().item()
+                                    p_fn += (prediction_max[0] != label[0])[label[0] == 1].type(torch.float).sum().item()
 
-                            test_loss /= int(size/batch_size)
-                            correct /= size
-                            try:
-                                print(
-                                f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp / (tp+fn))): >0.1f}%, Precision: {(100 * (tp / (tp+fp))): >0.1f}%, Avg loss: {test_loss:>8f}")
-                                output.write('\t'.join([str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
-                                                    str(round(100 * (tp / (tp+fp)), 1)), str(round(100 * (tp / (tp+fn)),1)),
-                                                    str(tp), str(fp), str(tn), str(fn)]) + '\n')
-                            except ZeroDivisionError:
-                                print(
-                                    f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: NA, Precision: NA, Avg loss: {test_loss:>8f}")
-                                output.write('\t'.join(
-                                    [str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
-                                     'NA', 'NA', str(tp), str(fp), str(tn), str(fn)]) + '\n')
+                                    n_correct += (prediction_max[1] == label[1]).type(torch.float).sum().item()
+                                    n_tp += (prediction_max[1] == label[1])[label[1] == 1].type(torch.float).sum().item()
+                                    n_fp += (prediction_max[1] != label[1])[label[1] == 0].type(torch.float).sum().item()
+                                    n_tn += (prediction_max[1] == label[1])[label[1] == 0].type(torch.float).sum().item()
+                                    n_fn += (prediction_max[1] != label[1])[label[1] == 1].type(torch.float).sum().item()
+
+                                    o_correct += (prediction_max[2] == label[2]).type(torch.float).sum().item()
+                                    o_tp += (prediction_max[2] == label[2])[label[2] == 1].type(torch.float).sum().item()
+                                    o_fp += (prediction_max[2] != label[2])[label[2] == 0].type(torch.float).sum().item()
+                                    o_tn += (prediction_max[2] == label[2])[label[2] == 0].type(torch.float).sum().item()
+                                    o_fn += (prediction_max[2] != label[2])[label[2] == 1].type(torch.float).sum().item()
+
+                                test_loss /= int(size / batch_size)
+                                p_correct /= size
+                                n_correct /= size
+                                o_correct /= size
+                                # class-wise printing - maybe different cutoffs required
+                                try:
+                                    print(f"cutoff {cutoff}\tProtein-binding:\tAccuracy: {(100 * p_correct):>0.1f}%, Sensitivity: {(100 * (p_tp / (p_tp + p_fn))): >0.1f}%, Precision: {(100 * (p_tp / (p_tp + p_fp))): >0.1f}%, Avg loss: {test_loss:>8f}")
+                                    output.write('\t'.join(
+                                        [str(fold), str(round(test_loss, 6)), str(cutoff),
+                                         str(round(100 * p_correct, 1)), str(round(100 * (p_tp / (p_tp + p_fp)), 1)), str(round(100 * (p_tp / (p_tp + p_fn)), 1)),
+                                         str(p_tp), str(p_fp), str(p_tn), str(p_fn)]) + '\t')
+                                except ZeroDivisionError:
+                                    print(f"cutoff {cutoff}\tProtein-binding:\tAccuracy: {(100 * p_correct):>0.1f}%, Sensitivity: 0.0%, Precision: 0.0%, Avg loss: {test_loss:>8f}")
+                                    output.write('\t'.join(
+                                        [str(fold), str(round(test_loss, 6)), str(cutoff),
+                                         str(round(100 * p_correct, 1)), '0.0', '0.0',
+                                         str(p_tp), str(p_fp), str(p_tn), str(p_fn)]) + '\t')
+                                try:
+                                    print(f"cutoff {cutoff}\tNuc-binding:\tAccuracy: {(100 * n_correct):>0.1f}%, Sensitivity: {(100 * (n_tp / (n_tp + n_fn))): >0.1f}%, Precision: {(100 * (n_tp / (n_tp + n_fp))): >0.1f}%, Avg loss: {test_loss:>8f}")
+                                    output.write('\t'.join(
+                                        [str(round(100 * n_correct, 1)), str(round(100 * (n_tp / (n_tp + n_fp)), 1)), str(round(100 * (n_tp / (n_tp + n_fn)), 1)),
+                                         str(n_tp), str(n_fp), str(n_tn), str(n_fn)]) + '\t')
+                                except ZeroDivisionError:
+                                    print(f"cutoff {cutoff}\tNuc-binding:\tAccuracy: {(100 * n_correct):>0.1f}%, Sensitivity: 0.0%, Precision: 0.0%, Avg loss: {test_loss:>8f}")
+                                    output.write('\t'.join(
+                                        [str(round(100 * n_correct, 1)), '0.0', '0.0',
+                                         str(n_tp), str(n_fp), str(n_tn), str(n_fn)]) + '\t')
+                                try:
+                                    print(f"cutoff {cutoff}\tOther-binding:\tAccuracy: {(100 * o_correct):>0.1f}%, Sensitivity: {(100 * (o_tp / (o_tp + o_fn))): >0.1f}%, Precision: {(100 * (o_tp / (o_tp + o_fp))): >0.1f}%, Avg loss: {test_loss:>8f}\n")
+                                    output.write('\t'.join(
+                                        [str(round(100 * o_correct, 1)), str(round(100 * (o_tp / (o_tp + o_fp)), 1)), str(round(100 * (o_tp / (o_tp + o_fn)), 1)),
+                                         str(o_tp), str(o_fp), str(o_tn), str(o_fn)]) + '\n')
+                                except ZeroDivisionError:
+                                    print(f"cutoff {cutoff}\tOther-binding:\tAccuracy: {(100 * o_correct):>0.1f}%, Sensitivity: 0.0%, Precision: 0.0%, Avg loss: {test_loss:>8f}\n")
+                                    output.write('\t'.join(
+                                        [str(round(100 * o_correct, 1)), '0.0', '0.0',
+                                         str(o_tp), str(o_fp), str(o_tn), str(o_fn)]) + '\n')
+
+                            else:    # not multilabel
+                                test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
+                                for input, label in test_loader:
+                                    input, label = input.to(device), label[:, None].to(device)
+                                    prediction = model(input, multilabel)
+                                    test_loss += loss_function(prediction, label.to(torch.float32)).item()
+                                    # apply activation function to prediction to enable classification
+                                    prediction_act = torch.sigmoid(prediction)
+                                    prediction_max = prediction_act > cutoff
+                                    # metrics
+                                    correct += (prediction_max == label).type(torch.float).sum().item()
+                                    tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
+                                    fp += (prediction_max != label)[label == 0].type(torch.float).sum().item()
+                                    tn += (prediction_max == label)[label == 0].type(torch.float).sum().item()
+                                    fn += (prediction_max != label)[label == 1].type(torch.float).sum().item()
+
+                                test_loss /= int(size/batch_size)
+                                correct /= size
+                                try:
+                                    print(
+                                    f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp / (tp+fn))): >0.1f}%, Precision: {(100 * (tp / (tp+fp))): >0.1f}%, Avg loss: {test_loss:>8f}")
+                                    output.write('\t'.join([str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
+                                                        str(round(100 * (tp / (tp+fp)), 1)), str(round(100 * (tp / (tp+fn)),1)),
+                                                        str(tp), str(fp), str(tn), str(fn)]) + '\n')
+                                except ZeroDivisionError:
+                                    print(
+                                        f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: 0.0%, Precision: 0.0%, Avg loss: {test_loss:>8f}")
+                                    output.write('\t'.join(
+                                        [str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
+                                         '0.0', '0.0', str(tp), str(fp), str(tn), str(fn)]) + '\n')
+
 
                 device = "cuda" if torch.cuda.is_available() else "cpu"
-                input_size = 1024 if mode == 'disorder_only' else 1025
-                model = FNN(input_size=input_size, output_size=1, p=dropout).to(device)
+                input_size = 1024 if mode == 'disorder_only' or not multilabel else 1025
+                output_size = 3 if multilabel else 1
+                model = FNN(input_size=input_size, output_size=output_size, p=dropout).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_2-1_new_oversampling_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_4_multiclass_fold_{fold}.pth"))
                 # test performance again, should be the same
-                criterion = nn.BCEWithLogitsLoss()
-                test_performance(validation_dataset, model, criterion, device, output_file)
+                loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
+                test_performance(validation_dataset, model, loss_function, device, output_file, multilabel)
 
     def predictCNN(cutoff, fold):
         with open(f"../results/logs/predict_val_1_5layers_{fold}_{cutoff}.txt", "w") as output_file:
@@ -358,16 +449,17 @@ if __name__ == '__main__':
                 delimiter_0 = delimiter_1
 
 
-    oversampling = 'binary'     # binary or binary_residues
+    oversampling = 'binary_residues'     # binary or binary_residues
     mode = 'all'  # disorder_only or all
+    multilabel = True
     dropout = 0
-    try_cutoffs(mode=mode)  # expensive!
+    try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
 
     # get predictions for chosen cutoff, fold
     cutoff = 0.05
     fold = 0
     # predictCNN(cutoff, fold, mode)
-    predictFNN(cutoff, fold, mode)
+    # predictFNN(cutoff, fold, mode)
 
 
 
