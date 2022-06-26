@@ -202,7 +202,7 @@ if __name__ == '__main__':
         with open("../results/logs/validation_4_multilabel.txt", "w") as output_file:
             output_file.write('Fold\tAvg_Loss\tCutoff\tP_Acc\tP_Prec\tP_Rec\tP_TP\tP_FP\tP_TN\tP_FN\t'
                               'N_Acc\tN_Prec\tN_Rec\tN_TP\tN_FP\tN_TN\tN_FN\t'
-                              'O_Acc\tO_Prec\tO_Rec\tO_TP\tO_FP\tO_TN\tO_FN\t\n')
+                              'O_Acc\tO_Prec\tO_Rec\tO_TP\tO_FP\tO_TN\tO_FN\n')
             for fold in range(5):
                 print("Fold: " + str(fold))
                 # for validation use the training IDs in the current fold
