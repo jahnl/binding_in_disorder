@@ -187,6 +187,19 @@ class FNN(nn.Module):
         return output
 
 
+def transform_output(p, n, o):
+    binding_code = p * 100 + n * 10 + o
+    transformation = {0: '_',
+                      100: 'P',
+                      10: 'N',
+                      1: 'O',
+                      110: 'X',
+                      101: 'Y',
+                      11: 'Z',
+                      111: 'A'}
+    return transformation[binding_code]
+
+
 if __name__ == '__main__':
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -390,33 +403,28 @@ if __name__ == '__main__':
 
                     output_file.write(f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
-    def predictFNN(cutoff, fold, mode):
-        with open(f"../results/logs/predict_val_2-1_old_val_{fold}_{cutoff}.txt", "w") as output_file:
+    def predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel):
+        with open(f"../results/logs/predict_val_4_multilabel_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-            val_labels = read_labels(fold, oversampling)
-
-            # load pre-computed datapoint embeddings
-            v_datapoints = list()
-            if oversampling == 'binary_residues':
-                v_datapoints = np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{fold}.npy',
-                                       allow_pickle=True)
+            val_labels = read_labels(fold, None)
 
             # create the input and target data exactly how it's fed into the ML model
             # and add the confounding feature of disorder to the embeddings
-            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, v_datapoints)
+            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, multilabel, None)
 
             # instantiate the dataset
             validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            input_size = 1025 if mode == 'all' else 1024
-            model = FNN(input_size, 1, dropout).to(device)
+            input_size = 1025 if mode == 'all' or multilabel else 1024
+            output_size = 3 if multilabel else 1
+            model = FNN(input_size, output_size, dropout).to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_2-1_new_oversampling_fold_{fold}.pth"))
+                torch.load(f"../results/models/binding_regions_model_4_multiclass_fold_{fold}.pth"))
             # test performance again, should be the same
 
             test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
@@ -426,14 +434,31 @@ if __name__ == '__main__':
             all_labels = list()
             with torch.no_grad():
                 for i, (input, label) in enumerate(test_loader):
-                    input, label = input.to(device), label[:, None].to(device)
-                    all_labels.extend(label.flatten().tolist())
-                    prediction = model(input)
-                    # apply activation function to prediction to enable classification
-                    prediction_act = torch.sigmoid(prediction)
-                    all_prediction_act.extend(prediction_act.flatten().tolist())
-                    prediction_max = prediction_act > cutoff
-                    all_prediction_max.extend(prediction_max.flatten().tolist())
+                    if multilabel:
+                        input, label = input.to(device), label.to(device).T
+                        label = [transform_output(
+                            int(label[0][i]), int(label[1][i]), int(label[2][i]))
+                            for i, _ in enumerate(label[0])]
+                        all_labels.extend(label)
+                        prediction = model(input, multilabel).T
+                        # apply activation function to prediction to enable classification
+                        prediction_max_p = prediction[0] > cutoff_p
+                        prediction_max_n = prediction[1] > cutoff_n
+                        prediction_max_o = prediction[2] > cutoff_o
+                        prediction_max = [transform_output(
+                            int(prediction_max_p[i]), int(prediction_max_n[i]), int(prediction_max_o[i]))
+                            for i, _ in enumerate(prediction_max_p)]
+                        all_prediction_max.extend(prediction_max)
+                    else:
+                        input, label = input.to(device), label[:, None].to(device)
+                        all_labels.extend(label.flatten().tolist())
+                        prediction = model(input)
+                        prediction_act = torch.sigmoid(prediction)
+                        all_prediction_act.extend(prediction_act.flatten().tolist())
+                        # apply activation function to prediction to enable classification
+                        prediction_max = prediction_act > cutoff
+                        all_prediction_max.extend(prediction_max.flatten().tolist())
+
 
             # group residues back to proteins again
             delimiter_0 = 0
@@ -443,9 +468,13 @@ if __name__ == '__main__':
                     delimiter_1 += len(str(val_labels[p_id][2]).replace('-', ''))
                 elif mode == 'all':
                     delimiter_1 += len(val_labels[p_id][2])
-                output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0 : delimiter_1])}'
-                                  f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
-                                  f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0 : delimiter_1])}\n')
+                if multilabel:
+                    output_file.write(f'{p_id}\nlabels:\t{"".join(all_labels[delimiter_0: delimiter_1])}'
+                                      f'\nprediction:\t{"".join(all_prediction_max[delimiter_0: delimiter_1])}\n')
+                else:
+                    output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0 : delimiter_1])}'
+                                      f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
+                                      f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0 : delimiter_1])}\n')
                 delimiter_0 = delimiter_1
 
 
@@ -453,13 +482,14 @@ if __name__ == '__main__':
     mode = 'all'  # disorder_only or all
     multilabel = True
     dropout = 0
-    try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
+    # try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
 
     # get predictions for chosen cutoff, fold
     cutoff = 0.05
+    cutoff_p, cutoff_n, cutoff_o = 0.65, 0.15, 0.05
     fold = 0
     # predictCNN(cutoff, fold, mode)
-    # predictFNN(cutoff, fold, mode)
+    predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel)
 
 
 
