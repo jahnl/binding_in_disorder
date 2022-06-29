@@ -124,8 +124,16 @@ def split(oversampling: str):
                         output_labels.write(j)
                         if p_sampled_residues != sampled_residues or n_sampled_residues != sampled_residues or \
                                 o_sampled_residues != sampled_residues:  # sampled_residues is ['','','']
+                            indices = p_indices
+                            repeat = p_repeat
+                            if len(indices) < len(n_indices):
+                                indices = n_indices
+                                repeat = n_repeat
+                            if len(indices) < len(o_indices):
+                                indices = o_indices
+                                repeat = o_repeat
                             output_labels.write(
-                                j.split('\n')[0] + '*\n')
+                                j.split('\n')[0] + '*\t' + ((str(indices)[1:-1] + ', ') * repeat) + "\n")
                             for _ in range(p_repeat):
                                 output_labels.write(p_sampled_residues[0])
                             for _ in range(n_repeat):

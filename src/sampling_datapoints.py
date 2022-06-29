@@ -56,7 +56,7 @@ def get_ML_data(labels, embeddings, mode):
 
 if __name__ == '__main__':
     # apply cross-validation and oversampling on training dataset
-    oversampling = 'binary_residues'
+    oversampling = 'multiclass_residues'
     #CV_splits.split(oversampling)
 
     mode = 'all'  # disorder_only or all

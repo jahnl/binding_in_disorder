@@ -124,7 +124,7 @@ class FNN(nn.Module):
 
 if __name__ == '__main__':
     # apply cross-validation and oversampling on training dataset
-    oversampling = 'binary_residues'
+    oversampling = 'multiclass_residues'
     #CV_splits.split(oversampling)
 
     dropout = 0
@@ -158,7 +158,7 @@ if __name__ == '__main__':
         if oversampling == 'binary_residues':
             for f in range(5):
                 if f != fold:
-                    t_datapoints.extend(np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{f}.npy', allow_pickle=True))
+                    t_datapoints.extend(np.load(f'../dataset/folds/new_datapoints_multiclass_residues_fold_{f}.npy', allow_pickle=True))
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
