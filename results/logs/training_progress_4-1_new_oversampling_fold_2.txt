@@ -1,0 +1,72 @@
+2022-06-29 11:22:07.099273	Epoch 1
+	Training set: Avg loss: 5.727875 
+	Cross-Training set: Accuracy: 118.2%, Sensitivity: 93.0%, Precision: 3.6%, Avg loss: 0.319664 
+2022-06-29 11:23:41.383297	Epoch 2
+	Training set: Avg loss: 4.341677 
+	Cross-Training set: Accuracy: 188.6%, Sensitivity: 93.2%, Precision: 5.7%, Avg loss: 0.299539 
+2022-06-29 11:25:09.851276	Epoch 3
+	Training set: Avg loss: 2.951834 
+	Cross-Training set: Accuracy: 209.8%, Sensitivity: 97.4%, Precision: 7.2%, Avg loss: 0.189334 
+2022-06-29 11:26:37.451274	Epoch 4
+	Training set: Avg loss: 2.214565 
+	Cross-Training set: Accuracy: 241.1%, Sensitivity: 88.7%, Precision: 9.9%, Avg loss: 0.268854 
+2022-06-29 11:28:03.782274	Epoch 5
+	Training set: Avg loss: 1.807891 
+	Cross-Training set: Accuracy: 245.3%, Sensitivity: 95.8%, Precision: 11.3%, Avg loss: 0.373510 
+2022-06-29 11:29:30.267276	Epoch 6
+	Training set: Avg loss: 1.788295 
+	Cross-Training set: Accuracy: 243.5%, Sensitivity: 94.8%, Precision: 10.9%, Avg loss: 0.284738 
+2022-06-29 11:30:58.108287	Epoch 7
+	Training set: Avg loss: 1.639734 
+	Cross-Training set: Accuracy: 240.9%, Sensitivity: 98.7%, Precision: 10.8%, Avg loss: 0.135262 
+2022-06-29 11:32:26.065277	Epoch 8
+	Training set: Avg loss: 2.029721 
+	Cross-Training set: Accuracy: 240.7%, Sensitivity: 97.5%, Precision: 10.6%, Avg loss: 0.417941 
+2022-06-29 11:33:52.583276	Epoch 9
+	Training set: Avg loss: 1.631080 
+	Cross-Training set: Accuracy: 225.6%, Sensitivity: 99.3%, Precision: 8.8%, Avg loss: 0.154913 
+2022-06-29 11:35:17.797276	Epoch 10
+	Training set: Avg loss: 1.652799 
+	Cross-Training set: Accuracy: 249.5%, Sensitivity: 95.6%, Precision: 12.1%, Avg loss: 1.048345 
+2022-06-29 11:36:44.829276	Epoch 11
+	Training set: Avg loss: 18.898202 
+	Cross-Training set: Accuracy: 191.2%, Sensitivity: 98.6%, Precision: 6.1%, Avg loss: 0.243033 
+2022-06-29 11:38:11.722282	Epoch 12
+	Training set: Avg loss: 2.459614 
+	Cross-Training set: Accuracy: 224.0%, Sensitivity: 99.4%, Precision: 8.6%, Avg loss: 0.158403 
+2022-06-29 11:39:37.730300	Epoch 13
+	Training set: Avg loss: 2.281333 
+	Cross-Training set: Accuracy: 237.3%, Sensitivity: 99.4%, Precision: 10.3%, Avg loss: 0.142336 
+2022-06-29 11:41:04.492273	Epoch 14
+	Training set: Avg loss: 1.878864 
+	Cross-Training set: Accuracy: 241.4%, Sensitivity: 99.1%, Precision: 10.9%, Avg loss: 0.129429 
+2022-06-29 11:42:31.040277	Epoch 15
+	Training set: Avg loss: 1.717968 
+	Cross-Training set: Accuracy: 242.9%, Sensitivity: 98.9%, Precision: 11.1%, Avg loss: 0.337719 
+2022-06-29 11:43:57.118282	Epoch 16
+	Training set: Avg loss: 1.773764 
+	Cross-Training set: Accuracy: 236.8%, Sensitivity: 99.0%, Precision: 10.2%, Avg loss: 0.159942 
+2022-06-29 11:45:23.652298	Epoch 17
+	Training set: Avg loss: 1.702415 
+	Cross-Training set: Accuracy: 237.7%, Sensitivity: 99.3%, Precision: 10.3%, Avg loss: 0.131390 
+2022-06-29 11:46:50.284277	Epoch 18
+	Training set: Avg loss: 1.791396 
+	Cross-Training set: Accuracy: 244.3%, Sensitivity: 98.6%, Precision: 11.3%, Avg loss: 0.141055 
+2022-06-29 11:48:14.852241	Epoch 19
+	Training set: Avg loss: 1.858693 
+	Cross-Training set: Accuracy: 226.4%, Sensitivity: 99.3%, Precision: 8.9%, Avg loss: 0.156388 
+2022-06-29 11:49:42.058273	Epoch 20
+	Training set: Avg loss: 1.904775 
+	Cross-Training set: Accuracy: 235.7%, Sensitivity: 99.1%, Precision: 10.0%, Avg loss: 0.140182 
+2022-06-29 11:51:10.519278	Epoch 21
+	Training set: Avg loss: 1.928746 
+	Cross-Training set: Accuracy: 235.9%, Sensitivity: 99.5%, Precision: 10.1%, Avg loss: 0.149722 
+2022-06-29 11:52:38.092294	Epoch 22
+	Training set: Avg loss: 1.742518 
+	Cross-Training set: Accuracy: 235.7%, Sensitivity: 99.0%, Precision: 10.0%, Avg loss: 0.146162 
+2022-06-29 11:54:06.171274	Epoch 23
+	Training set: Avg loss: 1.671538 
+	Cross-Training set: Accuracy: 243.0%, Sensitivity: 98.0%, Precision: 11.1%, Avg loss: 0.167917 
+2022-06-29 11:55:31.794277	Epoch 24
+	Training set: Avg loss: 1.690427 
+	Cross-Training set: Accuracy: 239.1%, Sensitivity: 99.0%, Precision: 10.5%, Avg loss: 0.140419 

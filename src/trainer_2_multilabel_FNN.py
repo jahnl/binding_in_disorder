@@ -155,10 +155,10 @@ if __name__ == '__main__':
 
         # load pre-computed datapoint embeddings
         t_datapoints = list()
-        if oversampling == 'binary_residues':
+        if 'residues' in oversampling:
             for f in range(5):
                 if f != fold:
-                    t_datapoints.extend(np.load(f'../dataset/folds/new_datapoints_multiclass_residues_fold_{f}.npy', allow_pickle=True))
+                    t_datapoints.extend(np.load(f'../dataset/folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
@@ -222,7 +222,7 @@ if __name__ == '__main__':
                 loss.backward()
                 optimizer.step()
 
-                if i % 100 == 0:
+                if i % 500 == 0:
                     print(f'\tLoss: {loss.item()} \t batch:{i}/{int(nr_samples / batch_size)}')
             avg_train_loss /= int(nr_samples / batch_size)
             print("\tAvg_train_loss: " + str(avg_train_loss))
@@ -287,7 +287,7 @@ if __name__ == '__main__':
         n_epochs_stop = 10
         best_state_dict = None
 
-        output_file = open(f"../results/logs/training_progress_4_multiclass_fold_{fold}.txt", "w")
+        output_file = open(f"../results/logs/training_progress_4-1_new_oversampling_fold_{fold}.txt", "w")
 
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
@@ -309,6 +309,6 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, f"../results/models/binding_regions_model_4_multiclass_fold_{fold}.pth")
+        torch.save(best_state_dict, f"../results/models/binding_regions_model_4-1_new_oversampling_fold_{fold}.pth")
         output_file.flush()
         output_file.close()
