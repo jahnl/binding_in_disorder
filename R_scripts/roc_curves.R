@@ -28,7 +28,7 @@ print(data[data$Prec == max(data$Prec) ,])
 
 
 # multilabel classifier ROC curve
-data_file <-  '../results/logs/validation_4_multilabel.txt'
+data_file <-  '../results/logs/validation_4-1_new_oversampling.txt'
 data <- read.table(data_file, sep = "\t", header = TRUE)
 #protein-binding
 ggplot(mapping = aes(x = P_FP/(P_FP+P_TN)*100, y = P_Rec, color = Cutoff))+   # change color to Fold to match lines with folds
@@ -88,7 +88,7 @@ ggplot(mapping = aes(x = O_FP/(O_FP+O_TN)*100, y = O_Rec, color = Cutoff))+   # 
   xlab('FPR')+
   ylab('TPR')
 # comparison of classes
-ggplot(data = data[data$Fold==0,])+   # change color to Fold to match lines with folds
+ggplot(data = data[data$Fold==2,])+   # change color to Fold to match lines with folds
   geom_point(mapping = aes(x = P_FP/(P_FP+P_TN)*100, y = P_Rec, color = 'protein-binding'), size = 2)+
   geom_line(mapping = aes(x = P_FP/(P_FP+P_TN)*100, y = P_Rec, color = 'protein-binding'), size = 1)+
   geom_point(mapping = aes(x = N_FP/(N_FP+N_TN)*100, y = N_Rec, color = 'nuc-binding'), size = 2)+
