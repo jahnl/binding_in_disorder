@@ -212,10 +212,13 @@ if __name__ == '__main__':
 
     def try_cutoffs(mode, multilabel):
         # iterate over folds
-        with open("../results/logs/validation_4-1_new_oversampling.txt", "w") as output_file:
-            output_file.write('Fold\tAvg_Loss\tCutoff\tP_Acc\tP_Prec\tP_Rec\tP_TP\tP_FP\tP_TN\tP_FN\t'
-                              'N_Acc\tN_Prec\tN_Rec\tN_TP\tN_FP\tN_TN\tN_FN\t'
-                              'O_Acc\tO_Prec\tO_Rec\tO_TP\tO_FP\tO_TN\tO_FN\n')
+        with open(f"../results/logs/validation_2_2_dropout_{dropout}.txt", "w") as output_file:
+            if multilabel:
+                output_file.write('Fold\tAvg_Loss\tCutoff\tP_Acc\tP_Prec\tP_Rec\tP_TP\tP_FP\tP_TN\tP_FN\t'
+                                  'N_Acc\tN_Prec\tN_Rec\tN_TP\tN_FP\tN_TN\tN_FN\t'
+                                  'O_Acc\tO_Prec\tO_Rec\tO_TP\tO_FP\tO_TN\tO_FN\n')
+            else:
+                output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
             for fold in range(5):
                 print("Fold: " + str(fold))
                 # for validation use the training IDs in the current fold
@@ -359,11 +362,11 @@ if __name__ == '__main__':
 
 
                 device = "cuda" if torch.cuda.is_available() else "cpu"
-                input_size = 1024 if mode == 'disorder_only' or not multilabel else 1025
+                input_size = 1024 if mode == 'disorder_only' else 1025
                 output_size = 3 if multilabel else 1
                 model = FNN(input_size=input_size, output_size=output_size, p=dropout).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_4-1_new_oversampling_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_fold_{fold}.pth"))
                 # test performance again, should be the same
                 loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, loss_function, device, output_file, multilabel)
@@ -386,7 +389,7 @@ if __name__ == '__main__':
             validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            model = FNN(1025, 1).to(device)
+            model = CNN().to(device)
             model.load_state_dict(
                 torch.load(f"../results/models/binding_regions_model_1_5layers_fold_{fold}.pth"))
             # test performance again, should be the same
@@ -478,18 +481,18 @@ if __name__ == '__main__':
                 delimiter_0 = delimiter_1
 
 
-    oversampling = 'multiclass_residues'     # binary or binary_residues
+    oversampling = 'binary_residues'     # binary, binary_residues or multiclass_residues
     mode = 'all'  # disorder_only or all
-    multilabel = True
-    dropout = 0
-    # try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
+    multilabel = False
+    dropout = 0.3
+    try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
 
     # get predictions for chosen cutoff, fold
     cutoff = 0.05
     cutoff_p, cutoff_n, cutoff_o = 0.3, 0.45, 0.25
     fold = 2
     # predictCNN(cutoff, fold, mode)
-    predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel)
+    # predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel)
 
 
 
