@@ -253,7 +253,7 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
         this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, multilabel, None)
 
         # instantiate the dataset
-        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
+        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, network)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         input_size = 1025 if mode == 'all' else 1024
@@ -262,9 +262,9 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
         if network == "FNN":
             model = FNN(input_size, output_size, dropout).to(device)
         elif variant == 0.0:
-            model = CNNSmall(input_size)
+            model = CNNSmall().to(device)
         elif variant == 1.0:
-            model = CNNLarge(input_size)
+            model = CNNLarge().to(device)
 
         model.load_state_dict(
             torch.load(f"../results/models/binding_regions_model_{name}_fold_{fold}.pth"))
@@ -282,11 +282,14 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
 
                 for input, label in test_loader:
                     input, label = input.to(device), label.to(device)
-                    prediction = model(input, multilabel)
+                    prediction = model(input, multilabel).T
+                    label = label.T
                     batch_wise_loss.append(criterion(loss_function, prediction, label.to(torch.float32)))
                     # apply activation function to prediction to enable classification and transpose matrices
-                    prediction_max = (prediction > cutoff).T
-                    label = label.T
+                    prediction_max_p = prediction[0] > cutoff[fold][0]
+                    prediction_max_n = prediction[1] > cutoff[fold][1]
+                    prediction_max_o = prediction[2] > cutoff[fold][2]
+                    prediction_max = [prediction_max_p, prediction_max_n, prediction_max_o]
 
                     # confusion matrix values
                     batch_wise_p["correct"].append((prediction_max[0] == label[0]).type(torch.float).sum().item())
@@ -335,7 +338,7 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
                 sd_o = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
 
                 for i in range(1000):
-                    if i % 100 == 0:
+                    if i % 450 == 0:
                         print(str(i))
                     rnd_p = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
                     rnd_n = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
@@ -360,26 +363,59 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
                 all_metrics.append([batch_wise_p_metrics, batch_wise_n_metrics, batch_wise_o_metrics])
                 all_st_errors.append([sd_p, sd_n, sd_o])
 
-            """
+
             else:  # not multilabel
-                test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
+                # save confusion matrix values for each batch --> important for bootstrapping
+                batch_wise_loss = []
+                batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+
                 for input, label in test_loader:
                     input, label = input.to(device), label[:, None].to(device)
-                    prediction = model(input, multilabel)
-                    test_loss += loss_function(prediction, label.to(torch.float32)).item()
-                    # apply activation function to prediction to enable classification
+                    prediction = model(input, multilabel) if network == "FNN" else model(input)
+                    batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
+                    # apply activation function to prediction to enable classification and transpose matrices
                     prediction_act = torch.sigmoid(prediction)
-                    prediction_max = prediction_act > cutoff
-                    # metrics
-                    correct += (prediction_max == label).type(torch.float).sum().item()
-                    tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
-                    fp += (prediction_max != label)[label == 0].type(torch.float).sum().item()
-                    tn += (prediction_max == label)[label == 0].type(torch.float).sum().item()
-                    fn += (prediction_max != label)[label == 1].type(torch.float).sum().item()
+                    prediction_max = prediction_act > cutoff[fold]
 
-                test_loss /= int(size / batch_size)
-                correct /= size
-            """
+                    # confusion matrix values
+                    batch_wise["correct"].append((prediction_max == label).type(torch.float).sum().item())
+                    batch_wise["TP"].append(
+                        (prediction_max == label)[label == 1].type(torch.float).sum().item())
+                    batch_wise["FP"].append(
+                        (prediction_max != label)[label == 0].type(torch.float).sum().item())
+                    batch_wise["TN"].append(
+                        (prediction_max == label)[label == 0].type(torch.float).sum().item())
+                    batch_wise["FN"].append(
+                        (prediction_max != label)[label == 1].type(torch.float).sum().item())
+
+                for k in batch_wise.keys():
+                    batch_wise[k] = np.array(batch_wise[k])
+
+                # batch-wise metrics
+                batch_wise_metrics = metrics(batch_wise)
+
+                print(batch_wise_metrics)
+
+                # bootstrapping
+                sd = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
+
+                for i in range(1000):
+                    if i % 450 == 0:
+                        print(str(i))
+                    rnd = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
+                    # draw 1000 random values from each metric-vector
+                    # append std of these 315 values to vector
+                    for k in rnd.keys():
+                        rnd[k] = np.random.choice(batch_wise_metrics[k], size=315, replace=True)
+                        sd[k] = np.append(sd[k], np.std(rnd[k], ddof=1))
+
+                # sort values, keep 95% confidence interval and get std.err
+                for k in sd.keys():
+                    sd[k] = np.std(sd[k].sort()[50:950], ddof=1)
+
+                all_conf_matrices.append(batch_wise)
+                all_metrics.append(batch_wise_metrics)
+                all_st_errors.append(sd)
 
             return all_conf_matrices, all_metrics, all_st_errors
 
@@ -397,7 +433,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     performances = []
-    for variant in [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 3.0, 4.0, 4.1]:
+    for variant in [0.0]:   # , 1.0, 2.0, 2.1, 2.20, 2.21, 3.0, 4.0, 4.1]:
         # set parameters
         print(f"variant {variant}:")
         mode = 'disorder_only' if variant == 3.0 else 'all'
@@ -421,7 +457,7 @@ if __name__ == '__main__':
                    4.0: [[0.6, 0.15, 0.05], [0.6, 0.15, 0.1], [0.6, 0.15, 0.1], [0.15, 0.15, 0.15], [0.65, 0.1, 0.1]],
                    4.1: [[0.3, 0.4, 0.25], [0.3, 0.4, 0.25], [0.3, 0.45, 0.25], [0.3, 0.45, 0.2], [0.5, 0.1, 0.4]]}
         cutoff = cutoffs[variant]
-        names = {0.0: "0_simple",
+        names = {0.0: "0_simple_without_dropout",
                  1.0: "1_5_layers",
                  2.0: "2_FNN",
                  2.1: "2-1_new_oversampling",
@@ -435,5 +471,6 @@ if __name__ == '__main__':
         performances.append(assess(name, cutoff, mode, multilabel, network, loss_function))
 
     with open('../results/logs/performance_assessment.tsv', "w") as output:
+        print(performances)
         output.write(str(performances))
         # TODO
