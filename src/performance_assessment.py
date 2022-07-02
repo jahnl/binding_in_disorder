@@ -217,6 +217,26 @@ def criterion(loss_func, prediction, label):  # sum over all classification head
     return losses
 
 
+def conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold):
+    batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
+    # apply activation function to prediction to enable classification and transpose matrices
+    prediction_act = torch.sigmoid(prediction)
+    prediction_max = prediction_act > cutoff[fold]
+
+    # confusion matrix values
+    batch_wise["correct"].append((prediction_max == label).type(torch.float).sum().item())
+    batch_wise["TP"].append(
+        (prediction_max == label)[label == 1].type(torch.float).sum().item())
+    batch_wise["FP"].append(
+        (prediction_max != label)[label == 0].type(torch.float).sum().item())
+    batch_wise["TN"].append(
+        (prediction_max == label)[label == 0].type(torch.float).sum().item())
+    batch_wise["FN"].append(
+        (prediction_max != label)[label == 1].type(torch.float).sum().item())
+
+    return batch_wise_loss, batch_wise
+
+
 def metrics(confusion_dict):
     # precision, recall, F1, MCC, balanced acc
     precision = confusion_dict["TP"] / (confusion_dict["TP"] + confusion_dict["FP"])
@@ -233,13 +253,15 @@ def metrics(confusion_dict):
 
 def assess(name, cutoff, mode, multilabel, network, loss_function):
     # predict and assess performance of 1 model
-    all_conf_matrices = []
-    all_metrics = []
-    all_st_errors = []
+    if multilabel:
+        all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
+                             {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
+                             {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}]
+    else:
+        all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
     for fold, _ in enumerate(cutoff):
         if len(cutoff) == 2:  # only two folds for models 2-2
             fold = [0, 4][fold]
-
 
         print(f"{name} Fold {fold}")
         # for validation use the training IDs in the current fold
@@ -323,101 +345,103 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
                         (prediction_max[2] != label[2])[label[2] == 1].type(torch.float).sum().item())
 
                 for k in batch_wise_p.keys():
-                    batch_wise_p[k] = np.array(batch_wise_p[k])
-                    batch_wise_n[k] = np.array(batch_wise_n[k])
-                    batch_wise_o[k] = np.array(batch_wise_o[k])
-
-                # batch-wise metrics
-                batch_wise_p_metrics = metrics(batch_wise_p)
-                batch_wise_n_metrics = metrics(batch_wise_n)
-                batch_wise_o_metrics = metrics(batch_wise_o)
-
-                # bootstrapping
-                sd_p = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-                sd_n = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-                sd_o = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-
-                for i in range(1000):
-                    if i % 450 == 0:
-                        print(str(i))
-                    rnd_p = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-                    rnd_n = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-                    rnd_o = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-                    # draw 1000 random values from each metric-vector
-                    # append std of these 315 values to vector
-                    for k in rnd_p.keys():
-                        rnd_p[k] = np.random.choice(batch_wise_p_metrics[k], size=315, replace=True)
-                        sd_p[k] = np.append(sd_p[k], np.std(rnd_p[k], ddof=1))
-                        rnd_n[k] = np.random.choice(batch_wise_n_metrics[k], size=315, replace=True)
-                        sd_n[k] = np.append(sd_n[k], np.std(rnd_n[k], ddof=1))
-                        rnd_o[k] = np.random.choice(batch_wise_o_metrics[k], size=315, replace=True)
-                        sd_o[k] = np.append(sd_o[k], np.std(rnd_o[k], ddof=1))
-
-                # sort values, keep 95% confidence interval and get std.err
-                for k in sd_p.keys():
-                    sd_p[k] = np.std(sd_p[k].sort()[50:950], ddof=1)
-                    sd_n[k] = np.std(sd_n[k].sort()[50:950], ddof=1)
-                    sd_o[k] = np.std(sd_o[k].sort()[50:950], ddof=1)
-
-                all_conf_matrices.append([batch_wise_p, batch_wise_n, batch_wise_o])
-                all_metrics.append([batch_wise_p_metrics, batch_wise_n_metrics, batch_wise_o_metrics])
-                all_st_errors.append([sd_p, sd_n, sd_o])
+                    all_conf_matrices[0][k] = np.append(all_conf_matrices[0][k], batch_wise_p[k])
+                    all_conf_matrices[1][k] = np.append(all_conf_matrices[1][k], batch_wise_n[k])
+                    all_conf_matrices[2][k] = np.append(all_conf_matrices[2][k], batch_wise_o[k])
 
 
             else:  # not multilabel
                 # save confusion matrix values for each batch --> important for bootstrapping
+                # for CNN: transform protein-wise batches to uniform batches for correct weighting and reliable metrics
                 batch_wise_loss = []
                 batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+                saved_prediction = torch.empty(size=(1, 1, 0)).to(device)
+                saved_label = torch.empty(size=(1, 1, 0)).to(device)
+                saved_batch_size = 1024
 
                 for input, label in test_loader:
+                    evaluate = True
                     input, label = input.to(device), label[:, None].to(device)
                     prediction = model(input, multilabel) if network == "FNN" else model(input)
-                    batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
-                    # apply activation function to prediction to enable classification and transpose matrices
-                    prediction_act = torch.sigmoid(prediction)
-                    prediction_max = prediction_act > cutoff[fold]
 
-                    # confusion matrix values
-                    batch_wise["correct"].append((prediction_max == label).type(torch.float).sum().item())
-                    batch_wise["TP"].append(
-                        (prediction_max == label)[label == 1].type(torch.float).sum().item())
-                    batch_wise["FP"].append(
-                        (prediction_max != label)[label == 0].type(torch.float).sum().item())
-                    batch_wise["TN"].append(
-                        (prediction_max == label)[label == 0].type(torch.float).sum().item())
-                    batch_wise["FN"].append(
-                        (prediction_max != label)[label == 1].type(torch.float).sum().item())
+                    if network == "CNN":
+                        prediction = torch.cat((saved_prediction, prediction), 2)
+                        label = torch.cat((saved_label, label), 2)
+                        if prediction.shape[2] >= saved_batch_size:  # enough data
+                            saved_prediction = prediction[:, :, saved_batch_size:]
+                            saved_label = label[:, :, saved_batch_size:]
+                        else:
+                            saved_prediction = prediction
+                            saved_label = label
+                            evaluate = False
+
+                    if evaluate:
+                        batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
+
+                # evaluate for last incomplete batch!
+                batch_wise_loss, batch_wise = conf_matrix(saved_prediction, saved_label, batch_wise_loss, batch_wise,
+                                                          fold)
 
                 for k in batch_wise.keys():
-                    batch_wise[k] = np.array(batch_wise[k])
+                    all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
 
-                # batch-wise metrics
-                batch_wise_metrics = metrics(batch_wise)
 
-                print(batch_wise_metrics)
+    # metrics and bootstrapping over all folds
+    if multilabel:
+        # batch-wise metrics
+        all_metrics = [metrics(all_conf_matrices[0]), metrics(all_conf_matrices[1]), metrics(all_conf_matrices[2])]
 
-                # bootstrapping
-                sd = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
+        # bootstrapping
+        all_sd_errors = [{"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
+                         {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
+                         {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}]
 
-                for i in range(1000):
-                    if i % 450 == 0:
-                        print(str(i))
-                    rnd = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-                    # draw 1000 random values from each metric-vector
-                    # append std of these 315 values to vector
-                    for k in rnd.keys():
-                        rnd[k] = np.random.choice(batch_wise_metrics[k], size=315, replace=True)
-                        sd[k] = np.append(sd[k], np.std(rnd[k], ddof=1))
+        for i in range(1000):
+            if i % 450 == 0:
+                print(str(i))
+            rnd = [{"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
+                   {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
+                   {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}]
+            # draw 1000 random values from each metric-vector
+            # append std of these 315 values to vector
+            for k in rnd[0].keys():
+                rnd[0][k] = np.random.choice(all_metrics[0][k], size=315, replace=True)
+                all_sd_errors[0][k] = np.append(all_sd_errors[0][k], np.std(rnd[0][k], ddof=1))
+                rnd[1][k] = np.random.choice(all_metrics[1][k], size=315, replace=True)
+                all_sd_errors[1][k] = np.append(all_sd_errors[1][k], np.std(rnd[1][k], ddof=1))
+                rnd[2][k] = np.random.choice(all_metrics[2][k], size=315, replace=True)
+                all_sd_errors[2][k] = np.append(all_sd_errors[2][k], np.std(rnd[2][k], ddof=1))
 
-                # sort values, keep 95% confidence interval and get std.err
-                for k in sd.keys():
-                    sd[k] = np.std(sd[k].sort()[50:950], ddof=1)
+        # sort values, keep 95% confidence interval and get std.err
+        for k in all_sd_errors[0].keys():
+            all_sd_errors[0][k] = np.std(all_sd_errors[0][k].sort()[50:950], ddof=1)
+            all_sd_errors[1][k] = np.std(all_sd_errors[1][k].sort()[50:950], ddof=1)
+            all_sd_errors[1][k] = np.std(all_sd_errors[1][k].sort()[50:950], ddof=1)
 
-                all_conf_matrices.append(batch_wise)
-                all_metrics.append(batch_wise_metrics)
-                all_st_errors.append(sd)
+    else:   # no multilabel
+        # batch-wise metrics
+        all_metrics = metrics(all_conf_matrices)
+        print(all_metrics)
 
-            return all_conf_matrices, all_metrics, all_st_errors
+        # bootstrapping
+        all_sd_errors = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
+
+        for i in range(1000):
+            if i % 450 == 0:
+                print(str(i))
+            rnd = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
+            # draw 1000 random values from each metric-vector
+            # append std of these 315 values to vector
+            for k in rnd.keys():
+                rnd[k] = np.random.choice(all_metrics[k], size=315, replace=True)
+                all_sd_errors[k] = np.append(all_sd_errors[k], np.std(rnd[k], ddof=1))
+
+        # sort values, keep 95% confidence interval and get std.err
+        for k in all_sd_errors.keys():
+            all_sd_errors[k] = np.std(all_sd_errors[k].sort()[50:950], ddof=1)
+
+
+    return all_conf_matrices, all_metrics, all_sd_errors
 
 
 
