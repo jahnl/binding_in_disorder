@@ -293,12 +293,12 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
         model.load_state_dict(
             torch.load(f"../results/models/binding_regions_model_{name}_fold_{fold}.pth"))
 
-        batch_size = 1 if network == "CNN" else 512
+        batch_size = 1 if network == "CNN" else 339     # 339 is avg protein length
         test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
         model.eval()
         with torch.no_grad():
             if multilabel:
-                # save confusion matrix values for each batch   # TODO: for each protein!
+                # save confusion matrix values for each batch
                 batch_wise_loss = []
                 batch_wise_p = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
                 batch_wise_n = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
@@ -360,7 +360,10 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
                 for input, label in test_loader:
                     input, label = input.to(device), label[:, None].to(device)
                     prediction = model(input, multilabel) if network == "FNN" else model(input)
-                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
+                    if len(cutoff) == 2 and fold == 4:
+                        batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, 1)
+                    else:
+                        batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
 
                 for k in batch_wise.keys():
                     all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -450,7 +453,7 @@ if __name__ == '__main__':
              2.20: "2-2_dropout_0.2",  # only folds 0 and 4
              2.21: "2-2_dropout_0.3",  # only folds 0 and 4
              3.0: "3_d_only",
-             4.0: "4_multilabel",
+             4.0: "4_multiclass",
              4.1: "4-1_new_oversampling"}
 
 
@@ -474,7 +477,7 @@ if __name__ == '__main__':
         performances.append(assess(name, cutoff, mode, multilabel, network, loss_function))
 
     with open('../results/logs/performance_assessment.tsv', "w") as output:
-        output.write("model\t")
+        output.write("model\tclass\t")
         for key in performances[0][0].keys():   # conf-matrix
             output.write(str(key) + "\t")
         for key in performances[0][1].keys():   # metrics
@@ -484,12 +487,23 @@ if __name__ == '__main__':
         output.write("\n")
 
         for i, v in enumerate(variants):
-            output.write(f"{names[v]}\t")
-            for key in performances[0][0].keys():  # conf-matrix
-                output.write(str(performances[i][0][key]) + "\t")
-            for key in performances[0][1].keys():  # metrics
-                output.write(str(performances[i][1][key]) + "\t")
-            for key in performances[0][2].keys():  # SEs of metrics
-                output.write(str(performances[i][2][key]) + "\t")
-            output.write("\n")
+            if v >= 4.0:    # multiclass
+                for j, b_class in enumerate(["protein", "nuc", "other"]):
+                    output.write(f"{names[v]}\t{b_class}\t")
+                    for key in performances[0][0].keys():  # conf-matrix
+                        output.write(str(performances[i][0][j][key]) + "\t")
+                    for key in performances[0][1].keys():  # metrics
+                        output.write(str(performances[i][1][j][key]) + "\t")
+                    for key in performances[0][2].keys():  # SEs of metrics
+                        output.write(str(performances[i][2][j][key]) + "\t")
+                    output.write("\n")
+            else:
+                output.write(f"{names[v]}\t-\t")
+                for key in performances[0][0].keys():  # conf-matrix
+                    output.write(str(performances[i][0][key]) + "\t")
+                for key in performances[0][1].keys():  # metrics
+                    output.write(str(performances[i][1][key]) + "\t")
+                for key in performances[0][2].keys():  # SEs of metrics
+                    output.write(str(performances[i][2][key]) + "\t")
+                output.write("\n")
 
