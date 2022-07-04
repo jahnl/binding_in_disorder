@@ -238,17 +238,19 @@ def conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold):
 
 
 def metrics(confusion_dict):
-    # precision, recall, F1, MCC, balanced acc
+    # precision, recall, neg.precision, neg.recall, F1, MCC, balanced acc
     precision = confusion_dict["TP"] / (confusion_dict["TP"] + confusion_dict["FP"])
+    neg_precision = confusion_dict["TN"] / (confusion_dict["TN"] + confusion_dict["FN"])
     recall = confusion_dict["TP"] / (confusion_dict["TP"] + confusion_dict["FN"])
+    neg_recall = confusion_dict["TN"] / (confusion_dict["TN"] + confusion_dict["FP"])
     specificity = confusion_dict["TN"] / (confusion_dict["TN"] + confusion_dict["FP"])
     balanced_acc = (recall + specificity) / 2
     f1 = 2 * ((precision * recall) / (precision + recall))
     mcc = (confusion_dict["TN"] * confusion_dict["TP"] - confusion_dict["FP"] * confusion_dict["FN"]) / \
         np.sqrt((confusion_dict["TN"] + confusion_dict["FN"]) * (confusion_dict["FP"] + confusion_dict["TP"]) *
                 (confusion_dict["TN"] + confusion_dict["FP"]) * (confusion_dict["FN"] + confusion_dict["TP"]))
-    metrics = {"Precision": precision, "Recall": recall, "Balanced Acc.": balanced_acc, "F1": f1, "MCC": mcc}
-    return metrics
+    return {"Precision": precision, "Recall": recall, "Neg_Precision": neg_precision, "Neg_Recall": neg_recall,
+            "Balanced Acc.": balanced_acc, "F1": f1, "MCC": mcc}
 
 
 def assess(name, cutoff, mode, multilabel, network, loss_function):
@@ -296,7 +298,7 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
         model.eval()
         with torch.no_grad():
             if multilabel:
-                # save confusion matrix values for each batch --> important for bootstrapping
+                # save confusion matrix values for each batch   # TODO: for each protein!
                 batch_wise_loss = []
                 batch_wise_p = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
                 batch_wise_n = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
@@ -351,99 +353,73 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
 
 
             else:  # not multilabel
-                # save confusion matrix values for each batch --> important for bootstrapping
-                # for CNN: transform protein-wise batches to uniform batches for correct weighting and reliable metrics
+                # save confusion matrix values for each protein
                 batch_wise_loss = []
                 batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
-                saved_prediction = torch.empty(size=(1, 1, 0)).to(device)
-                saved_label = torch.empty(size=(1, 1, 0)).to(device)
-                saved_batch_size = 1024
 
                 for input, label in test_loader:
-                    evaluate = True
                     input, label = input.to(device), label[:, None].to(device)
                     prediction = model(input, multilabel) if network == "FNN" else model(input)
-
-                    if network == "CNN":
-                        prediction = torch.cat((saved_prediction, prediction), 2)
-                        label = torch.cat((saved_label, label), 2)
-                        if prediction.shape[2] >= saved_batch_size:  # enough data
-                            saved_prediction = prediction[:, :, saved_batch_size:]
-                            saved_label = label[:, :, saved_batch_size:]
-                        else:
-                            saved_prediction = prediction
-                            saved_label = label
-                            evaluate = False
-
-                    if evaluate:
-                        batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
-
-                # evaluate for last incomplete batch!
-                batch_wise_loss, batch_wise = conf_matrix(saved_prediction, saved_label, batch_wise_loss, batch_wise,
-                                                          fold)
+                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
 
                 for k in batch_wise.keys():
                     all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
 
-
-    # metrics and bootstrapping over all folds
+    # metrics and sd over all folds/proteins
     if multilabel:
         # batch-wise metrics
         all_metrics = [metrics(all_conf_matrices[0]), metrics(all_conf_matrices[1]), metrics(all_conf_matrices[2])]
 
-        # bootstrapping
-        all_sd_errors = [{"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
-                         {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
-                         {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}]
+        # exclude nan values
+        for k in all_metrics[0].keys():
+            all_metrics[0][k] = all_metrics[0][k][np.logical_not(np.isnan(all_metrics[0][k]))]
+            all_metrics[1][k] = all_metrics[1][k][np.logical_not(np.isnan(all_metrics[1][k]))]
+            all_metrics[2][k] = all_metrics[2][k][np.logical_not(np.isnan(all_metrics[2][k]))]
 
-        for i in range(1000):
-            if i % 450 == 0:
-                print(str(i))
-            rnd = [{"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
-                   {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []},
-                   {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}]
-            # draw 1000 random values from each metric-vector
-            # append std of these 315 values to vector
-            for k in rnd[0].keys():
-                rnd[0][k] = np.random.choice(all_metrics[0][k], size=315, replace=True)
-                all_sd_errors[0][k] = np.append(all_sd_errors[0][k], np.std(rnd[0][k], ddof=1))
-                rnd[1][k] = np.random.choice(all_metrics[1][k], size=315, replace=True)
-                all_sd_errors[1][k] = np.append(all_sd_errors[1][k], np.std(rnd[1][k], ddof=1))
-                rnd[2][k] = np.random.choice(all_metrics[2][k], size=315, replace=True)
-                all_sd_errors[2][k] = np.append(all_sd_errors[2][k], np.std(rnd[2][k], ddof=1))
+        # standard error calculation
+        all_sd_errors = [{}, {}, {}]
+        for k in all_metrics[0].keys():
+            all_sd_errors[0][k] = np.std(all_metrics[0][k], ddof=1) / np.sqrt(len(all_metrics[0][k]))
+            all_sd_errors[1][k] = np.std(all_metrics[1][k], ddof=1) / np.sqrt(len(all_metrics[1][k]))
+            all_sd_errors[2][k] = np.std(all_metrics[2][k], ddof=1) / np.sqrt(len(all_metrics[2][k]))
 
-        # sort values, keep 95% confidence interval and get std.err
-        for k in all_sd_errors[0].keys():
-            all_sd_errors[0][k] = np.std(all_sd_errors[0][k].sort()[50:950], ddof=1)
-            all_sd_errors[1][k] = np.std(all_sd_errors[1][k].sort()[50:950], ddof=1)
-            all_sd_errors[1][k] = np.std(all_sd_errors[1][k].sort()[50:950], ddof=1)
+        # calculate sum and avg values
+        sum_matrix = [{}, {}, {}]
+        for k in all_conf_matrices[0].keys():
+            sum_matrix[0][k] = np.sum(all_conf_matrices[0][k])
+            sum_matrix[1][k] = np.sum(all_conf_matrices[1][k])
+            sum_matrix[2][k] = np.sum(all_conf_matrices[2][k])
 
-    else:   # no multilabel
-        # batch-wise metrics
+        avg_metrics = [{}, {}, {}]
+        for k in all_metrics[0].keys():
+            avg_metrics[0][k] = np.average(all_metrics[0][k])
+            avg_metrics[1][k] = np.average(all_metrics[1][k])
+            avg_metrics[2][k] = np.average(all_metrics[2][k])
+
+
+    else:  # no multilabel
+        # protein-wise metrics
         all_metrics = metrics(all_conf_matrices)
-        print(all_metrics)
 
-        # bootstrapping
-        all_sd_errors = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
+        # exclude nan values
+        for k in all_metrics.keys():
+            all_metrics[k] = all_metrics[k][np.logical_not(np.isnan(all_metrics[k]))]
 
-        for i in range(1000):
-            if i % 450 == 0:
-                print(str(i))
-            rnd = {"Precision": [], "Recall": [], "Balanced Acc.": [], "F1": [], "MCC": []}
-            # draw 1000 random values from each metric-vector
-            # append std of these 315 values to vector
-            for k in rnd.keys():
-                rnd[k] = np.random.choice(all_metrics[k], size=315, replace=True)
-                all_sd_errors[k] = np.append(all_sd_errors[k], np.std(rnd[k], ddof=1))
+        # standard error calculation
+        all_sd_errors = {}
+        for k in all_metrics.keys():
+            all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
 
-        # sort values, keep 95% confidence interval and get std.err
-        for k in all_sd_errors.keys():
-            all_sd_errors[k] = np.std(all_sd_errors[k].sort()[50:950], ddof=1)
+        # calculate sum and avg values
+        sum_matrix = {}
+        for k in all_conf_matrices.keys():
+            sum_matrix[k] = np.sum(all_conf_matrices[k])
 
+        avg_metrics = {}
+        for k in all_metrics.keys():
+            avg_metrics[k] = np.average(all_metrics[k])
 
-    return all_conf_matrices, all_metrics, all_sd_errors
-
-
+    return sum_matrix, avg_metrics, all_sd_errors
 
 
 if __name__ == '__main__':
@@ -456,8 +432,30 @@ if __name__ == '__main__':
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
+    variants = [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 3.0, 4.0, 4.1]
+    # cutoffs are different for each fold, variant (and class, if multiclass)!
+    cutoffs = {0.0: [0.315, 0.16, 0.235, 0.245, 0.39],
+               1.0: [0.005, 0.005, 0.005, 0.005, 0.01],
+               2.0: [0.12, 0.1, 0.06, 0.06, 0.08],
+               2.1: [0.05, 0.05, 0.15, 0.2, 0.85],
+               2.20: [0.75, 0.7],  # only folds 0 and 4
+               2.21: [0.25, 0.8],  # only folds 0 and 4
+               3.0: [0.44, 0.4, 0.48, 0.48, 0.5],
+               4.0: [[0.6, 0.15, 0.05], [0.6, 0.15, 0.1], [0.6, 0.15, 0.1], [0.15, 0.15, 0.15], [0.65, 0.1, 0.1]],
+               4.1: [[0.3, 0.4, 0.25], [0.3, 0.4, 0.25], [0.3, 0.45, 0.25], [0.3, 0.45, 0.2], [0.5, 0.1, 0.4]]}
+    names = {0.0: "0_simple_without_dropout",
+             1.0: "1_5layers",
+             2.0: "2_FNN",
+             2.1: "2-1_new_oversampling",
+             2.20: "2-2_dropout_0.2",  # only folds 0 and 4
+             2.21: "2-2_dropout_0.3",  # only folds 0 and 4
+             3.0: "3_d_only",
+             4.0: "4_multilabel",
+             4.1: "4-1_new_oversampling"}
+
+
     performances = []
-    for variant in [0.0]:   # , 1.0, 2.0, 2.1, 2.20, 2.21, 3.0, 4.0, 4.1]:
+    for variant in variants:
         # set parameters
         print(f"variant {variant}:")
         mode = 'disorder_only' if variant == 3.0 else 'all'
@@ -470,31 +468,28 @@ if __name__ == '__main__':
             dropout = 0.3
         else:
             dropout = 0.0
-        # cutoffs are different for each fold, variant (and class, if multiclass)!
-        cutoffs = {0.0: [0.315, 0.16, 0.235, 0.245, 0.39],
-                   1.0: [0.005, 0.005, 0.005, 0.005, 0.01],
-                   2.0: [0.12, 0.1, 0.06, 0.06, 0.08],
-                   2.1: [0.05, 0.05, 0.15, 0.2, 0.85],
-                   2.20: [0.75, 0.7],  # only folds 0 and 4
-                   2.21: [0.25, 0.8],  # only folds 0 and 4
-                   3.0: [0.44, 0.4, 0.48, 0.48, 0.5],
-                   4.0: [[0.6, 0.15, 0.05], [0.6, 0.15, 0.1], [0.6, 0.15, 0.1], [0.15, 0.15, 0.15], [0.65, 0.1, 0.1]],
-                   4.1: [[0.3, 0.4, 0.25], [0.3, 0.4, 0.25], [0.3, 0.45, 0.25], [0.3, 0.45, 0.2], [0.5, 0.1, 0.4]]}
         cutoff = cutoffs[variant]
-        names = {0.0: "0_simple_without_dropout",
-                 1.0: "1_5_layers",
-                 2.0: "2_FNN",
-                 2.1: "2-1_new_oversampling",
-                 2.20: "2-2_dropout_0.2",  # only folds 0 and 4
-                 2.21: "2-2_dropout_0.3",  # only folds 0 and 4
-                 3.0: "3_d_only",
-                 4.0: "4_multilabel",
-                 4.1: "4-1_new_oversampling"}
         name = names[variant]
 
         performances.append(assess(name, cutoff, mode, multilabel, network, loss_function))
 
     with open('../results/logs/performance_assessment.tsv', "w") as output:
-        print(performances)
-        output.write(str(performances))
-        # TODO
+        output.write("model\t")
+        for key in performances[0][0].keys():   # conf-matrix
+            output.write(str(key) + "\t")
+        for key in performances[0][1].keys():   # metrics
+            output.write(str(key) + "\t")
+        for key in performances[0][2].keys():   # SEs of metrics
+            output.write("SE_" + str(key) + "\t")
+        output.write("\n")
+
+        for i, v in enumerate(variants):
+            output.write(f"{names[v]}\t")
+            for key in performances[0][0].keys():  # conf-matrix
+                output.write(str(performances[i][0][key]) + "\t")
+            for key in performances[0][1].keys():  # metrics
+                output.write(str(performances[i][1][key]) + "\t")
+            for key in performances[0][2].keys():  # SEs of metrics
+                output.write(str(performances[i][2][key]) + "\t")
+            output.write("\n")
+
