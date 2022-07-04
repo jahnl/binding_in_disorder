@@ -212,7 +212,7 @@ if __name__ == '__main__':
 
     def try_cutoffs(mode, multilabel):
         # iterate over folds
-        with open(f"../results/logs/validation_2_2_dropout_{dropout}.txt", "w") as output_file:
+        with open(f"../results/logs/validation_2_2_dropout_{dropout}_new.txt", "w") as output_file:
             if multilabel:
                 output_file.write('Fold\tAvg_Loss\tCutoff\tP_Acc\tP_Prec\tP_Rec\tP_TP\tP_FP\tP_TN\tP_FN\t'
                                   'N_Acc\tN_Prec\tN_Rec\tN_TP\tN_FP\tN_TN\tN_FN\t'
@@ -366,7 +366,7 @@ if __name__ == '__main__':
                 output_size = 3 if multilabel else 1
                 model = FNN(input_size=input_size, output_size=output_size, p=dropout).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_new_fold_{fold}.pth"))
                 # test performance again, should be the same
                 loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, loss_function, device, output_file, multilabel)

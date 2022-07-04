@@ -262,9 +262,6 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
     else:
         all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
     for fold, _ in enumerate(cutoff):
-        if len(cutoff) == 2:  # only two folds for models 2-2
-            fold = [0, 4][fold]
-
         print(f"{name} Fold {fold}")
         # for validation use the training IDs in the current fold
 
@@ -360,10 +357,7 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
                 for input, label in test_loader:
                     input, label = input.to(device), label[:, None].to(device)
                     prediction = model(input, multilabel) if network == "FNN" else model(input)
-                    if len(cutoff) == 2 and fold == 4:
-                        batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, 1)
-                    else:
-                        batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
+                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
 
                 for k in batch_wise.keys():
                     all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -441,8 +435,8 @@ if __name__ == '__main__':
                1.0: [0.005, 0.005, 0.005, 0.005, 0.01],
                2.0: [0.12, 0.1, 0.06, 0.06, 0.08],
                2.1: [0.05, 0.05, 0.15, 0.2, 0.85],
-               2.20: [0.75, 0.7],  # only folds 0 and 4
-               2.21: [0.25, 0.8],  # only folds 0 and 4
+               2.20: [0.65, 0.65, 0.65, 0.5, 0.8],
+               2.21: [0.8, 0.8, 0.85, 0.85, 0.85],
                3.0: [0.44, 0.4, 0.48, 0.48, 0.5],
                4.0: [[0.6, 0.15, 0.05], [0.6, 0.15, 0.1], [0.6, 0.15, 0.1], [0.15, 0.15, 0.15], [0.65, 0.1, 0.1]],
                4.1: [[0.3, 0.4, 0.25], [0.3, 0.4, 0.25], [0.3, 0.45, 0.25], [0.3, 0.45, 0.2], [0.5, 0.1, 0.4]]}
@@ -450,8 +444,8 @@ if __name__ == '__main__':
              1.0: "1_5layers",
              2.0: "2_FNN",
              2.1: "2-1_new_oversampling",
-             2.20: "2-2_dropout_0.2",  # only folds 0 and 4
-             2.21: "2-2_dropout_0.3",  # only folds 0 and 4
+             2.20: "2-2_dropout_0.2_new",
+             2.21: "2-2_dropout_0.3_new",
              3.0: "3_d_only",
              4.0: "4_multiclass",
              4.1: "4-1_new_oversampling"}
