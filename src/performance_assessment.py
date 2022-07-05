@@ -217,10 +217,13 @@ def criterion(loss_func, prediction, label):  # sum over all classification head
     return losses
 
 
-def conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold):
+def conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold, random):
     batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
     # apply activation function to prediction to enable classification and transpose matrices
-    prediction_act = torch.sigmoid(prediction)
+    if random:
+        prediction_act = prediction     # no sigmoid needed for these values
+    else:
+        prediction_act = torch.sigmoid(prediction)
     prediction_max = prediction_act > cutoff[fold]
 
     # confusion matrix values
@@ -247,8 +250,8 @@ def metrics(confusion_dict):
     balanced_acc = (recall + specificity) / 2
     f1 = 2 * ((precision * recall) / (precision + recall))
     mcc = (confusion_dict["TN"] * confusion_dict["TP"] - confusion_dict["FP"] * confusion_dict["FN"]) / \
-        np.sqrt((confusion_dict["TN"] + confusion_dict["FN"]) * (confusion_dict["FP"] + confusion_dict["TP"]) *
-                (confusion_dict["TN"] + confusion_dict["FP"]) * (confusion_dict["FN"] + confusion_dict["TP"]))
+          np.sqrt((confusion_dict["TN"] + confusion_dict["FN"]) * (confusion_dict["FP"] + confusion_dict["TP"]) *
+                  (confusion_dict["TN"] + confusion_dict["FP"]) * (confusion_dict["FN"] + confusion_dict["TP"]))
     return {"Precision": precision, "Recall": recall, "Neg_Precision": neg_precision, "Neg_Recall": neg_recall,
             "Balanced Acc.": balanced_acc, "F1": f1, "MCC": mcc}
 
@@ -287,12 +290,16 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
         elif variant == 1.0:
             model = CNNLarge().to(device)
 
-        model.load_state_dict(
-            torch.load(f"../results/models/binding_regions_model_{name}_fold_{fold}.pth"))
+        if name.startswith("random"):
+            model = None
+        else:
+            model.load_state_dict(
+                torch.load(f"../results/models/binding_regions_model_{name}_fold_{fold}.pth"))
 
-        batch_size = 1 if network == "CNN" else 339     # 339 is avg protein length
+        batch_size = 1 if network == "CNN" else 339  # 339 is avg protein length
         test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
-        model.eval()
+        if model is not None:
+            model.eval()
         with torch.no_grad():
             if multilabel:
                 # save confusion matrix values for each batch
@@ -303,7 +310,10 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
 
                 for input, label in test_loader:
                     input, label = input.to(device), label.to(device)
-                    prediction = model(input, multilabel).T
+                    if name.startswith("random"):
+                        prediction = torch.rand(label.T.shape).to(device)
+                    else:
+                        prediction = model(input, multilabel).T
                     label = label.T
                     batch_wise_loss.append(criterion(loss_function, prediction, label.to(torch.float32)))
                     # apply activation function to prediction to enable classification and transpose matrices
@@ -356,8 +366,13 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
 
                 for input, label in test_loader:
                     input, label = input.to(device), label[:, None].to(device)
-                    prediction = model(input, multilabel) if network == "FNN" else model(input)
-                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold)
+                    if name.startswith("random"):
+                        prediction = torch.rand(len(label), 1).to(device)
+                        random = True
+                    else:
+                        prediction = model(input, multilabel) if network == "FNN" else model(input)
+                        random = False
+                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold, random)
 
                 for k in batch_wise.keys():
                     all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -429,7 +444,7 @@ if __name__ == '__main__':
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
-    variants = [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 3.0, 4.0, 4.1]
+    variants = [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 12.0, 3.0, 13.0, 4.0, 4.1, 14.0]
     # cutoffs are different for each fold, variant (and class, if multiclass)!
     cutoffs = {0.0: [0.315, 0.16, 0.235, 0.245, 0.39],
                1.0: [0.005, 0.005, 0.005, 0.005, 0.01],
@@ -437,27 +452,33 @@ if __name__ == '__main__':
                2.1: [0.05, 0.05, 0.15, 0.2, 0.85],
                2.20: [0.65, 0.65, 0.65, 0.5, 0.8],
                2.21: [0.8, 0.8, 0.85, 0.85, 0.85],
+               12.0: [0.902, 0.902, 0.902, 0.902, 0.902],  # here cutoff = chance of negative prediction
                3.0: [0.44, 0.4, 0.48, 0.48, 0.5],
+               13.0: [0.578, 0.578, 0.578, 0.578, 0.578],  # here cutoff = chance of negative prediction
                4.0: [[0.6, 0.15, 0.05], [0.6, 0.15, 0.1], [0.6, 0.15, 0.1], [0.15, 0.15, 0.15], [0.65, 0.1, 0.1]],
-               4.1: [[0.3, 0.4, 0.25], [0.3, 0.4, 0.25], [0.3, 0.45, 0.25], [0.3, 0.45, 0.2], [0.5, 0.1, 0.4]]}
+               4.1: [[0.3, 0.4, 0.25], [0.3, 0.4, 0.25], [0.3, 0.45, 0.25], [0.3, 0.45, 0.2], [0.5, 0.1, 0.4]],
+               14.0: [[0.923, 0.983, 0.986], [0.923, 0.983, 0.986], [0.923, 0.983, 0.986], [0.923, 0.983, 0.986],
+                      [0.923, 0.983, 0.986]]}  # here cutoff = chance of negative prediction
     names = {0.0: "0_simple_without_dropout",
              1.0: "1_5layers",
              2.0: "2_FNN",
              2.1: "2-1_new_oversampling",
              2.20: "2-2_dropout_0.2_new",
              2.21: "2-2_dropout_0.3_new",
+             12.0: "random_binary",
              3.0: "3_d_only",
+             13.0: "random_d_only",
              4.0: "4_multiclass",
-             4.1: "4-1_new_oversampling"}
-
+             4.1: "4-1_new_oversampling",
+             14.0: "random_multilabel"}
 
     performances = []
     for variant in variants:
         # set parameters
         print(f"variant {variant}:")
-        mode = 'disorder_only' if variant == 3.0 else 'all'
-        multilabel = True if variant >= 4.0 else False
-        network = 'CNN' if variant < 2.0 else 'FNN'
+        mode = 'disorder_only' if (variant % 10) == 3.0 else 'all'
+        multilabel = True if (variant % 10) >= 4.0 else False
+        network = 'CNN' if (variant % 10) < 2.0 else 'FNN'
         loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
         if variant == 2.20:
             dropout = 0.2
@@ -472,16 +493,16 @@ if __name__ == '__main__':
 
     with open('../results/logs/performance_assessment.tsv', "w") as output:
         output.write("model\tclass\t")
-        for key in performances[0][0].keys():   # conf-matrix
+        for key in performances[0][0].keys():  # conf-matrix
             output.write(str(key) + "\t")
-        for key in performances[0][1].keys():   # metrics
+        for key in performances[0][1].keys():  # metrics
             output.write(str(key) + "\t")
-        for key in performances[0][2].keys():   # SEs of metrics
+        for key in performances[0][2].keys():  # SEs of metrics
             output.write("SE_" + str(key) + "\t")
         output.write("\n")
 
         for i, v in enumerate(variants):
-            if v >= 4.0:    # multiclass
+            if (v % 10) >= 4.0:  # multiclass
                 for j, b_class in enumerate(["protein", "nuc", "other"]):
                     output.write(f"{names[v]}\t{b_class}\t")
                     for key in performances[0][0].keys():  # conf-matrix
@@ -500,4 +521,3 @@ if __name__ == '__main__':
                 for key in performances[0][2].keys():  # SEs of metrics
                     output.write(str(performances[i][2][key]) + "\t")
                 output.write("\n")
-

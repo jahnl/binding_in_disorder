@@ -28,7 +28,7 @@ def ML_input_labels(t_list, t_set):
         disorder_str = ''
         ligand_str = ''
         # residue counters
-        b_counter, nb_counter, p_counter, n_counter, o_counter = 0, 0, 0, 0, 0
+        b_counter, nb_counter, dnb_counter, p_counter, n_counter, o_counter = 0, 0, 0, 0, 0, 0
         for entry in t_list:
             if not special_case:
                 out.write('>' + entry[0] + '\n')
@@ -67,6 +67,7 @@ def ML_input_labels(t_list, t_set):
                 nb_c = ligand_str.count('-') + ligand_str.count('_')
                 b_counter += len(ligand_str) - nb_c
                 nb_counter += nb_c
+                dnb_counter += ligand_str.count('_')
                 p_c = ligand_str.count('P') + ligand_str.count('X') + ligand_str.count('Y') + ligand_str.count('A')
                 n_c = ligand_str.count('N') + ligand_str.count('X') + ligand_str.count('Z') + ligand_str.count('A')
                 o_c = ligand_str.count('O') + ligand_str.count('Y') + ligand_str.count('Z') + ligand_str.count('A')
@@ -74,6 +75,7 @@ def ML_input_labels(t_list, t_set):
                 n_counter += n_c
                 o_counter += o_c
     print(f'# binding residues: {b_counter}, # non-binding residues: {nb_counter}')
+    print(f'# disorder but non-binding residues: {dnb_counter}')
     print(f'# protein-binding residues: {p_counter}, # nuc-binding residues: {n_counter}, '
           f'# other-binding residues: {o_counter}')
 
