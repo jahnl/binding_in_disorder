@@ -452,6 +452,8 @@ if __name__ == '__main__':
                2.1: [0.05, 0.05, 0.15, 0.2, 0.85],
                2.20: [0.65, 0.65, 0.65, 0.5, 0.8],
                2.21: [0.8, 0.8, 0.85, 0.85, 0.85],
+               2.211: [0.7, 0.6, 0.65, 0.55, 0.6],
+               2.212: [0.8, 0.85, 0.75, 0.8, 0.85],
                12.0: [0.902, 0.902, 0.902, 0.902, 0.902],  # here cutoff = chance of negative prediction
                3.0: [0.44, 0.4, 0.48, 0.48, 0.5],
                13.0: [0.578, 0.578, 0.578, 0.578, 0.578],  # here cutoff = chance of negative prediction
@@ -465,6 +467,8 @@ if __name__ == '__main__':
              2.1: "2-1_new_oversampling",
              2.20: "2-2_dropout_0.2_new",
              2.21: "2-2_dropout_0.3_new",
+             2.211: "2-2_dropout_0.3_lr_0.005",
+             2.212: "2-2_dropout_0.3_lr_0.008",
              12.0: "random_binary",
              3.0: "3_d_only",
              13.0: "random_d_only",
@@ -482,7 +486,7 @@ if __name__ == '__main__':
         loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
         if variant == 2.20:
             dropout = 0.2
-        elif variant == 2.21:
+        elif 2.21 <= variant < 3.0:
             dropout = 0.3
         else:
             dropout = 0.0

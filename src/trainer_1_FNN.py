@@ -132,6 +132,7 @@ if __name__ == '__main__':
 
     mode = 'all'  # disorder_only or all
     dropout = 0.3
+    lr = 0.008
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -188,7 +189,7 @@ if __name__ == '__main__':
         input_size = 1024 if mode == 'disorder_only' else 1025
         model = FNN(input_size=input_size, output_size=1, p=dropout).to(device)
         criterion = nn.BCEWithLogitsLoss()    # loss function for binary problem
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        optimizer = optim.Adam(model.parameters(), lr=lr)
 
 
         def train(dataset, model, loss_function, optimizer, device, output):
@@ -281,7 +282,7 @@ if __name__ == '__main__':
         n_epochs_stop = 10
         best_state_dict = None
 
-        output_file = open(f"../results/logs/training_progress_2-2_dropout_{dropout}_new_fold_{fold}.txt", "w")
+        output_file = open(f"../results/logs/training_progress_2-2_dropout_{dropout}_lr_{lr}_fold_{fold}.txt", "w")
 
         for epoch in range(epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
@@ -303,6 +304,6 @@ if __name__ == '__main__':
 
 
         # save best model of this fold
-        torch.save(best_state_dict, f"../results/models/binding_regions_model_2-2_dropout_{dropout}_new_fold_{fold}.pth")
+        torch.save(best_state_dict, f"../results/models/binding_regions_model_2-2_dropout_{dropout}_lr_{lr}_fold_{fold}.pth")
         output_file.flush()
         output_file.close()

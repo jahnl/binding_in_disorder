@@ -212,7 +212,7 @@ if __name__ == '__main__':
 
     def try_cutoffs(mode, multilabel):
         # iterate over folds
-        with open(f"../results/logs/validation_2_2_dropout_{dropout}_new.txt", "w") as output_file:
+        with open(f"../results/logs/validation_2_2_dropout_{dropout}_lr_0.008.txt", "w") as output_file:
             if multilabel:
                 output_file.write('Fold\tAvg_Loss\tCutoff\tP_Acc\tP_Prec\tP_Rec\tP_TP\tP_FP\tP_TN\tP_FN\t'
                                   'N_Acc\tN_Prec\tN_Rec\tN_TP\tN_FP\tN_TN\tN_FN\t'
@@ -366,7 +366,7 @@ if __name__ == '__main__':
                 output_size = 3 if multilabel else 1
                 model = FNN(input_size=input_size, output_size=output_size, p=dropout).to(device)
                 model.load_state_dict(
-                    torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_new_fold_{fold}.pth"))
+                    torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_lr_0.008_fold_{fold}.pth"))
                 # test performance again, should be the same
                 loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
                 test_performance(validation_dataset, model, loss_function, device, output_file, multilabel)
@@ -407,7 +407,7 @@ if __name__ == '__main__':
                     output_file.write(f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
     def predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel):
-        with open(f"../results/logs/predict_val_4-1_new_oversampling_{fold}_{cutoff}.txt", "w") as output_file:
+        with open(f"../results/logs/predict_val_2-2_dropout_{dropout}_new_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
 
@@ -427,7 +427,7 @@ if __name__ == '__main__':
             output_size = 3 if multilabel else 1
             model = FNN(input_size, output_size, dropout).to(device)
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_4-1_new_oversampling_fold_{fold}.pth"))
+                torch.load(f"../results/models/binding_regions_model_2-2_dropout_{dropout}_new_fold_{fold}.pth"))
             # test performance again, should be the same
 
             test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=512, shuffle=False)
@@ -455,7 +455,7 @@ if __name__ == '__main__':
                     else:
                         input, label = input.to(device), label[:, None].to(device)
                         all_labels.extend(label.flatten().tolist())
-                        prediction = model(input)
+                        prediction = model(input, multilabel)
                         prediction_act = torch.sigmoid(prediction)
                         all_prediction_act.extend(prediction_act.flatten().tolist())
                         # apply activation function to prediction to enable classification
@@ -488,9 +488,9 @@ if __name__ == '__main__':
     try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
 
     # get predictions for chosen cutoff, fold
-    cutoff = 0.05
+    cutoff = 0.85
     cutoff_p, cutoff_n, cutoff_o = 0.3, 0.45, 0.25
-    fold = 2
+    fold = 4
     # predictCNN(cutoff, fold, mode)
     # predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel)
 
