@@ -414,7 +414,7 @@ if __name__ == '__main__':
             # identify specific zones in prediction:
             # pos_short: positive, len < 5, not at the end
             # neg_short: negative, len < 10, not at the start or end
-            # pos_middle: positive, not short, len < 55
+            # pos_medium: positive, not short, len < 55
             # pos_long: positive, 55 <= len <= 240
             # pos_valid: positive, len > 240
             # neg_valid: negative, len >= 10
@@ -428,7 +428,7 @@ if __name__ == '__main__':
                     self.type = "pos_short"
                     self.value = 0.0
                 elif self.length < 55:
-                    self.type = "pos_middle"
+                    self.type = "pos_medium"
                 elif self.length < 241:
                     self.type = "pos_long"
                 else:
@@ -448,7 +448,7 @@ if __name__ == '__main__':
         # identify specific zones in prediction:
         # pos_short: positive, len < 5, not at the end
         # neg_short: negative, len < 10, not at the start or end
-        # pos_middle: positive, not short, len < 55
+        # pos_medium: positive, not short, len < 55
         # pos_long: positive, 55 <= len <= 240
         # pos_valid: positive, len > 240
         # neg_valid: negative, len >= 10
@@ -463,14 +463,46 @@ if __name__ == '__main__':
 
         # change prediction according to rules:
         # 1. pos_short is changed to (-->) 0s   (already done during zone creation)
-        # 2. pos_middle, neg_short, pos_middle --> 0s, (0s), 0s
-        # 3. pos_middle, neg_short, pos_long/pos_valid --> 0s, (0s), (1s)
-        # 4. pos_long/pos_valid, neg_short, pos_middle --> (1s), (0s), 0s
+        # 2. pos_medium, neg_short, pos_medium --> 0s, (0s), 0s
+        # 3. pos_medium, neg_short, pos_long/pos_valid --> 0s, (0s), (1s)
+        # 4. pos_long/pos_valid, neg_short, pos_medium --> (1s), (0s), 0s
         # 5. pos_long/pos_valid, neg_short, pos_long/pos_valid --> (1s), 1s, (1s)
-        # 6. pos_short, neg_short, pos_middle/pos_long --> (0s), (0s), 0s
-        # 7. pos_middle/pos_long, neg_short, pos_short --> 0s, (0s), (0s)
+        # 6. pos_short, neg_short, pos_medium/pos_long --> (0s), (0s), 0s
+        # 7. pos_medium/pos_long, neg_short, pos_short --> 0s, (0s), (0s)
+        for i, zone in enumerate(zones):
+            try:
+                if zone.get_type() == "pos_medium" and zones[i+1].get_type() == "neg_short":
+                    # case 2
+                    if zones[i+2].get_type() == "pos_medium":
+                        zone.set_value(0.0)
+                        zones[i+2].set_value(0.0)
+                    # cases 3 or (7)
+                    elif zones[i+2].get_type() == "pos_long" or zones[i+2].get_type() == "pos_valid" or \
+                            zones[i+2].get_type() == "pos_short":
+                        zone.set_value(0.0)
+                elif (zone.get_type() == "pos_long" or zone.get_type() == "pos_valid") and zones[i+1].get_type() == "neg_short":
+                    # case 4
+                    if zones[i+2].get_type() == "pos_medium":
+                        zones[i+2].set_value(0.0)
+                    # case 5
+                    elif zones[i+2].get_type() == "pos_long" or zones[i+2].get_type() == "pos_valid":
+                        zones[i+1].set_value(1.0)
+                    # case (7)
+                    elif zones[i+2].get_type() == "pos_short":
+                        zone.set_value(0.0)
+                # case 6
+                elif zone.get_type() == "pos_short" and zones[i+1].get_type() == "neg_short" and \
+                        (zones[i+2].get_type() == "pos_medium" or zones[i+2].get_type() == "pos_long"):
+                    zone.set_value(0.0)
+
+            except IndexError:
+                pass
+
+        # put new prediction together
+        prediction_pp = np.empty(0)
         for zone in zones:
-            pass
+            prediction_pp = np.append(prediction_pp, np.repeat(zone.get_value(), zone.get_length()))
+        return torch.tensor(prediction_pp)
 
 
 
@@ -546,7 +578,7 @@ if __name__ == '__main__':
                 else:
                     output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
                     # f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
-                    output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}\n')
+                    output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}')
                     if post_processing:
                         output_file.write(f'\nprediction_pp:\t{post_process(torch.tensor(all_prediction_max[delimiter_0 : delimiter_1]))}\n')
 
