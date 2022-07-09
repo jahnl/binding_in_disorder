@@ -256,7 +256,107 @@ def metrics(confusion_dict):
             "Balanced Acc.": balanced_acc, "F1": f1, "MCC": mcc}
 
 
-def assess(name, cutoff, mode, multilabel, network, loss_function):
+class Zone:
+    def __init__(self, start: int, end: int, value: float, last: bool):
+        # start incl, end excl.
+        self.length = end - start
+        self.value = value
+        # identify specific zones in prediction:
+        # pos_short: positive, len < 5, not at the end
+        # neg_short: negative, len < 10, not at the start or end
+        # pos_medium: positive, not short, len < 55
+        # pos_long: positive, 55 <= len <= 240
+        # pos_valid: positive, len > 240
+        # neg_valid: negative, len >= 10
+        if self.value == 0:
+            if self.length < 10 and start != 0 and not last:
+                self.type = "neg_short"
+            else:
+                self.type = "neg_valid"
+        else:
+            if self.length < 5 and not last:
+                self.type = "pos_short"
+                self.value = 0.0
+            elif self.length < 55:
+                self.type = "pos_medium"
+            elif self.length < 241:
+                self.type = "pos_long"
+            else:
+                self.type = "pos_valid"
+    def get_value(self):
+        return self.value
+    def set_value(self, value: float):
+        self.value = value
+    def get_length(self):
+        return self.length
+    def get_type(self):
+        return self.type
+
+
+
+def post_process(prediction: torch.tensor):
+    # identify specific zones in prediction:
+    # pos_short: positive, len < 5, not at the end
+    # neg_short: negative, len < 10, not at the start or end
+    # pos_medium: positive, not short, len < 55
+    # pos_long: positive, 55 <= len <= 240
+    # pos_valid: positive, len > 240
+    # neg_valid: negative, len >= 10
+    prediction = prediction.cpu()
+    zones = []
+    start, value = 0, prediction[0]
+    for i, residue in enumerate(prediction):
+        if residue != value:    # save new zone
+            zones.append(Zone(start=start, end=i, value=value, last=False))
+            start = i
+            value = residue
+    zones.append(Zone(start=start, end=len(prediction), value=value, last=True))
+
+    # change prediction according to rules:
+    # 1. pos_short is changed to (-->) 0s   (already done during zone creation)
+    # 2. pos_medium, neg_short, pos_medium --> 0s, (0s), 0s
+    # 3. pos_medium, neg_short, pos_long/pos_valid --> 0s, (0s), (1s)
+    # 4. pos_long/pos_valid, neg_short, pos_medium --> (1s), (0s), 0s
+    # 5. pos_long/pos_valid, neg_short, pos_long/pos_valid --> (1s), 1s, (1s)
+    # 6. pos_short, neg_short, pos_medium/pos_long --> (0s), (0s), 0s
+    # 7. pos_medium/pos_long, neg_short, pos_short --> 0s, (0s), (0s)
+    for i, zone in enumerate(zones):
+        try:
+            if zone.get_type() == "pos_medium" and zones[i+1].get_type() == "neg_short":
+                # case 2
+                if zones[i+2].get_type() == "pos_medium":
+                    zone.set_value(0.0)
+                    zones[i+2].set_value(0.0)
+                # cases 3 or (7)
+                elif zones[i+2].get_type() == "pos_long" or zones[i+2].get_type() == "pos_valid" or \
+                        zones[i+2].get_type() == "pos_short":
+                    zone.set_value(0.0)
+            elif (zone.get_type() == "pos_long" or zone.get_type() == "pos_valid") and zones[i+1].get_type() == "neg_short":
+                # case 4
+                if zones[i+2].get_type() == "pos_medium":
+                    zones[i+2].set_value(0.0)
+                # case 5
+                elif zones[i+2].get_type() == "pos_long" or zones[i+2].get_type() == "pos_valid":
+                    zones[i+1].set_value(1.0)
+                # case (7)
+                elif zones[i+2].get_type() == "pos_short":
+                    zone.set_value(0.0)
+            # case 6
+            elif zone.get_type() == "pos_short" and zones[i+1].get_type() == "neg_short" and \
+                    (zones[i+2].get_type() == "pos_medium" or zones[i+2].get_type() == "pos_long"):
+                zone.set_value(0.0)
+
+        except IndexError:
+            pass
+
+    # put new prediction together
+    prediction_pp = np.empty(0)
+    for zone in zones:
+        prediction_pp = np.append(prediction_pp, np.repeat(zone.get_value(), zone.get_length()))
+    return torch.tensor(prediction_pp)[:, None]
+
+
+def assess(name, cutoff, mode, multilabel, network, loss_function, post_processing):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -372,6 +472,8 @@ def assess(name, cutoff, mode, multilabel, network, loss_function):
                     else:
                         prediction = model(input, multilabel) if network == "FNN" else model(input)
                         random = False
+                        if post_processing:
+                            prediction = post_process(prediction).to(device)
                     batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold, random)
 
                 for k in batch_wise.keys():
@@ -444,7 +546,7 @@ if __name__ == '__main__':
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
-    variants = [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 12.0, 3.0, 13.0, 4.0, 4.1, 14.0]
+    variants = [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 2.213, 12.0, 3.0, 13.0, 4.0, 4.1, 14.0]
     # cutoffs are different for each fold, variant (and class, if multiclass)!
     cutoffs = {0.0: [0.315, 0.16, 0.235, 0.245, 0.39],
                1.0: [0.005, 0.005, 0.005, 0.005, 0.01],
@@ -454,6 +556,7 @@ if __name__ == '__main__':
                2.21: [0.8, 0.8, 0.85, 0.85, 0.85],
                2.211: [0.7, 0.6, 0.65, 0.55, 0.6],
                2.212: [0.8, 0.85, 0.75, 0.8, 0.85],
+               2.213: [0.8, 0.8, 0.85, 0.85, 0.85],
                12.0: [0.902, 0.902, 0.902, 0.902, 0.902],  # here cutoff = chance of negative prediction
                3.0: [0.44, 0.4, 0.48, 0.48, 0.5],
                13.0: [0.578, 0.578, 0.578, 0.578, 0.578],  # here cutoff = chance of negative prediction
@@ -469,6 +572,7 @@ if __name__ == '__main__':
              2.21: "2-2_dropout_0.3_new",
              2.211: "2-2_dropout_0.3_lr_0.005",
              2.212: "2-2_dropout_0.3_lr_0.008",
+             2.213: "2-2_dropout_0.3_new",
              12.0: "random_binary",
              3.0: "3_d_only",
              13.0: "random_d_only",
@@ -490,10 +594,15 @@ if __name__ == '__main__':
             dropout = 0.3
         else:
             dropout = 0.0
+        if variant == 2.213:
+            post_processing = True
+        else:
+            post_processing = False
+
         cutoff = cutoffs[variant]
         name = names[variant]
 
-        performances.append(assess(name, cutoff, mode, multilabel, network, loss_function))
+        performances.append(assess(name, cutoff, mode, multilabel, network, loss_function, post_processing))
 
     with open('../results/logs/performance_assessment.tsv', "w") as output:
         output.write("model\tclass\t")

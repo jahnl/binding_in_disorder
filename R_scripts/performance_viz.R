@@ -4,22 +4,22 @@ library(data.table)
 
 #color blind scales
 # Fill
-scale_fill_colorblind7 = function(.ColorList = 2L:8L, ...){
-  scale_fill_discrete(..., type = colorblind_pal()(8)[.ColorList])
+scale_fill_colorblind7 = function(.ColorList = 2L:9L, ...){
+  scale_fill_discrete(..., type = colorblind_pal()(9)[.ColorList])
 }
 # Color
-scale_color_colorblind7 = function(.ColorList = 2L:8L, ...){
-  scale_color_discrete(..., type = colorblind_pal()(8)[.ColorList])
+scale_color_colorblind7 = function(.ColorList = 2L:9L, ...){
+  scale_color_discrete(..., type = colorblind_pal()(9)[.ColorList])
 }
 
 
 performance <- data.table(read.table("../results/logs/performance_assessment.tsv", header = TRUE, sep = "\t"))
-performance <- cbind(performance, model_name = c("0 simple_CNN", "1 larger_CNN", "2 FNN", "2.1 oversampling", "2.2 dropout_0.2", "2.2 dropout_0.3", "random baseline",
+performance <- cbind(performance, model_name = c("0 simple_CNN", "1 larger_CNN", "2 FNN", "2.1 oversampling", "2.2 dropout_0.2", "2.2 dropout_0.3", "2.2 dropout_0.3 post-processing", "random baseline",
                                             "3 disorder_only", "random baseline", rep("4 multilabel", 3), rep("4.1 oversampling", 3), rep("random baseline", 3)))
-performance <- cbind(performance, class_name = c(rep("-", 9), rep(c("1: protein-binding", "2: nuc-binding", "3: 'other'-binding"), 3)))
+performance <- cbind(performance, class_name = c(rep("-", 10), rep(c("1: protein-binding", "2: nuc-binding", "3: 'other'-binding"), 3)))
 
 #binary predictors, all metrics
-ggplot(data = performance[1:7])+
+ggplot(data = performance[1:8])+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -41,7 +41,7 @@ ggplot(data = performance[1:7])+
   theme_bw()
 
 # binary predictors, selection + text
-ggplot(data = performance[1:7])+
+ggplot(data = performance[1:8])+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
@@ -61,7 +61,7 @@ ggplot(data = performance[1:7])+
   theme_bw()
 
 #disorder only predictor, all metrics
-ggplot(data = performance[8:9])+
+ggplot(data = performance[9:10])+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -84,7 +84,7 @@ ggplot(data = performance[8:9])+
   theme_bw()
 
 # disorder only predictor, selection + text
-ggplot(data = performance[8:9])+
+ggplot(data = performance[9:10])+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
@@ -105,7 +105,7 @@ ggplot(data = performance[8:9])+
   theme_bw()
 
 #multilabel predictors, all metrics
-ggplot(data = performance[10:18])+
+ggplot(data = performance[11:19])+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -129,7 +129,7 @@ ggplot(data = performance[10:18])+
   facet_grid(. ~ class_name)
 
 # multilabel predictors, selection + text
-ggplot(data = performance[10:18])+
+ggplot(data = performance[11:19])+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.04, label = round(Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
