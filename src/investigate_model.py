@@ -406,7 +406,76 @@ if __name__ == '__main__':
 
                     output_file.write(f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
-    def predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel):
+    class Zone:
+        def __init__(self, start: int, end: int, value: float, last: bool):
+            # start incl, end excl.
+            self.length = end - start
+            self.value = value
+            # identify specific zones in prediction:
+            # pos_short: positive, len < 5, not at the end
+            # neg_short: negative, len < 10, not at the start or end
+            # pos_middle: positive, not short, len < 55
+            # pos_long: positive, 55 <= len <= 240
+            # pos_valid: positive, len > 240
+            # neg_valid: negative, len >= 10
+            if self.value == 0:
+                if self.length < 10 and start != 0 and not last:
+                    self.type = "neg_short"
+                else:
+                    self.type = "neg_valid"
+            else:
+                if self.length < 5 and not last:
+                    self.type = "pos_short"
+                    self.value = 0.0
+                elif self.length < 55:
+                    self.type = "pos_middle"
+                elif self.length < 241:
+                    self.type = "pos_long"
+                else:
+                    self.type = "pos_valid"
+        def get_value(self):
+            return self.value
+        def set_value(self, value: float):
+            self.value = value
+        def get_length(self):
+            return self.length
+        def get_type(self):
+            return self.type
+
+
+
+    def post_process(prediction: torch.tensor):
+        # identify specific zones in prediction:
+        # pos_short: positive, len < 5, not at the end
+        # neg_short: negative, len < 10, not at the start or end
+        # pos_middle: positive, not short, len < 55
+        # pos_long: positive, 55 <= len <= 240
+        # pos_valid: positive, len > 240
+        # neg_valid: negative, len >= 10
+        zones = []
+        start, value = 0, prediction[0]
+        for i, residue in enumerate(prediction):
+            if residue != value:    # save new zone
+                zones.append(Zone(start=start, end=i, value=value, last=False))
+                start = i
+                value = residue
+        zones.append(Zone(start=start, end=len(prediction), value=value, last=True))
+
+        # change prediction according to rules:
+        # 1. pos_short is changed to (-->) 0s   (already done during zone creation)
+        # 2. pos_middle, neg_short, pos_middle --> 0s, (0s), 0s
+        # 3. pos_middle, neg_short, pos_long/pos_valid --> 0s, (0s), (1s)
+        # 4. pos_long/pos_valid, neg_short, pos_middle --> (1s), (0s), 0s
+        # 5. pos_long/pos_valid, neg_short, pos_long/pos_valid --> (1s), 1s, (1s)
+        # 6. pos_short, neg_short, pos_middle/pos_long --> (0s), (0s), 0s
+        # 7. pos_middle/pos_long, neg_short, pos_short --> 0s, (0s), (0s)
+        for zone in zones:
+            pass
+
+
+
+
+    def predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel, post_processing):
         with open(f"../results/logs/predict_val_2-2_dropout_{dropout}_new_{fold}_{cutoff}.txt", "w") as output_file:
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
@@ -475,9 +544,12 @@ if __name__ == '__main__':
                     output_file.write(f'{p_id}\nlabels:\t{"".join(all_labels[delimiter_0: delimiter_1])}'
                                       f'\nprediction:\t{"".join(all_prediction_max[delimiter_0: delimiter_1])}\n')
                 else:
-                    output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0 : delimiter_1])}'
-                                      f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
-                                      f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0 : delimiter_1])}\n')
+                    output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
+                    # f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
+                    output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}\n')
+                    if post_processing:
+                        output_file.write(f'\nprediction_pp:\t{post_process(torch.tensor(all_prediction_max[delimiter_0 : delimiter_1]))}\n')
+
                 delimiter_0 = delimiter_1
 
 
@@ -485,14 +557,15 @@ if __name__ == '__main__':
     mode = 'all'  # disorder_only or all
     multilabel = False
     dropout = 0.3
-    try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
+    # try_cutoffs(mode=mode, multilabel=multilabel)  # expensive!
 
     # get predictions for chosen cutoff, fold
     cutoff = 0.85
     cutoff_p, cutoff_n, cutoff_o = 0.3, 0.45, 0.25
     fold = 4
+    post_processing = True
     # predictCNN(cutoff, fold, mode)
-    # predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel)
+    predictFNN(cutoff, cutoff_p, cutoff_n, cutoff_o, fold, mode, multilabel, post_processing)
 
 
 
