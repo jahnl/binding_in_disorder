@@ -497,18 +497,14 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
             all_sd_errors[1][k] = np.std(all_metrics[1][k], ddof=1) / np.sqrt(len(all_metrics[1][k]))
             all_sd_errors[2][k] = np.std(all_metrics[2][k], ddof=1) / np.sqrt(len(all_metrics[2][k]))
 
-        # calculate sum and avg values
+        # calculate sum and absolute (avg) metrics
         sum_matrix = [{}, {}, {}]
         for k in all_conf_matrices[0].keys():
             sum_matrix[0][k] = np.sum(all_conf_matrices[0][k])
             sum_matrix[1][k] = np.sum(all_conf_matrices[1][k])
             sum_matrix[2][k] = np.sum(all_conf_matrices[2][k])
 
-        avg_metrics = [{}, {}, {}]
-        for k in all_metrics[0].keys():
-            avg_metrics[0][k] = np.average(all_metrics[0][k])
-            avg_metrics[1][k] = np.average(all_metrics[1][k])
-            avg_metrics[2][k] = np.average(all_metrics[2][k])
+        avg_metrics = [metrics(sum_matrix[0]), metrics(sum_matrix[1]), metrics(sum_matrix[2])]
 
 
     else:  # no multilabel
@@ -524,14 +520,13 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
         for k in all_metrics.keys():
             all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
 
-        # calculate sum and avg values
+        # calculate sum and absolute (avg) metrics
         sum_matrix = {}
         for k in all_conf_matrices.keys():
             sum_matrix[k] = np.sum(all_conf_matrices[k])
 
-        avg_metrics = {}
-        for k in all_metrics.keys():
-            avg_metrics[k] = np.average(all_metrics[k])
+        avg_metrics = metrics(sum_matrix)
+
 
     return sum_matrix, avg_metrics, all_sd_errors
 
