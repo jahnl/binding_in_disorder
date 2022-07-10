@@ -16,10 +16,13 @@ import copy
 
 
 def read_labels(fold, oversampling):
-    if oversampling is None:  # no oversampling on validation set!
-        file_name = f'../dataset/folds/CV_fold_{fold}_labels.txt'
+    if fold is None:   # --> test set
+        file_name = f'../dataset/test_set_input.txt'
     else:
-        file_name = f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt'
+        if oversampling is None:  # no oversampling on validation set!
+            file_name = f'../dataset/folds/CV_fold_{fold}_labels.txt'
+        else:
+            file_name = f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt'
     with open(file_name) as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
@@ -356,7 +359,7 @@ def post_process(prediction: torch.tensor):
     return torch.tensor(prediction_pp)[:, None]
 
 
-def assess(name, cutoff, mode, multilabel, network, loss_function, post_processing):
+def assess(name, cutoff, mode, multilabel, network, loss_function, post_processing, test, best_fold):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -364,13 +367,20 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
                              {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}]
     else:
         all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+    if test:
+        cutoff = [cutoff[best_fold]]
     for fold, _ in enumerate(cutoff):
-        print(f"{name} Fold {fold}")
-        # for validation use the training IDs in the current fold
-
-        # read target data y and disorder information
-        # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, None)
+        if test:
+            print(f"{name} Fold {best_fold}")
+            # read target data y and disorder information
+            # re-format input information to 3 sequences in a list per protein in dict val_labels{}
+            val_labels = read_labels(None, None)
+        else:
+            print(f"{name} Fold {fold}")
+            # for validation use the training IDs in the current fold
+            # read target data y and disorder information
+            # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
+            val_labels = read_labels(fold, None)
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
@@ -533,7 +543,8 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
 
 if __name__ == '__main__':
     # read input embeddings
-    embeddings_in = '../dataset/train_set.h5'
+    test = True
+    embeddings_in = '../dataset/test_set.h5' if test else '../dataset/train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
         for key, embedding in f.items():
@@ -575,6 +586,22 @@ if __name__ == '__main__':
              4.1: "4-1_new_oversampling",
              14.0: "random_multilabel"}
 
+    best_folds = {0.0: 0,
+                  1.0: 4,
+                  2.0: 0,
+                  2.1: 0,
+                  2.20: 0,
+                  2.21: 4,
+                  2.211: 0,
+                  2.212: 4,
+                  2.213: 4,
+                  12.0: 0,
+                  3.0: 4,
+                  13.0: 0,
+                  4.0: 0,
+                  4.1: 2,
+                  14.0: 0}
+
     performances = []
     for variant in variants:
         # set parameters
@@ -596,10 +623,14 @@ if __name__ == '__main__':
 
         cutoff = cutoffs[variant]
         name = names[variant]
+        best_fold = best_folds[variant]
 
-        performances.append(assess(name, cutoff, mode, multilabel, network, loss_function, post_processing))
+        performances.append(assess(name, cutoff, mode, multilabel, network, loss_function, post_processing,
+                                   test, best_fold))
 
-    with open('../results/logs/performance_assessment.tsv', "w") as output:
+    output_name = '../results/logs/performance_assessment.tsv' if not test else \
+        '../results/logs/performance_assessment_test.tsv'
+    with open(output_name, "w") as output:
         output.write("model\tclass\t")
         for key in performances[0][0].keys():  # conf-matrix
             output.write(str(key) + "\t")
