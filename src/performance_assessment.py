@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch import nn
 from scipy import stats
+from pathlib import Path
 
 
 def read_labels(fold, oversampling):
@@ -220,13 +221,17 @@ def criterion(loss_func, prediction, label):  # sum over all classification head
 
 
 def conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold, random):
-    batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
+    if fold is not None:
+        batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
     # apply activation function to prediction to enable classification and transpose matrices
     if random:
         prediction_act = prediction     # no sigmoid needed for these values
     else:
         prediction_act = torch.sigmoid(prediction)
-    prediction_max = prediction_act > cutoff[fold]
+    if fold is not None:
+        prediction_max = prediction_act > cutoff[fold]
+    else:
+        prediction_max = prediction
 
     # confusion matrix values
     batch_wise["correct"].append((prediction_max == label).type(torch.float).sum().item())
@@ -540,9 +545,80 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
     return sum_matrix, avg_metrics, all_sd_errors, all_metrics
 
 
+def assess_bindEmbed():
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    in_folder = "../results/bindEmbed21DL_predictions"
+    predictions_binary = {}
+    for p in Path(in_folder).glob('*.bindPredict_out'):
+        with p.open() as f:
+            long_table = f.readlines()[1:]
+            prediction = torch.tensor([0 if row.split("\t")[7] == 'nb\n' else 1 for row in long_table]).to(device)
+            predictions_binary[p.name[:-16]] = prediction
+
+    all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+    val_labels = read_labels(None, None)
+
+    target = []
+    predictions = []
+    for id in predictions_binary.keys():
+        # modify bindEMbed predictions to predict in disordered regions only
+        pr = predictions_binary[id]
+        try:
+            disorder = (val_labels[id][1])
+            indices_to_change = [i if d != "D" else None for i, d in enumerate(disorder)]
+            for i in indices_to_change:
+                if i is not None:
+                    pr[i] = 0
+            predictions.append(pr)
+
+            # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region
+            binding = str(val_labels[id][2])
+            binding = re.sub(r'-|_', '0', binding)
+            binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
+            binding = np.array(binding, dtype=float)
+            target.append(binding)
+        except KeyError:
+            print(f"Warning: {id} not found in val_labels")
+
+    # save confusion matrix values for each protein
+    batch_wise_loss = []
+    batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+
+    for i, label in enumerate(target):
+        pr = predictions[i].to(device)
+        label = torch.tensor(label).to(device)
+        batch_wise_loss, batch_wise = conf_matrix(pr, label, batch_wise_loss, batch_wise, None, False)
+
+    for k in batch_wise.keys():
+        all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
+
+    # metrics and sd over all folds/proteins
+    # protein-wise metrics
+    all_metrics = metrics(all_conf_matrices)
+
+    # exclude nan values
+    for k in all_metrics.keys():
+        all_metrics[k] = all_metrics[k][np.logical_not(np.isnan(all_metrics[k]))]
+
+    # standard error calculation
+    all_sd_errors = {}
+    for k in all_metrics.keys():
+        all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
+
+    # calculate sum and absolute (avg) metrics
+    sum_matrix = {}
+    for k in all_conf_matrices.keys():
+        sum_matrix[k] = np.sum(all_conf_matrices[k])
+
+    avg_metrics = metrics(sum_matrix)
+
+    return sum_matrix, avg_metrics, all_sd_errors
+
+
+
 if __name__ == '__main__':
     # read input embeddings
-    test = False
+    test = True
     embeddings_in = '../dataset/test_set.h5' if test else '../dataset/train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
@@ -632,11 +708,16 @@ if __name__ == '__main__':
 
 
     # Welch test for some specific models
+    """
     print("Welch test, with vs without post-processing")
     for k in per_model_metrics[0].keys():
         print(k, "(statistic, pvalue)")
         print(stats.ttest_ind(per_model_metrics[5][k], per_model_metrics[6][k], equal_var=True))
+    """
 
+
+    if test:
+        bindEmbed_performance = assess_bindEmbed()
 
 
     output_name = '../results/logs/performance_assessment.tsv' if not test else \
@@ -671,3 +752,13 @@ if __name__ == '__main__':
                 for key in performances[0][2].keys():  # SEs of metrics
                     output.write(str(performances[i][2][key]) + "\t")
                 output.write("\n")
+
+        if test:
+            output.write("bindEmbed21DL\t-\t")
+            for key in performances[0][0].keys():  # conf-matrix
+                output.write(str(bindEmbed_performance[0][key]) + "\t")
+            for key in performances[0][1].keys():  # metrics
+                output.write(str(bindEmbed_performance[1][key]) + "\t")
+            for key in performances[0][2].keys():  # SEs of metrics
+                output.write(str(bindEmbed_performance[2][key]) + "\t")
+            output.write("\n")
