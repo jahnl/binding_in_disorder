@@ -10,9 +10,8 @@ import re
 import torch.tensor
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-from torch import nn, optim
-import datetime
-import copy
+from torch import nn
+from scipy import stats
 
 
 def read_labels(fold, oversampling):
@@ -538,12 +537,12 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
         avg_metrics = metrics(sum_matrix)
 
 
-    return sum_matrix, avg_metrics, all_sd_errors
+    return sum_matrix, avg_metrics, all_sd_errors, all_metrics
 
 
 if __name__ == '__main__':
     # read input embeddings
-    test = True
+    test = False
     embeddings_in = '../dataset/test_set.h5' if test else '../dataset/train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
@@ -603,6 +602,7 @@ if __name__ == '__main__':
                   14.0: 0}
 
     performances = []
+    per_model_metrics = []
     for variant in variants:
         # set parameters
         print(f"variant {variant}:")
@@ -625,8 +625,19 @@ if __name__ == '__main__':
         name = names[variant]
         best_fold = best_folds[variant]
 
-        performances.append(assess(name, cutoff, mode, multilabel, network, loss_function, post_processing,
-                                   test, best_fold))
+        assessment = assess(name, cutoff, mode, multilabel, network, loss_function, post_processing,
+                                   test, best_fold)
+        performances.append(assessment[:-1])
+        per_model_metrics.append(assessment[-1])
+
+
+    # Welch test for some specific models
+    print("Welch test, with vs without post-processing")
+    for k in per_model_metrics[0].keys():
+        print(k, "(statistic, pvalue)")
+        print(stats.ttest_ind(per_model_metrics[5][k], per_model_metrics[6][k], equal_var=True))
+
+
 
     output_name = '../results/logs/performance_assessment.tsv' if not test else \
         '../results/logs/performance_assessment_test.tsv'
