@@ -153,10 +153,30 @@ ggplot(data = performance[11:19])+
 # test set + bindEmbed
 
 performance_t <- data.table(read.table("../results/logs/performance_assessment_test.tsv", header = TRUE, sep = "\t"))
-performance_t <- cbind(performance_t, model_name = c("0 simple_CNN", "1 larger_CNN", "2 FNN", "2.1 oversampling", "2.2 dropout_0.2", "2.2 dropout_0.3", "2.2 dropout_0.3 post-processing", "random baseline",
+performance_t <- cbind(performance_t, model_name = c("0 simple_CNN", "1 larger_CNN", "2 FNN", "2.1 oversampling", "2.2 dropout_0.2", "2.2 dropout_0.3", "2.3 post-processing", "random baseline",
                                                  "3 disorder_only", "random baseline", rep("4 multilabel", 3), rep("4.1 oversampling", 3), rep("random baseline", 3), "bindEmbed21DL"))
 
-
+ggplot(data = rbind(performance_t[7], performance_t[20], performance_t[8]))+
+  geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Recall", y = Recall, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Recall", ymin = Recall - SE_Recall, ymax = Recall + SE_Recall), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Balanced.Acc.", y = Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = Balanced.Acc. - SE_Balanced.Acc., ymax = Balanced.Acc. + SE_Balanced.Acc.), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "F1", y = F1, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "F1", ymin = F1 - SE_F1, ymax = F1 + SE_F1), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "MCC", y = MCC, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "MCC", ymin = MCC - SE_MCC, ymax = MCC + SE_MCC), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Neg_Precision", y = Neg_Precision, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Neg_Precision", ymin = Neg_Precision - SE_Neg_Precision, ymax = Neg_Precision + SE_Neg_Precision), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Neg_Recall", y = Neg_Recall, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Neg_Recall", ymin = Neg_Recall - SE_Neg_Recall, ymax = Neg_Recall + SE_Neg_Recall), position = position_dodge2())+
+  ylab("Value")+
+  xlab("")+
+  ggtitle("Performance on Test Set")+
+  scale_fill_colorblind7()+
+  theme_bw()
+# selection
 ggplot(data = rbind(performance_t[7], performance_t[20], performance_t[8]))+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
