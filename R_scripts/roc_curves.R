@@ -108,28 +108,32 @@ ggplot(data = data[data$Fold==2,])+   # change color to Fold to match lines with
   
 # compare ROC curves of best folds
 data_0 <- read.table('../results/logs/validation_0_simple_without_dropout.txt', sep = '\t', header = TRUE)
-data_0 <- data.table(data_0, model = '0: simple CNN')
+data_0 <- data.table(data_0, model = '0.: simple CNN')
 data_1 <- read.table('../results/logs/validation_1_5_layers.txt', sep = '\t', header = TRUE)
-data_1 <- data.table(data_1, model = '1: 5-layer-CNN')
+data_1 <- data.table(data_1, model = '1.: larger CNN')
 data_2 <- read.table('../results/logs/validation_2_FNN.txt', sep = '\t', header = TRUE)
-data_2 <- data.table(data_2, model = '2: FNN')
+data_2 <- data.table(data_2, model = '2.: FNN')
 data_3 <- read.table('../results/logs/validation_3_d_only.txt', sep = '\t', header = TRUE)
-data_3 <- data.table(data_3, model = '3: FNN - disorder only')
+data_3 <- data.table(data_3, model = '3.: Disorder only')
 data_4 <- read.table('../results/logs/validation_2-1_new_oversampling.txt', sep = '\t', header = TRUE)
-data_4 <- data.table(data_4, model = '2-1: FNN - residues oversampled')
-data_all = rbindlist(list(data_0, data_1, data_2, data_3, data_4), fill = TRUE)
+data_4 <- data.table(data_4, model = '2.1: Oversampling')
+data_5 <- read.table('../results/logs/validation_2-2_dropout_0.3_new.txt', sep = '\t', header = TRUE)
+data_5 <- data.table(data_5, model = '2.2: Dropout')
+data_all = rbindlist(list(data_0, data_1, data_2, data_3, data_4, data_5), fill = TRUE)
 
 ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model))+  
-  geom_point(data = data_all[data_all$model == '0: simple CNN' & data_all$Fold==0,], size = 2)+
-  geom_line(data = data_all[data_all$model == '0: simple CNN' & data_all$Fold==0,], size = 1)+
-  geom_point(data = data_all[data_all$model == '1: 5-layer-CNN' & data_all$Fold==4,], size = 2)+
-  geom_line(data = data_all[data_all$model == '1: 5-layer-CNN' & data_all$Fold==4,], size = 1)+
-  geom_point(data = data_all[data_all$model == '2: FNN' & data_all$Fold==0,], size = 2)+
-  geom_line(data = data_all[data_all$model == '2: FNN' & data_all$Fold==0,], size = 1)+
-  geom_point(data = data_all[data_all$model == '3: FNN - disorder only' & data_all$Fold==4,], size = 2)+
-  geom_line(data = data_all[data_all$model == '3: FNN - disorder only' & data_all$Fold==4,], size = 1)+
-  geom_point(data = data_all[data_all$model == '2-1: FNN - residues oversampled' & data_all$Fold==0,], size = 2)+
-  geom_line(data = data_all[data_all$model == '2-1: FNN - residues oversampled' & data_all$Fold==0,], size = 1)+
+  geom_point(data = data_all[data_all$model == '0.: simple CNN' & data_all$Fold==0,], size = 2)+
+  geom_line(data = data_all[data_all$model == '0.: simple CNN' & data_all$Fold==0,], size = 1)+
+  geom_point(data = data_all[data_all$model == '1.: larger CNN' & data_all$Fold==4,], size = 2)+
+  geom_line(data = data_all[data_all$model == '1.: larger CNN' & data_all$Fold==4,], size = 1)+
+  geom_point(data = data_all[data_all$model == '2.: FNN' & data_all$Fold==0,], size = 2)+
+  geom_line(data = data_all[data_all$model == '2.: FNN' & data_all$Fold==0,], size = 1)+
+  geom_point(data = data_all[data_all$model == '3.: Disorder only' & data_all$Fold==4,], size = 2)+
+  geom_line(data = data_all[data_all$model == '3.: Disorder only' & data_all$Fold==4,], size = 1)+
+  geom_point(data = data_all[data_all$model == '2.1: Oversampling' & data_all$Fold==0,], size = 2)+
+  geom_line(data = data_all[data_all$model == '2.1: Oversampling' & data_all$Fold==0,], size = 1)+
+  geom_point(data = data_all[data_all$model == '2.2: Dropout' & data_all$Fold==4,], size = 2)+
+  geom_line(data = data_all[data_all$model == '2.2: Dropout' & data_all$Fold==4,], size = 1)+
   
   scale_color_discrete(type = c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"))+
   geom_abline(slope = 1, intercept = 0)+
