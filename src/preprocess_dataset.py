@@ -1,10 +1,20 @@
 
 """
+Preprocessing of the dataset. Includes:
+1. statistics about the dataset,
+2. an annotation with more information,
+3. the input labels for the ML model
+
 input: ./dataset/disprot_annotations.txt, ./dataset/test_set.fasta, ./dataset/train_set.fasta
-output: statistics about the dataset, an annotation with more information, the input labels for the ML model
+output: ./dataset/test_set_annotation.tsv, ./dataset/train_set_annotation.tsv, ./dataset/test_set_input.txt,
+./dataset/train_set_input.txt
 """
 
+
 def sort_dataset(file):
+    # parse the fasta-formatted sequences from the input file,
+    # sort the dataset (test or train) alphabetically by protein IDs,
+    # return a sorted list of protein IDs and AA sequences
     ls = list()
     id, seq = '', ''
     for line in file.readlines():
@@ -21,6 +31,9 @@ def sort_dataset(file):
 
 
 def ML_input_labels(t_list, t_set):
+    # simpler labelling of the classes: non-binding, protein-binding, nuc-binding and other-binding
+    # for each AA sequence annotate the position of disordered and specific binding regions
+    # also print out the number of specific residue types
     ligands = {'non-binding': '_', 'protein': 'P', 'nuc': 'N',
                'lipid': 'O', 'small': 'O', 'metal': 'O', 'ion': 'O', 'carbohydrate': 'O'}
     with open('../dataset/' + t_set + '_set_input.txt', 'w') as out:
@@ -82,7 +95,11 @@ def ML_input_labels(t_list, t_set):
 
 if __name__ == '__main__':
     # match the annotation with the data actually used
-    # sort the train and test set to enable fast access later
+    # write new, more useful annotation
+    # print statistics
+    # call ML input label creation
+
+    # sort the train and test set to enable fast access for a later point in the workflow
     with open('../dataset/test_set.fasta', 'r') as test_set:
         test_list = sort_dataset(test_set)
     with open('../dataset/train_set.fasta', 'r') as train_set:
@@ -161,7 +178,7 @@ if __name__ == '__main__':
             except KeyError:
                 bind_counts_train[str(binding)] = 1
 
-        # print('ann_id ' + ann_id + '\n last_id ' + last_id + '\n test_id ' + test_id + '\n test_hit ' + str(test_hit) +
+        # print('ann_id ' + ann_id + '\n last_id ' + last_id + '\n test_id ' + test_id + '\n test_hit ' + str(test_hit)+
         #      '\n test_pointer ' + str(test_pointer) + '\n')
 
     with open('../dataset/test_set_annotation.tsv', 'w') as out_test:
@@ -182,13 +199,5 @@ if __name__ == '__main__':
     ML_input_labels(train_list, 'train')
 
 
-
     print('test bind counts: ', bind_counts_test)
     print('train bind counts: ', bind_counts_train)
-
-
-
-
-
-
-
