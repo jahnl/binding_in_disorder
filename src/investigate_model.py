@@ -1,5 +1,5 @@
 
-from src import CV_splits
+from src import CV_and_oversampling
 import numpy as np
 import h5py
 from Bio import SeqIO

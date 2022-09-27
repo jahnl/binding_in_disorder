@@ -7,7 +7,7 @@ variant 0: all residues, variant 1: only disordered residues
 """
 from torch.autograd.grad_mode import F
 
-from src import CV_splits
+from src import CV_and_oversampling
 import numpy as np
 import h5py
 from Bio import SeqIO
@@ -128,7 +128,7 @@ class FNN(nn.Module):
 if __name__ == '__main__':
     # apply cross-validation and oversampling on training dataset
     oversampling = 'binary_residues'
-    #CV_splits.split(oversampling)
+    # CV_and_oversampling.split(n_splits, oversampling)
 
     mode = 'all'  # disorder_only or all
     dropout = 0.3

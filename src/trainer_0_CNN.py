@@ -6,7 +6,7 @@ labels: anything vs '_' in 4th line of labels per protein
 """
 
 
-from src import CV_splits
+from src import CV_and_oversampling
 import numpy as np
 import h5py
 from Bio import SeqIO
@@ -142,7 +142,7 @@ class CNN(nn.Module):
 if __name__ == '__main__':
     # apply cross-validation and oversampling on training dataset
     oversampling = 'binary'
-    #CV_splits.split(oversampling)
+    #CV_and_oversampling.split(n_splits, oversampling)
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
