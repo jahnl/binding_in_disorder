@@ -1,11 +1,11 @@
-# create and save new datapoints based on the residue-wise oversampling process
-# --> avoid long computation times during training
+"""
+create and save new data points based on the residue-wise oversampling process
+--> avoid long computation times during training
+"""
 
 import numpy as np
 import h5py
 from Bio import SeqIO
-import re
-
 
 
 def read_labels(fold, oversampling):
@@ -47,19 +47,24 @@ def get_ML_data(labels, embeddings, mode):
             input.append(emb_with_conf)
 
         elif mode == 'disorder_only':
-            # not implemented yet!
+            # not implemented yet! TODO
             bool_list = [False if x == '-' else True for x in list(labels[id][2])]
             input.append(embeddings[id][bool_list])
+
+        # else: do nothing
 
     return input
 
 
-if __name__ == '__main__':
-    # apply cross-validation and oversampling on training dataset
-    oversampling = 'multiclass_residues'
-    #CV_splits.split(oversampling)
-
-    mode = 'all'  # disorder_only or all
+def sample_datapoints(oversampling: str = 'binary_residues', mode: str = 'all', n_splits: int = 5):
+    """
+    create new embeddings for the residue-wise oversampled datapoints
+    :param oversampling: 'binary_residues' or 'multiclass_residues'
+    :param mode: either 'disorder_only' or 'all'
+    :param n_splits: number of cross-validation splits
+    """
+    # apply cross-validation and oversampling to training dataset
+    # CV_and_oversampling.split(n_splits, oversampling)
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -71,7 +76,7 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in range(5):
+    for fold in range(n_splits):
         print("Fold: " + str(fold))
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
@@ -82,3 +87,7 @@ if __name__ == '__main__':
         # and save new embeddings to file
         new_embs = get_ML_data(labels, embeddings, mode)
         np.save(file=f'../dataset/folds/new_datapoints_{oversampling}_fold_{fold}.npy', arr=new_embs)
+
+
+if __name__ == '__main__':
+    sample_datapoints()
