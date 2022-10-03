@@ -243,7 +243,7 @@ def FNN_trainer(model_name: str = '2-2_dropout_0.3_lr_0.01', n_splits: int = 5, 
         t_datapoints = list()
         v_datapoints = list()
         if oversampling == 'binary_residues':
-            for f in range(5):
+            for f in range(n_splits):
                 if f == fold:
                     v_datapoints = np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{fold}.npy',
                                            allow_pickle=True)

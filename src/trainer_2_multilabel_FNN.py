@@ -1,10 +1,10 @@
 """
-simple FNN, multi-class prediction of non-binding, protein-binding, nuc-binding, other-binding, or a combination of those
+simple FNN, multi-class prediction of non-binding, protein-binding, nuc-binding, other-binding or a combination of those
 given embeddings + confounding feature: disorder
 labels: anything in 4th line of labels per protein, but one-hot encoded
 """
-from torch.autograd.grad_mode import F
 
+from torch.autograd.grad_mode import F
 from src import CV_and_oversampling
 import numpy as np
 import h5py
@@ -75,8 +75,6 @@ def get_ML_data(labels, embeddings, new_datapoints):
             print(input[-1].shape)
             print(binding)
         """
-
-
     return input, target
 
 
@@ -92,9 +90,8 @@ class BindingDataset(Dataset):
     def number_residues(self):
         return len(self)
 
-
     def __getitem__(self, index):
-        k = 0  # k is the current protein index, index gets transformed to the position in the sequence
+        k = 0  # k is the current protein index, index is transformed to the position in the sequence
         protein_length = len(self.labels[k])
         while index >= protein_length:
             index = index - protein_length
@@ -103,15 +100,13 @@ class BindingDataset(Dataset):
         return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index])
 
 
-
-
 class FNN(nn.Module):
-    def __init__(self, input_size, output_size, p):
+    def __init__(self, input_size: int, output_size: int, dropout: float = 0.0):
         super(FNN, self).__init__()
         self.input_layer = nn.Linear(input_size, input_size)
         self.hidden_layer = nn.Linear(input_size, int(input_size / 2))
         self.output_layer = nn.Linear(int(input_size / 2), output_size)
-        self.dropout = nn.Dropout(p)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, input):
         x = F.relu(self.input_layer(input))
@@ -122,12 +117,114 @@ class FNN(nn.Module):
         return output
 
 
-if __name__ == '__main__':
-    # apply cross-validation and oversampling on training dataset
-    oversampling = 'multiclass_residues'
-    #CV_and_oversampling.split(n_splits, oversampling)
+def criterion(loss_func, prediction, label):    # sum over all classification heads
+    losses = 0
+    prediction = prediction.T
+    label = label.T
+    for i, _ in enumerate(prediction):     # for each class (-> 1-dimensional loss)
+        losses += loss_func(prediction[i], label[i])
+    return losses
 
-    dropout = 0
+
+def train(dataset, model, loss_function, optimizer, device, output, batch_size: int = 512):
+    avg_train_loss = 0
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    nr_samples = dataset.number_residues()
+    for i, (input, label) in enumerate(train_loader):
+        input, label = input.to(device), label.to(device)
+
+        # make a prediction
+        prediction = model(input)
+        # compute loss
+        loss = criterion(loss_function, prediction, label.to(torch.float32))
+
+        """
+        if i == 50:
+            torch.set_printoptions(threshold=10_000)
+            print(f'batch {i}: prediction: \n{prediction.T, prediction.dtype}')
+            print(f'batch {i}: label:      \n{label.T, label.dtype}')
+            print(f'batch {i}: loss:       {loss}')
+        """
+
+        avg_train_loss += loss.item()
+
+        # backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if i % 500 == 0:
+            print(f'\tLoss: {loss.item()} \t batch:{i}/{int(nr_samples / batch_size)}')
+
+    avg_train_loss /= int(nr_samples / batch_size)
+    print("\tAvg_train_loss: " + str(avg_train_loss))
+    output.write(f"\tTraining set: Avg loss: {avg_train_loss:>8f} \n")
+
+
+def test_performance(dataset, model, loss_function, device, output, batch_size: int = 512):
+    test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    size = dataset.number_residues()
+    # print(size)
+    model.eval()
+    test_loss, correct, tp, tp_fn, tp_fp = 0, 0, 0, 0, 0
+    with torch.no_grad():
+        for input, label in test_loader:
+            input, label = input.to(device), label.to(device)
+            prediction = model(input)
+            test_loss += loss_function(prediction, label.to(torch.float32)).item()
+            # apply activation function to prediction to enable classification
+            prediction_act = torch.sigmoid(prediction)
+            # some arbitrary cutoff, the optimal one will be determined in performance_assessment.py
+            prediction_max = prediction_act > 0.5
+            # metrics (not final)
+            correct += (prediction_max == label).type(torch.float).sum().item()
+            tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
+            tp_fn += (label == 1).type(torch.float).sum().item()
+            tp_fp += (prediction_max == 1).type(torch.float).sum().item()
+            """
+            if correct < 398:
+                # print(f'val_prediction: {prediction}')
+                print(f'val_prediction_activated: {prediction_act}')
+                # print(f'val_prediction_max: {prediction_max}')
+                print(f'val_labels: {label}')
+                print(f'loss: {test_loss}')
+                print(f'correct: {correct}')
+                print(f'tp: {tp}, tp+fn: {tp_fn}, tp+fp: {tp_fp}')
+            """
+
+        test_loss /= int(size / batch_size)
+        correct /= size
+        try:
+            print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp / tp_fn)): >0.1f}%, "
+                  f"Precision: {(100 * (tp / tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+            output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, "
+                         f"Sensitivity: {(100 * (tp / tp_fn)): >0.1f}%, "
+                         f"Precision: {(100 * (tp / tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
+        except ZeroDivisionError:
+            print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: NA, Precision: NA, "
+                  f"Avg loss: {test_loss:>8f} \n")
+            output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, "
+                         f"Sensitivity: NA%, Precision: NA, Avg loss: {test_loss:>8f} \n")
+
+    return test_loss
+
+
+def multilabel_FNN_trainer(model_name: str = '4_multiclass', n_splits: int = 5, oversampling: str = 'binary_residues',
+                dropout: float = 0.0, learning_rate: float = 0.01, patience: int = 10, max_epochs: int = 200,
+                batch_size: int = 512):
+    """
+    trains the multi-label FNN
+    :param batch_size: batch_size, number of residues that are fed in at once
+    :param model_name: name of the model
+    :param n_splits: number of Cross-Validation splits
+    :param oversampling: oversampling mode; either None, 'binary', 'binary_residues' or 'multiclass_residues'
+    :param dropout: dropout probability between 0.0 and 1.0
+    :param learning_rate: learning rate
+    :param max_epochs: max number of epochs before the training stops
+    :param patience: early stopping after this number of epochs without improvement
+    """
+    # apply cross-validation and oversampling on training dataset
+    # CV_and_oversampling.split(n_splits, oversampling)
 
     # read input embeddings
     embeddings_in = '../dataset/train_set.h5'
@@ -139,16 +236,16 @@ if __name__ == '__main__':
     # now {IDs: embeddings} are written in the embeddings dictionary
 
     # iterate over folds
-    for fold in range(5):
+    for fold in range(n_splits):
         print("Fold: " + str(fold))
         # for training use all training IDs except for the ones in the current fold.
         # for validation use the training IDs in the current fold, but without oversampling
 
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, None)    # no oversampling on val_labels
+        val_labels = read_labels(fold, None)  # no oversampling on val_labels
         train_labels = {}
-        for train_fold in range(5):     # TODO: link number of files to config file
+        for train_fold in range(n_splits):
             if train_fold != fold:
                 train_labels.update(read_labels(train_fold, oversampling))
         print(len(val_labels), len(train_labels))
@@ -156,9 +253,10 @@ if __name__ == '__main__':
         # load pre-computed datapoint embeddings
         t_datapoints = list()
         if 'residues' in oversampling:
-            for f in range(5):
+            for f in range(n_splits):
                 if f != fold:
-                    t_datapoints.extend(np.load(f'../dataset/folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
+                    t_datapoints.extend(
+                        np.load(f'../dataset/folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
@@ -168,7 +266,6 @@ if __name__ == '__main__':
         # instantiate the dataset
         training_dataset = BindingDataset(this_fold_input, this_fold_target)
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target)
-
         """
         # look at some data:
         for i in range(50, 54):
@@ -176,139 +273,42 @@ if __name__ == '__main__':
            print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
         """
 
-        def criterion(loss_func, prediction, label):    # sum over all classification heads
-            losses = 0
-            prediction = prediction.T
-            label = label.T
-            for i, _ in enumerate(prediction):     # for each class (-> 1-dimensional loss)
-                losses += loss_func(prediction[i], label[i])
-            return losses
-
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
         input_size = 1025
-        model = FNN(input_size=input_size, output_size=3, p=dropout).to(device)
-        # loss_function = nn.CrossEntropyLoss()
-        loss_function = nn.BCELoss()    # not multi-class when applied to each dimension individually
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
-
-
-        def train(dataset, model, loss_function, optimizer, device, output):
-            avg_train_loss = 0
-            batch_size = 512
-            train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
-            nr_samples = dataset.number_residues()
-            for i, (input, label) in enumerate(train_loader):
-                input, label = input.to(device), label.to(device)
-
-                # make a prediction
-                prediction = model(input)
-                # compute loss
-                loss = criterion(loss_function, prediction, label.to(torch.float32))
-                # loss = loss_function(prediction, label.to(torch.long))    # not suitable for multi-label
-
-                """
-                if i == 50:
-                    torch.set_printoptions(threshold=10_000)
-                    print(f'batch {i}: prediction: \n{prediction.T, prediction.dtype}')
-                    print(f'batch {i}: label:      \n{label.T, label.dtype}')
-                    print(f'batch {i}: loss:       {loss}')
-                """
-
-                avg_train_loss += loss.item()
-
-                # backpropagation
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                if i % 500 == 0:
-                    print(f'\tLoss: {loss.item()} \t batch:{i}/{int(nr_samples / batch_size)}')
-            avg_train_loss /= int(nr_samples / batch_size)
-            print("\tAvg_train_loss: " + str(avg_train_loss))
-            output.write(f"\tTraining set: Avg loss: {avg_train_loss:>8f} \n")
-
-
-        def test_performance(dataset, model, loss_function, device, output):
-            batch_size = 512
-            test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
-            size = dataset.number_residues()
-            # print(size)
-            model.eval()
-            test_loss, correct, tp, tp_fn, tp_fp = 0, 0, 0, 0, 0
-            with torch.no_grad():
-                for input, label in test_loader:
-                    input, label = input.to(device), label.to(device)
-                    prediction = model(input)
-                    test_loss += loss_function(prediction, label.to(torch.float32)).item()
-                    # apply activation function to prediction to enable classification
-                    prediction_act = torch.sigmoid(prediction)
-                    # prediction_max = prediction_act.argmax(1)     # argmax only if its multi-class
-                    prediction_max = prediction_act > 0.5
-                    # metrics
-                    correct += (prediction_max == label).type(torch.float).sum().item()
-                    tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
-                    tp_fn += (label == 1).type(torch.float).sum().item()
-                    tp_fp += (prediction_max == 1).type(torch.float).sum().item()
-
-                    """
-                    if correct < 398:
-                        # print(f'val_prediction: {prediction}')
-                        print(f'val_prediction_activated: {prediction_act}')
-                        # print(f'val_prediction_max: {prediction_max}')
-                        print(f'val_labels: {label}')
-                        print(f'loss: {test_loss}')
-                        print(f'correct: {correct}')
-                        print(f'tp: {tp}, tp+fn: {tp_fn}, tp+fp: {tp_fp}')
-                    """
-
-
-
-                test_loss /= int(size/batch_size)
-                correct /= size
-                try:
-                    print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp/tp_fn)): >0.1f}%, "
-                          f"Precision: {(100 * (tp/tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
-                    output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, "
-                                 f"Sensitivity: {(100 * (tp / tp_fn)): >0.1f}%, "
-                                 f"Precision: {(100 * (tp / tp_fp)): >0.1f}%, Avg loss: {test_loss:>8f} \n")
-                except ZeroDivisionError:
-                    print(f"\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: NA, Precision: NA, "
-                          f"Avg loss: {test_loss:>8f} \n")
-                    output.write(f"\tCross-Training set: Accuracy: {(100 * correct):>0.1f}%, "
-                                 f"Sensitivity: NA%, Precision: NA, Avg loss: {test_loss:>8f} \n")
-
-            return test_loss
+        model = FNN(input_size=input_size, output_size=3, dropout=dropout).to(device)
+        loss_function = nn.BCELoss()  # not multi-class when applied to each dimension individually
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
         # initialize training parameters for early stopping
-        epochs = 200
         min_val_loss = np.Inf
         epochs_no_improvement = 0
-        n_epochs_stop = 10
         best_state_dict = None
 
-        output_file = open(f"../results/logs/training_progress_4-1_new_oversampling_fold_{fold}.txt", "w")
+        output_file = open(f"../results/logs/training_progress_{model_name}_fold_{fold}.txt", "w")
 
-        for epoch in range(epochs):
+        for epoch in range(max_epochs):
             print(f'{datetime.datetime.now()}\tEpoch {epoch + 1}')
             output_file.write(f'{datetime.datetime.now()}\tEpoch {epoch + 1}\n')
-            train(training_dataset, model, loss_function, optimizer, device, output_file)
-            test_loss = test_performance(validation_dataset, model, loss_function, device, output_file)
+            train(training_dataset, model, loss_function, optimizer, device, output_file, batch_size)
+            test_loss = test_performance(validation_dataset, model, loss_function, device, output_file, batch_size)
 
             # early stopping
-            if test_loss < min_val_loss:    # improvement
+            if test_loss < min_val_loss:  # improvement
                 min_val_loss = test_loss
                 epochs_no_improvement = 0
                 best_state_dict = copy.deepcopy(model.state_dict())
 
-            else:                           # no improvement
+            else:  # no improvement
                 epochs_no_improvement += 1
-                if epochs_no_improvement == n_epochs_stop:
-                    break   # -> early stopping
-
-
+                if epochs_no_improvement == patience:
+                    break  # -> early stopping
 
         # save best model of this fold
-        torch.save(best_state_dict, f"../results/models/binding_regions_model_4-1_new_oversampling_fold_{fold}.pth")
+        torch.save(best_state_dict, f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth")
         output_file.flush()
         output_file.close()
+
+
+if __name__ == '__main__':
+    multilabel_FNN_trainer()
