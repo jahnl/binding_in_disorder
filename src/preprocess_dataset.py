@@ -93,19 +93,19 @@ def ML_input_labels(t_list, t_set):
           f'# other-binding residues: {o_counter}')
 
 
-if __name__ == '__main__':
+def preprocess(test_set_fasta: str, train_set_fasta: str, disprot_annotations: str):
     # match the annotation with the data actually used
     # write new, more useful annotation
     # print statistics
     # call ML input label creation
 
     # sort the train and test set to enable fast access for a later point in the workflow
-    with open('../dataset/test_set.fasta', 'r') as test_set:
+    with open(test_set_fasta, 'r') as test_set:
         test_list = sort_dataset(test_set)
-    with open('../dataset/train_set.fasta', 'r') as train_set:
+    with open(train_set_fasta, 'r') as train_set:
         train_list = sort_dataset(train_set)
 
-    with open('../dataset/disprot_annotations.txt', 'r') as annotation:
+    with open(disprot_annotations, 'r') as annotation:
         # sort annotation
         ann_list = list()
         last_id = ''
