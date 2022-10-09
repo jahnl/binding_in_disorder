@@ -1,4 +1,6 @@
 import configparser
+from os.path import exists
+
 import src.preprocess_dataset
 import src.CV_and_oversampling
 import src.sampling_datapoints
@@ -11,7 +13,7 @@ import src.investigate_model
 # Method to read config file settings
 def read_config():
     config = configparser.ConfigParser()
-    config.read('./config.ini')
+    config.read('../config.ini')
     return config
 
 
@@ -20,24 +22,55 @@ if __name__ == '__main__':
 
     # determine workflow
     steps = config['workflow']['steps']
-    steps = steps.split(',')
+    print('steps to do: ' + steps)
+
+    # parse bools
+    wf_overwrite = config['workflow']['overwrite'] != 'False'
+    param_multilabel = config['parameters']['multilabel'] != 'False'
+    param_postprocessing = config['parameters']['post_processing'] != 'False'
+    param_test = config['parameters']['test'] != 'False'
 
     if '1' in steps:
         # TODO: overwrite files? for all steps
-        # TODO: check parameters on correctness
+        # TODO: check parameters for correctness
+        # TODO: copy config file for documentation of parameters
         print('step 1: preprocess dataset')
-        src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
-                                          train_set_fasta=config['input_files']['train_set_fasta'],
-                                          disprot_annotations=config['input_files']['disprot_annotations'])
+        if not wf_overwrite and exists('../dataset/test_set_annotation.tsv') and \
+                exists('../dataset/train_set_annotation.tsv') and exists('../dataset/test_set_input.txt') and \
+                exists('../dataset/train_set_input.txt'):
+            print('Step 1 is skipped, all output files are already present')
+        else:
+            src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
+                                              train_set_fasta=config['input_files']['train_set_fasta'],
+                                              disprot_annotations=config['input_files']['disprot_annotations'],
+                                              overwrite=wf_overwrite)
     if '2' in steps:
         print('step 2: CV and oversampling')
-        src.CV_and_oversampling.split(n_splits=int(config['parameters']['n_splits']),
-                                      oversampling=config['parameters']['oversampling'])
+        if not wf_overwrite:       # overwrite = False
+            all_CV_splits_present = True                    # check if at least 1 file is missing
+            for i in range(int(config['parameters']['n_splits'])):
+                if not exists(f'../dataset/folds/CV_fold_{i}_labels_{config["parameters"]["oversampling"]}.txt'):
+                    all_CV_splits_present = False
+                    break
+        if not wf_overwrite and all_CV_splits_present:
+            print('Step 2 is skipped, all output files are already present')
+        else:
+            src.CV_and_oversampling.split(n_splits=int(config['parameters']['n_splits']),
+                                          oversampling=config['parameters']['oversampling'])
     if '3' in steps:
         print('step 3: sampling data points')
-        src.sampling_datapoints.sample_datapoints(n_splits=int(config['parameters']['n_splits']),
-                                                  oversampling=config['parameters']['oversampling'],
-                                                  mode=config['parameters']['residues'])
+        if not wf_overwrite:
+            all_datapoints_present = True
+            for i in range(int(config['parameters']['n_splits'])):
+                if not exists(f'../dataset/folds/new_datapoints_{config["parameters"]["oversampling"]}_fold_{i}.npy'):
+                    all_datapoints_present = False
+                    break
+        if not wf_overwrite and all_datapoints_present:
+            print('Step 3 is skipped, all output files are already present')
+        else:
+            src.sampling_datapoints.sample_datapoints(n_splits=int(config['parameters']['n_splits']),
+                                                      oversampling=config['parameters']['oversampling'],
+                                                      mode=config['parameters']['residues'])
     if '4' in steps:
         print('step 4: training')
         if config['parameters']['architecture'] == 'CNN':
@@ -49,7 +82,7 @@ if __name__ == '__main__':
                                           learning_rate=float(config['parameters']['learning_rate']),
                                           patience=int(config['parameters']['patience']),
                                           max_epochs=int(config['parameters']['max_epochs']))
-        elif not bool(config['parameters']['multilabel']):
+        elif not param_multilabel:
             src.trainer_1_FNN.FNN_trainer(model_name=config['parameters']['model_name'],
                                           n_splits=int(config['parameters']['n_splits']),
                                           oversampling=config['parameters']['oversampling'],
@@ -75,7 +108,7 @@ if __name__ == '__main__':
                                                   mode=config['parameters']['residues'],
                                                   n_splits=int(config['parameters']['n_splits']),
                                                   architecture=config['parameters']['architecture'],
-                                                  multilabel=bool(config['parameters']['multilabel']),
+                                                  multilabel=param_multilabel,
                                                   n_layers=int(config['parameters']['n_layers']),
                                                   dropout=float(config['parameters']['dropout']),
                                                   batch_size=int(config['parameters']['batch_size']),
@@ -100,10 +133,10 @@ if __name__ == '__main__':
                                       cutoff=cutoff,
                                       mode=config['parameters']['residues'],
                                       architecture=config['parameters']['architecture'],
-                                      multilabel=bool(config['parameters']['multilabel']),
+                                      multilabel=param_multilabel,
                                       n_layers=int(config['parameters']['n_layers']),
                                       dropout=float(config['parameters']['dropout']),
                                       batch_size=int(config['parameters']['batch_size']),
-                                      test=bool(config['parameters']['test']),
-                                      post_processing=bool(config['parameters']['post_processing'])
+                                      test=param_test,
+                                      post_processing=param_postprocessing
                                       )

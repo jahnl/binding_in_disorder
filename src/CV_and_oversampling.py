@@ -35,7 +35,7 @@ def split(n_splits: int = 5, oversampling: str = 'binary_residues'):
         # for each subset write annotation to a new file
         # if required: apply oversampling to training set
         for i in enumerate(subsets):
-            with open(data_dir + 'folds/' + f"CV_fold_{i[0]}_labels_{oversampling}.txt", mode="w") as output_labels:
+            with open(f'{data_dir}folds/CV_fold_{i[0]}_labels_{oversampling}.txt', mode="w") as output_labels:
                 # read out the required set of 4 lines for each protein in subset i
                 entries = [''.join(label_lines[4 * x:4 * x + 4]) for x in subsets[i[0]]]
                 for j in entries:

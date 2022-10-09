@@ -5,10 +5,12 @@ Preprocessing of the dataset. Includes:
 2. an annotation with more information,
 3. the input labels for the ML model
 
-input: ./dataset/disprot_annotations.txt, ./dataset/test_set.fasta, ./dataset/train_set.fasta
-output: ./dataset/test_set_annotation.tsv, ./dataset/train_set_annotation.tsv, ./dataset/test_set_input.txt,
-./dataset/train_set_input.txt
+input: ../dataset/disprot_annotations.txt, ../dataset/test_set.fasta, ../dataset/train_set.fasta
+output: ../dataset/test_set_annotation.tsv, ../dataset/train_set_annotation.tsv, ../dataset/test_set_input.txt,
+../dataset/train_set_input.txt
 """
+
+from os.path import exists
 
 
 def sort_dataset(file):
@@ -34,6 +36,7 @@ def ML_input_labels(t_list, t_set):
     # simpler labelling of the classes: non-binding, protein-binding, nuc-binding and other-binding
     # for each AA sequence annotate the position of disordered and specific binding regions
     # also print out the number of specific residue types
+    # is always executed, regardless of overwrite
     ligands = {'non-binding': '_', 'protein': 'P', 'nuc': 'N',
                'lipid': 'O', 'small': 'O', 'metal': 'O', 'ion': 'O', 'carbohydrate': 'O'}
     with open('../dataset/' + t_set + '_set_input.txt', 'w') as out:
@@ -93,7 +96,7 @@ def ML_input_labels(t_list, t_set):
           f'# other-binding residues: {o_counter}')
 
 
-def preprocess(test_set_fasta: str, train_set_fasta: str, disprot_annotations: str):
+def preprocess(test_set_fasta: str, train_set_fasta: str, disprot_annotations: str, overwrite: bool):
     # match the annotation with the data actually used
     # write new, more useful annotation
     # print statistics
@@ -181,18 +184,27 @@ def preprocess(test_set_fasta: str, train_set_fasta: str, disprot_annotations: s
         # print('ann_id ' + ann_id + '\n last_id ' + last_id + '\n test_id ' + test_id + '\n test_hit ' + str(test_hit)+
         #      '\n test_pointer ' + str(test_pointer) + '\n')
 
-    with open('../dataset/test_set_annotation.tsv', 'w') as out_test:
-        out_test.write('ID\tsequence\tmax.Region.ID\tResidues\tAnnotations\tBindEmbed\t\n')
-        for entry in test_list:
-            for tab in entry:
-                out_test.write(tab + '\t')
-            out_test.write('\n')
-    with open('../dataset/train_set_annotation.tsv', 'w') as out_train:
-        out_train.write('ID\tsequence\tmax.Region.ID\tResidues\tAnnotations\tBindEmbed\t\n')
-        for entry in train_list:
-            for tab in entry:
-                out_train.write(tab + '\t')
-            out_train.write('\n')
+    test_ann_tsv = '../dataset/test_set_annotation.tsv'
+    if not overwrite and exists(test_ann_tsv):
+        print(test_ann_tsv + ' already exists, will not be written again.')
+    else:
+        with open(test_ann_tsv, 'w') as out_test:
+            out_test.write('ID\tsequence\tmax.Region.ID\tResidues\tAnnotations\tBindEmbed\t\n')
+            for entry in test_list:
+                for tab in entry:
+                    out_test.write(tab + '\t')
+                out_test.write('\n')
+
+    train_ann_tsv = '../dataset/train_set_annotation.tsv'
+    if not overwrite and exists(train_ann_tsv):
+        print(train_ann_tsv + ' already exists, will not be written again.')
+    else:
+        with open(train_ann_tsv, 'w') as out_train:
+            out_train.write('ID\tsequence\tmax.Region.ID\tResidues\tAnnotations\tBindEmbed\t\n')
+            for entry in train_list:
+                for tab in entry:
+                    out_train.write(tab + '\t')
+                out_train.write('\n')
 
     # write input labels for ML
     ML_input_labels(test_list, 'test')
