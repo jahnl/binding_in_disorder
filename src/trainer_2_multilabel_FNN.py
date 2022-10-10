@@ -23,7 +23,7 @@ def read_labels(fold, oversampling):
         file_name = f'../dataset/folds/CV_fold_{fold}_labels.txt'
     else:
         file_name = f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt'
-    with open(file_name) as handle:
+    with open(file_name, 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:

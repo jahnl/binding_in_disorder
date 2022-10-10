@@ -18,7 +18,7 @@ import copy
 
 
 def read_labels(fold, oversampling):
-    with open(f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt') as handle:
+    with open(f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:

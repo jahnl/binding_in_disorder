@@ -30,8 +30,12 @@ if __name__ == '__main__':
     param_postprocessing = config['parameters']['post_processing'] != 'False'
     param_test = config['parameters']['test'] != 'False'
 
+    # parse cutoff parameter
+    cutoff = config['parameters']['cutoff'].split(',')
+    list(map(float, cutoff))
+
+
     if '1' in steps:
-        # TODO: overwrite files? for all steps
         # TODO: check parameters for correctness
         # TODO: copy config file for documentation of parameters
         print('step 1: preprocess dataset')
@@ -73,70 +77,90 @@ if __name__ == '__main__':
                                                       mode=config['parameters']['residues'])
     if '4' in steps:
         print('step 4: training')
-        if config['parameters']['architecture'] == 'CNN':
-            src.trainer_0_CNN.CNN_trainer(model_name=config['parameters']['model_name'],
-                                          n_splits=int(config['parameters']['n_splits']),
-                                          oversampling=config['parameters']['oversampling'],
-                                          n_layers=int(config['parameters']['n_layers']),
-                                          dropout=float(config['parameters']['dropout']),
-                                          learning_rate=float(config['parameters']['learning_rate']),
-                                          patience=int(config['parameters']['patience']),
-                                          max_epochs=int(config['parameters']['max_epochs']))
-        elif not param_multilabel:
-            src.trainer_1_FNN.FNN_trainer(model_name=config['parameters']['model_name'],
-                                          n_splits=int(config['parameters']['n_splits']),
-                                          oversampling=config['parameters']['oversampling'],
-                                          dropout=float(config['parameters']['dropout']),
-                                          learning_rate=float(config['parameters']['learning_rate']),
-                                          patience=int(config['parameters']['patience']),
-                                          max_epochs=int(config['parameters']['max_epochs']),
-                                          batch_size=int(config['parameters']['batch_size']),
-                                          mode=config['parameters']['residues'])
+        if not wf_overwrite:
+            all_model_files_present = True
+            for i in range(int(config['parameters']['n_splits'])):
+                if not exists(f"../results/logs/training_progress_{config['parameters']['model_name']}_fold_{i}.txt"):
+                    all_model_files_present = False
+                    break
+        if not wf_overwrite and all_model_files_present:
+            print('Step 4 is skipped, all output files are already present')
         else:
-            src.trainer_2_multilabel_FNN.multilabel_FNN_trainer(model_name=config['parameters']['model_name'],
-                                                                n_splits=int(config['parameters']['n_splits']),
-                                                                oversampling=config['parameters']['oversampling'],
-                                                                dropout=float(config['parameters']['dropout']),
-                                                                learning_rate=float(
-                                                                    config['parameters']['learning_rate']),
-                                                                patience=int(config['parameters']['patience']),
-                                                                max_epochs=int(config['parameters']['max_epochs']),
-                                                                batch_size=int(config['parameters']['batch_size']))
+            if config['parameters']['architecture'] == 'CNN':
+                src.trainer_0_CNN.CNN_trainer(model_name=config['parameters']['model_name'],
+                                              n_splits=int(config['parameters']['n_splits']),
+                                              oversampling=config['parameters']['oversampling'],
+                                              n_layers=int(config['parameters']['n_layers']),
+                                              dropout=float(config['parameters']['dropout']),
+                                              learning_rate=float(config['parameters']['learning_rate']),
+                                              patience=int(config['parameters']['patience']),
+                                              max_epochs=int(config['parameters']['max_epochs']))
+            elif not param_multilabel:
+                src.trainer_1_FNN.FNN_trainer(model_name=config['parameters']['model_name'],
+                                              n_splits=int(config['parameters']['n_splits']),
+                                              oversampling=config['parameters']['oversampling'],
+                                              dropout=float(config['parameters']['dropout']),
+                                              learning_rate=float(config['parameters']['learning_rate']),
+                                              patience=int(config['parameters']['patience']),
+                                              max_epochs=int(config['parameters']['max_epochs']),
+                                              batch_size=int(config['parameters']['batch_size']),
+                                              mode=config['parameters']['residues'])
+            else:
+                src.trainer_2_multilabel_FNN.multilabel_FNN_trainer(model_name=config['parameters']['model_name'],
+                                                                    n_splits=int(config['parameters']['n_splits']),
+                                                                    oversampling=config['parameters']['oversampling'],
+                                                                    dropout=float(config['parameters']['dropout']),
+                                                                    learning_rate=float(
+                                                                        config['parameters']['learning_rate']),
+                                                                    patience=int(config['parameters']['patience']),
+                                                                    max_epochs=int(config['parameters']['max_epochs']),
+                                                                    batch_size=int(config['parameters']['batch_size']))
     if '5' in steps:
         print('step 5: investigate cutoffs')
-        src.investigate_model.investigate_cutoffs(model_name=config['parameters']['model_name'],
-                                                  mode=config['parameters']['residues'],
-                                                  n_splits=int(config['parameters']['n_splits']),
-                                                  architecture=config['parameters']['architecture'],
-                                                  multilabel=param_multilabel,
-                                                  n_layers=int(config['parameters']['n_layers']),
-                                                  dropout=float(config['parameters']['dropout']),
-                                                  batch_size=int(config['parameters']['batch_size']),
-                                                  cutoff_percent_min=int(config['parameters']['cutoff_percent_min']),
-                                                  cutoff_percent_max=int(config['parameters']['cutoff_percent_max']),
-                                                  step_percent=int(config['parameters']['step_percent']))
+        if not wf_overwrite and exists(f"../results/logs/validation_{config['parameters']['model_name']}.txt"):
+            print('Step 5 is skipped, the output file is already present')
+        else:
+            src.investigate_model.investigate_cutoffs(model_name=config['parameters']['model_name'],
+                                                      mode=config['parameters']['residues'],
+                                                      n_splits=int(config['parameters']['n_splits']),
+                                                      architecture=config['parameters']['architecture'],
+                                                      multilabel=param_multilabel,
+                                                      n_layers=int(config['parameters']['n_layers']),
+                                                      dropout=float(config['parameters']['dropout']),
+                                                      batch_size=int(config['parameters']['batch_size']),
+                                                      cutoff_percent_min=int(config['parameters']['cutoff_percent_min']),
+                                                      cutoff_percent_max=int(config['parameters']['cutoff_percent_max']),
+                                                      step_percent=int(config['parameters']['step_percent']))
     if '6' in steps:
         print('step 6: manual interpretation for cutoff determination')
         # TODO: make it computational
 
     if '7' in steps:
         print('step 7: predict')
-
-        # parse cutoff parameter
-        cutoff = config['parameters']['cutoff'].split(',')
-        list(map(float, cutoff))
-        if len(cutoff) == 1:
-            cutoff = cutoff[0]
-
-        src.investigate_model.predict(model_name=config['parameters']['model_name'],
-                                      fold=int(config['parameters']['fold']),
-                                      cutoff=cutoff,
-                                      mode=config['parameters']['residues'],
-                                      architecture=config['parameters']['architecture'],
-                                      multilabel=param_multilabel,
-                                      n_layers=int(config['parameters']['n_layers']),
-                                      dropout=float(config['parameters']['dropout']),
-                                      batch_size=int(config['parameters']['batch_size']),
-                                      test=param_test,
-                                      post_processing=param_postprocessing
-                                      )
+        if not wf_overwrite:
+            if param_test and \
+                    exists(f"../results/logs/predict_val_{config['parameters']['model_name']}_{'_'.join(cutoff)}_test.txt"):
+                all_val_files_present = True
+            else:
+                all_val_files_present = True
+                for i in range(int(config['parameters']['n_splits'])):
+                    if not exists(f"../results/logs/predict_val_{config['parameters']['model_name']}_{i}_{'_'.join(cutoff)}.txt"):
+                        all_val_files_present = False
+                        break
+        if not wf_overwrite and all_val_files_present:
+            print('Step 7 is skipped, all output files are already present')
+        else:
+            if len(cutoff) == 1:
+                cutoff = cutoff[0]
+            src.investigate_model.predict(model_name=config['parameters']['model_name'],
+                                          fold=int(config['parameters']['fold']),
+                                          cutoff=cutoff,
+                                          mode=config['parameters']['residues'],
+                                          architecture=config['parameters']['architecture'],
+                                          multilabel=param_multilabel,
+                                          n_layers=int(config['parameters']['n_layers']),
+                                          dropout=float(config['parameters']['dropout']),
+                                          batch_size=int(config['parameters']['batch_size']),
+                                          test=param_test,
+                                          post_processing=param_postprocessing
+                                          )

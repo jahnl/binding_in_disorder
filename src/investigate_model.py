@@ -21,7 +21,7 @@ def read_labels(fold, oversampling):
             file_name = f'../dataset/folds/CV_fold_{fold}_labels.txt'
         else:
             file_name = f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt'
-    with open(file_name) as handle:
+    with open(file_name, 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -377,14 +377,20 @@ def try_cutoffs(model_name: str, embeddings, mode: str = 'all', multilabel: bool
                              cutoff_percent_min, cutoff_percent_max, step_percent)
 
 
-def predictCNN(embeddings, cutoff, fold, model_name: str, n_layers, dropout):
-    with open(f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt", "w") as output_file:
-        print("Fold: " + str(fold))
-        # for validation use the training IDs in the current fold
+def predictCNN(embeddings, cutoff, fold, model_name: str, n_layers, dropout, test):
+    output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
+        f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
+    with open(output_name, "w") as output_file:
+        if not test:
+            print("Fold: " + str(fold))
+            # for validation use the training IDs in the current fold
 
-        # read target data y and disorder information
-        # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, None)
+            # read target data y and disorder information
+            # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
+            val_labels = read_labels(fold, None)
+        else:
+            val_labels = read_labels(None, None)
+
         ids = list(val_labels.keys())
 
         # create the input and target data exactly how it's fed into the ML model
@@ -662,7 +668,7 @@ def predict(model_name: str, fold: int, cutoff, mode: str = 'all', architecture:
 
     # get predictions for chosen cutoff, fold
     if architecture == 'CNN':
-        predictCNN(embeddings, cutoff, fold, model_name, n_layers, dropout)
+        predictCNN(embeddings, cutoff, fold, model_name, n_layers, dropout, test)
     elif architecture == 'FNN':
         predictFNN(embeddings, cutoff, fold, mode, multilabel, post_processing, test, model_name, batch_size, dropout)
     else:
