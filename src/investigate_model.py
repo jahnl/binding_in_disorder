@@ -229,7 +229,7 @@ def try_cutoffs(model_name: str, embeddings, mode: str = 'all', multilabel: bool
                     o_correct, o_tp, o_fp, o_tn, o_fn = 0, 0, 0, 0, 0
                     for input, label in test_loader:
                         input, label = input.to(device), label.to(device)
-                        prediction = model(input, multilabel)
+                        prediction = model(input)
                         test_loss += criterion(loss_function, prediction, label.to(torch.float32)).item()
                         # apply activation function to prediction to get classification and transpose matrices
                         prediction_max = (prediction > cutoff).T
@@ -305,7 +305,7 @@ def try_cutoffs(model_name: str, embeddings, mode: str = 'all', multilabel: bool
                     test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
                     for input, label in test_loader:
                         input, label = input.to(device), label[:, None].to(device)
-                        prediction = model(input, multilabel)
+                        prediction = model(input)
                         test_loss += loss_function(prediction, label.to(torch.float32)).item()
                         # apply activation function to prediction to get classification
                         prediction_act = torch.sigmoid(prediction)
@@ -565,7 +565,7 @@ def predictFNN(embeddings, cutoff, fold, mode, multilabel, post_processing, test
                         int(label[0][i]), int(label[1][i]), int(label[2][i]))
                         for i, _ in enumerate(label[0])]
                     all_labels.extend(label)
-                    prediction = model(input, multilabel).T
+                    prediction = model(input).T
                     # apply activation function to prediction to enable classification
                     prediction_max_p = prediction[0] > cutoff[0]
                     prediction_max_n = prediction[1] > cutoff[1]
@@ -577,7 +577,7 @@ def predictFNN(embeddings, cutoff, fold, mode, multilabel, post_processing, test
                 else:
                     input, label = input.to(device), label[:, None].to(device)
                     all_labels.extend(label.flatten().tolist())
-                    prediction = model(input, multilabel)
+                    prediction = model(input)
                     prediction_act = torch.sigmoid(prediction)
                     all_prediction_act.extend(prediction_act.flatten().tolist())
                     # apply activation function to prediction to enable classification

@@ -32,7 +32,6 @@ if __name__ == '__main__':
 
     # parse cutoff parameter
     cutoff = config['parameters']['cutoff'].split(',')
-    list(map(float, cutoff))
 
 
     if '1' in steps:
@@ -150,6 +149,7 @@ if __name__ == '__main__':
         if not wf_overwrite and all_val_files_present:
             print('Step 7 is skipped, all output files are already present')
         else:
+            cutoff = list(map(float, cutoff))
             if len(cutoff) == 1:
                 cutoff = cutoff[0]
             src.investigate_model.predict(model_name=config['parameters']['model_name'],
