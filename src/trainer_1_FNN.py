@@ -197,11 +197,12 @@ def test_performance(dataset, model, loss_function, device, output, batch_size: 
     return test_loss
 
 
-def FNN_trainer(model_name: str = '2-2_dropout_0.3_lr_0.01', n_splits: int = 5, oversampling: str = 'binary_residues',
-                dropout: float = 0.3, learning_rate: float = 0.01, patience: int = 10, max_epochs: int = 200,
-                batch_size: int = 512, mode: str = 'all'):
+def FNN_trainer(train_embeddings: str, model_name: str = '2-2_dropout_0.3_lr_0.01', n_splits: int = 5,
+                oversampling: str = 'binary_residues', dropout: float = 0.3, learning_rate: float = 0.01,
+                patience: int = 10, max_epochs: int = 200, batch_size: int = 512, mode: str = 'all'):
     """
     trains the FNN
+    :param train_embeddings: path to the embedding file of the train set datapoints
     :param mode: either 'all' or 'disorder_only'; train model on all residues or on disordered residues only
     :param batch_size: batch_size, number of residues that are fed in at once
     :param model_name: name of the model
@@ -216,9 +217,8 @@ def FNN_trainer(model_name: str = '2-2_dropout_0.3_lr_0.01', n_splits: int = 5, 
     # CV_and_oversampling.split(n_splits, oversampling)
 
     # read input embeddings
-    embeddings_in = '../dataset/train_set.h5'
     embeddings = dict()
-    with h5py.File(embeddings_in, 'r') as f:
+    with h5py.File(train_embeddings, 'r') as f:
         for key, embedding in f.items():
             original_id = embedding.attrs['original_id']
             embeddings[original_id] = np.array(embedding)
@@ -306,4 +306,4 @@ def FNN_trainer(model_name: str = '2-2_dropout_0.3_lr_0.01', n_splits: int = 5, 
 
 
 if __name__ == '__main__':
-    FNN_trainer()
+    FNN_trainer('../dataset/train_set.h5')

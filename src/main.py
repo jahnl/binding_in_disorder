@@ -19,6 +19,30 @@ def read_config():
     return config
 
 
+def check_config_items(step, config):
+    # check parameters for correctness
+    # for all steps
+    if config['workflow']['overwrite'] not in ['True', 'False']:
+        raise ValueError("Config item 'overwrite' must be 'True' or 'False'.")
+    # for specific steps
+    if step == 1:
+        if not exists(config['input_files']['test_set_fasta']):
+            raise ValueError(f"Config item 'test_set_fasta': {config['input_files']['test_set_fasta']} is no existing "
+                             f"file.")
+        if not exists(config['input_files']['train_set_fasta']):
+            raise ValueError(f"Config item 'train_set_fasta': {config['input_files']['train_set_fasta']} is no existing"
+                             f" file.")
+        if not exists(config['input_files']['disprot_annotations']):
+            raise ValueError(f"Config item 'disprot_annotations': {config['input_files']['disprot_annotations']} is no "
+                             f"existing file.")
+    elif step <= 5:
+        if 99 < int(config['parameters']['n_splits']) or int(config['parameters']['n_splits']) < 1:
+            raise ValueError("Config item 'n_splits' must be an integer between 1 and 99.")
+
+        # TODO: which params are important to check on?
+
+
+
 if __name__ == '__main__':
     dt = str(datetime.now())[:19].replace(':', '-')
     config = read_config()
@@ -38,8 +62,8 @@ if __name__ == '__main__':
 
 
     if '1' in steps:
-        # TODO: check parameters for correctness
         print('step 1: preprocess dataset')
+        check_config_items(1, config)
         if not wf_overwrite and exists('../dataset/test_set_annotation.tsv') and \
                 exists('../dataset/train_set_annotation.tsv') and exists('../dataset/test_set_input.txt') and \
                 exists('../dataset/train_set_input.txt'):
@@ -73,7 +97,8 @@ if __name__ == '__main__':
         if not wf_overwrite and all_datapoints_present:
             print('Step 3 is skipped, all output files are already present')
         else:
-            src.sampling_datapoints.sample_datapoints(n_splits=int(config['parameters']['n_splits']),
+            src.sampling_datapoints.sample_datapoints(train_embeddings=config['input_files']['train_set_embeddings'],
+                                                      n_splits=int(config['parameters']['n_splits']),
                                                       oversampling=config['parameters']['oversampling'],
                                                       mode=config['parameters']['residues'])
     if '4' in steps:
@@ -88,7 +113,8 @@ if __name__ == '__main__':
             print('Step 4 is skipped, all output files are already present')
         else:
             if config['parameters']['architecture'] == 'CNN':
-                src.trainer_0_CNN.CNN_trainer(model_name=config['parameters']['model_name'],
+                src.trainer_0_CNN.CNN_trainer(train_embeddings=config['input_files']['train_set_embeddings'],
+                                              model_name=config['parameters']['model_name'],
                                               n_splits=int(config['parameters']['n_splits']),
                                               oversampling=config['parameters']['oversampling'],
                                               n_layers=int(config['parameters']['n_layers']),
@@ -97,7 +123,8 @@ if __name__ == '__main__':
                                               patience=int(config['parameters']['patience']),
                                               max_epochs=int(config['parameters']['max_epochs']))
             elif not param_multilabel:
-                src.trainer_1_FNN.FNN_trainer(model_name=config['parameters']['model_name'],
+                src.trainer_1_FNN.FNN_trainer(train_embeddings=config['input_files']['train_set_embeddings'],
+                                              model_name=config['parameters']['model_name'],
                                               n_splits=int(config['parameters']['n_splits']),
                                               oversampling=config['parameters']['oversampling'],
                                               dropout=float(config['parameters']['dropout']),
@@ -107,7 +134,9 @@ if __name__ == '__main__':
                                               batch_size=int(config['parameters']['batch_size']),
                                               mode=config['parameters']['residues'])
             else:
-                src.trainer_2_multilabel_FNN.multilabel_FNN_trainer(model_name=config['parameters']['model_name'],
+                src.trainer_2_multilabel_FNN.multilabel_FNN_trainer(train_embeddings=
+                                                                       config['input_files']['train_set_embeddings'],
+                                                                    model_name=config['parameters']['model_name'],
                                                                     n_splits=int(config['parameters']['n_splits']),
                                                                     oversampling=config['parameters']['oversampling'],
                                                                     dropout=float(config['parameters']['dropout']),
@@ -121,7 +150,8 @@ if __name__ == '__main__':
         if not wf_overwrite and exists(f"../results/logs/validation_{config['parameters']['model_name']}.txt"):
             print('Step 5 is skipped, the output file is already present')
         else:
-            src.investigate_model.investigate_cutoffs(model_name=config['parameters']['model_name'],
+            src.investigate_model.investigate_cutoffs(train_embeddings=config['input_files']['train_set_embeddings'],
+                                                      model_name=config['parameters']['model_name'],
                                                       mode=config['parameters']['residues'],
                                                       n_splits=int(config['parameters']['n_splits']),
                                                       architecture=config['parameters']['architecture'],
@@ -154,7 +184,9 @@ if __name__ == '__main__':
             cutoff = list(map(float, cutoff))
             if len(cutoff) == 1:
                 cutoff = cutoff[0]
-            src.investigate_model.predict(model_name=config['parameters']['model_name'],
+            src.investigate_model.predict(train_embeddings=config['input_files']['train_set_embeddings'],
+                                          test_embeddings=config['input_files']['test_set_embeddings'],
+                                          model_name=config['parameters']['model_name'],
                                           fold=int(config['parameters']['fold']),
                                           cutoff=cutoff,
                                           mode=config['parameters']['residues'],

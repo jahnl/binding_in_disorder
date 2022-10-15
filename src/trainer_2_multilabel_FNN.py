@@ -209,11 +209,12 @@ def test_performance(dataset, model, loss_function, device, output, batch_size: 
     return test_loss
 
 
-def multilabel_FNN_trainer(model_name: str = '4_multiclass', n_splits: int = 5, oversampling: str = 'binary_residues',
-                dropout: float = 0.0, learning_rate: float = 0.01, patience: int = 10, max_epochs: int = 200,
-                batch_size: int = 512):
+def multilabel_FNN_trainer(train_embeddings: str, model_name: str = '4_multiclass', n_splits: int = 5,
+                           oversampling: str = 'binary_residues', dropout: float = 0.0, learning_rate: float = 0.01,
+                           patience: int = 10, max_epochs: int = 200, batch_size: int = 512):
     """
     trains the multi-label FNN
+    :param train_embeddings: path to the embedding file of the train set datapoints
     :param batch_size: batch_size, number of residues that are fed in at once
     :param model_name: name of the model
     :param n_splits: number of Cross-Validation splits
@@ -227,9 +228,8 @@ def multilabel_FNN_trainer(model_name: str = '4_multiclass', n_splits: int = 5, 
     # CV_and_oversampling.split(n_splits, oversampling)
 
     # read input embeddings
-    embeddings_in = '../dataset/train_set.h5'
     embeddings = dict()
-    with h5py.File(embeddings_in, 'r') as f:
+    with h5py.File(train_embeddings, 'r') as f:
         for key, embedding in f.items():
             original_id = embedding.attrs['original_id']
             embeddings[original_id] = np.array(embedding)
@@ -311,4 +311,4 @@ def multilabel_FNN_trainer(model_name: str = '4_multiclass', n_splits: int = 5, 
 
 
 if __name__ == '__main__':
-    multilabel_FNN_trainer()
+    multilabel_FNN_trainer('../dataset/train_set.h5')

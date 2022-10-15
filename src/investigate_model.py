@@ -606,13 +606,14 @@ def predictFNN(embeddings, cutoff, fold, mode, multilabel, post_processing, test
             delimiter_0 = delimiter_1
 
 
-def investigate_cutoffs(model_name: str, mode: str = 'all', n_splits: int = 5,
+def investigate_cutoffs(train_embeddings: str, model_name: str, mode: str = 'all', n_splits: int = 5,
                         architecture: str = 'FNN', n_layers: int = 0, batch_size: int = 512,
                         cutoff_percent_min: int = 0,
                         cutoff_percent_max: int = 100, step_percent: int = 5, multilabel: bool = False,
                         dropout: float = 0.3):
     """
     cutoffs for a classification of the predictions are tried out, careful: expensive!
+    :param train_embeddings: path to the embedding file of the train set datapoints
     :param dropout: dropout probability
     :param model_name: name of the model
     :param mode: residues considered in the model, 'all' or 'disorder_only'
@@ -627,9 +628,8 @@ def investigate_cutoffs(model_name: str, mode: str = 'all', n_splits: int = 5,
     :param multilabel: True if it is a multilabel predictor, else False
     """
     # read input embeddings
-    embeddings_in = '../dataset/train_set.h5'
     embeddings = dict()
-    with h5py.File(embeddings_in, 'r') as f:
+    with h5py.File(train_embeddings, 'r') as f:
         for key, embedding in f.items():
             original_id = embedding.attrs['original_id']
             embeddings[original_id] = np.array(embedding)
@@ -639,11 +639,13 @@ def investigate_cutoffs(model_name: str, mode: str = 'all', n_splits: int = 5,
                 cutoff_percent_min, cutoff_percent_max, step_percent, dropout)
 
 
-def predict(model_name: str, fold: int, cutoff, mode: str = 'all', architecture: str = 'FNN', n_layers: int = 0,
-            batch_size: int = 512, multilabel: bool = False, dropout: float = 0.3,
-            test: bool = False, post_processing: bool = True):
+def predict(train_embeddings: str, test_embeddings: str, model_name: str, fold: int, cutoff, mode: str = 'all',
+            architecture: str = 'FNN', n_layers: int = 0, batch_size: int = 512, multilabel: bool = False,
+            dropout: float = 0.3, test: bool = False, post_processing: bool = True):
     """
     make a final prediction on a validation (set fold!) or test set using the newly determined cutoff
+    :param train_embeddings: path to the embedding file of the train set datapoints
+    :param test_embeddings: path to the embedding file of the test set datapoints
     :param post_processing: do the optional the post-processing step?
     :param test: prediction on the test set?
     :param cutoff: single float or list of floats[p, n, o] for classification cutoffs, between 0.0 and 1.0
@@ -658,7 +660,7 @@ def predict(model_name: str, fold: int, cutoff, mode: str = 'all', architecture:
     """
 
     # read input embeddings
-    embeddings_in = '../dataset/test_set.h5' if test else '../dataset/train_set.h5'
+    embeddings_in = test_embeddings if test else train_embeddings
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
         for key, embedding in f.items():

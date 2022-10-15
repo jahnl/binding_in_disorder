@@ -56,9 +56,11 @@ def get_ML_data(labels, embeddings, mode):
     return input
 
 
-def sample_datapoints(oversampling: str = 'binary_residues', mode: str = 'all', n_splits: int = 5):
+def sample_datapoints(train_embeddings: str, oversampling: str = 'binary_residues', mode: str = 'all',
+                      n_splits: int = 5):
     """
     create new embeddings for the residue-wise oversampled datapoints
+    :param train_embeddings: path to the embedding file of the train set datapoints
     :param oversampling: 'binary_residues' or 'multiclass_residues'
     :param mode: either 'disorder_only' or 'all'
     :param n_splits: number of cross-validation splits
@@ -67,9 +69,8 @@ def sample_datapoints(oversampling: str = 'binary_residues', mode: str = 'all', 
     # CV_and_oversampling.split(n_splits, oversampling)
 
     # read input embeddings
-    embeddings_in = '../dataset/train_set.h5'
     embeddings = dict()
-    with h5py.File(embeddings_in, 'r') as f:
+    with h5py.File(train_embeddings, 'r') as f:
         for key, embedding in f.items():
             original_id = embedding.attrs['original_id']
             embeddings[original_id] = np.array(embedding)

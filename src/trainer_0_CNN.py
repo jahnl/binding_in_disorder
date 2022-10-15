@@ -211,10 +211,12 @@ def test_performance(dataset, model, loss_function, device, output):
     return test_loss
 
 
-def CNN_trainer(model_name: str = '1_5layers', n_splits: int = 5, oversampling: str = 'binary', n_layers: int = 5,
-                dropout: float = 0.0, learning_rate: float = 0.0001, patience: int = 10, max_epochs: int = 200):
+def CNN_trainer(train_embeddings: str, model_name: str = '1_5layers', n_splits: int = 5, oversampling: str = 'binary',
+                n_layers: int = 5, dropout: float = 0.0, learning_rate: float = 0.0001, patience: int = 10,
+                max_epochs: int = 200):
     """
     trains the CNN
+    :param train_embeddings: path to the embedding file of the train set datapoints
     :param model_name: name of the model
     :param n_splits: number of Cross-Validation splits
     :param oversampling: oversampling mode; either None or 'binary'
@@ -228,9 +230,8 @@ def CNN_trainer(model_name: str = '1_5layers', n_splits: int = 5, oversampling: 
     # CV_and_oversampling.split(n_splits, oversampling)
 
     # read input embeddings
-    embeddings_in = '../dataset/train_set.h5'
     embeddings = dict()
-    with h5py.File(embeddings_in, 'r') as f:
+    with h5py.File(train_embeddings, 'r') as f:
         for key, embedding in f.items():
             original_id = embedding.attrs['original_id']
             embeddings[original_id] = np.array(embedding)
@@ -304,4 +305,4 @@ def CNN_trainer(model_name: str = '1_5layers', n_splits: int = 5, oversampling: 
 
 
 if __name__ == '__main__':
-    CNN_trainer()
+    CNN_trainer('../dataset/train_set.h5')
