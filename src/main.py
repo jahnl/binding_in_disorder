@@ -1,5 +1,7 @@
 import configparser
 from os.path import exists
+import shutil
+from datetime import datetime
 
 import src.preprocess_dataset
 import src.CV_and_oversampling
@@ -18,6 +20,7 @@ def read_config():
 
 
 if __name__ == '__main__':
+    dt = str(datetime.now())[:19].replace(':', '-')
     config = read_config()
 
     # determine workflow
@@ -36,7 +39,6 @@ if __name__ == '__main__':
 
     if '1' in steps:
         # TODO: check parameters for correctness
-        # TODO: copy config file for documentation of parameters
         print('step 1: preprocess dataset')
         if not wf_overwrite and exists('../dataset/test_set_annotation.tsv') and \
                 exists('../dataset/train_set_annotation.tsv') and exists('../dataset/test_set_input.txt') and \
@@ -164,3 +166,6 @@ if __name__ == '__main__':
                                           test=param_test,
                                           post_processing=param_postprocessing
                                           )
+
+    # copy config file for documentation of parameters
+    shutil.copyfile(src='../config.ini', dst=f"../results/logs/config_{config['parameters']['model_name']}_{dt}.ini")
