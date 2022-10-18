@@ -163,6 +163,12 @@ if __name__ == '__main__':
     # parse cutoff parameter
     cutoff = config['parameters']['cutoff'].split(',')
 
+    # parse potential empty string to None
+    oversampling = config['parameters']['oversampling']
+    if oversampling == '':
+        oversampling = None
+
+
     if '1' in steps:
         print('step 1: preprocess dataset')
         if not wf_overwrite and exists('../dataset/test_set_annotation.tsv') and \
@@ -186,7 +192,7 @@ if __name__ == '__main__':
             print('Step 2 is skipped, all output files are already present')
         else:
             src.CV_and_oversampling.split(n_splits=int(config['parameters']['n_splits']),
-                                          oversampling=config['parameters']['oversampling'])
+                                          oversampling=oversampling)
     if '3' in steps:
         print('step 3: sampling data points')
         if not wf_overwrite:
@@ -200,7 +206,7 @@ if __name__ == '__main__':
         else:
             src.sampling_datapoints.sample_datapoints(train_embeddings=config['input_files']['train_set_embeddings'],
                                                       n_splits=int(config['parameters']['n_splits']),
-                                                      oversampling=config['parameters']['oversampling'],
+                                                      oversampling=oversampling,
                                                       mode=config['parameters']['residues'])
     if '4' in steps:
         print('step 4: training')
@@ -217,7 +223,7 @@ if __name__ == '__main__':
                 src.trainer_0_CNN.CNN_trainer(train_embeddings=config['input_files']['train_set_embeddings'],
                                               model_name=config['parameters']['model_name'],
                                               n_splits=int(config['parameters']['n_splits']),
-                                              oversampling=config['parameters']['oversampling'],
+                                              oversampling=oversampling,
                                               n_layers=int(config['parameters']['n_layers']),
                                               dropout=float(config['parameters']['dropout']),
                                               learning_rate=float(config['parameters']['learning_rate']),
@@ -227,7 +233,7 @@ if __name__ == '__main__':
                 src.trainer_1_FNN.FNN_trainer(train_embeddings=config['input_files']['train_set_embeddings'],
                                               model_name=config['parameters']['model_name'],
                                               n_splits=int(config['parameters']['n_splits']),
-                                              oversampling=config['parameters']['oversampling'],
+                                              oversampling=oversampling,
                                               dropout=float(config['parameters']['dropout']),
                                               learning_rate=float(config['parameters']['learning_rate']),
                                               patience=int(config['parameters']['patience']),
@@ -239,7 +245,7 @@ if __name__ == '__main__':
                                                                     config['input_files']['train_set_embeddings'],
                                                                     model_name=config['parameters']['model_name'],
                                                                     n_splits=int(config['parameters']['n_splits']),
-                                                                    oversampling=config['parameters']['oversampling'],
+                                                                    oversampling=oversampling,
                                                                     dropout=float(config['parameters']['dropout']),
                                                                     learning_rate=float(
                                                                         config['parameters']['learning_rate']),
