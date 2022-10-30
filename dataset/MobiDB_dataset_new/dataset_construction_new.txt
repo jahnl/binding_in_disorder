@@ -7,36 +7,22 @@
 ## Construct test set (aim for 100 proteins)
 1. Redundancy reduce from 200 positives using mmseqs-uniqueprot at H-val=0 --> 150 proteins	(python -m rostclust uniqueprot <input> <output>)
 2. Redundancy reduce from 200 negatives using mmseqs-uniqueprot at H-val=0 --> 167 proteins
- >3. Redundancy reduce negatives against positives using mmseqs-uniqueprot2d at H-val=0 --> 148 negatives (python -m rostclust uniqueprot2d <negatives> <positives> <output_file>)
+ >3. Redundancy reduce negatives against positives using mmseqs-uniqueprot2d at H-val=0 --> 148 proteins (python -m rostclust uniqueprot2d <negatives> <positives> <output_file>)
  >4. Redundancy reduce both test sets against DeepDISObind's and ANCHOR's train set. --> 123 negatives, 93 positives
  >5. Add the excluded proteins to the train set. (fgrep -vFxf <test_set_after_step4> <test_set_before_step4> > <overlap>)
 
-
-TODO
-
-#################### version from last week############
-
-# Construction of dataset
-## General construction
-1. Parse annotations from MobiDB. Only consider proteins with curated disorder annotation (https://mobidb.org/api/count?curated-disorder-merge=exists). --> 2,816 proteins
-2. Get positives --> 1,044 positives (https://mobidb.org/api/count?curated-disorder-merge=exists&curated-lip-merge=exists)
-3. Get negatives --> 1,772 negatives ( fgrep -v -f positives.fasta all.fasta > negatives.fasta)
-
-## Construct test set (aim for 100 proteins)
-1. Redundancy reduce from 200 positives using mmseqs-uniqueprot at H-val=0 --> 150 proteins	(python -m rostclust uniqueprot <input> <output>)
-2. Redundancy reduce from 200 negatives using mmseqs-uniqueprot at H-val=0 --> 167 proteins
-3. Redundancy reduce negatives against positives using mmseqs-uniqueprot at H-val=0 --> 297 proteins (131 positives, 166 negatives)
-
 ## Construct training set
 To ensure large enough data set size, the training set is less strictly redundancy reduced than the test set (cd-hit -i <input> -o <output> -c 0.4 -n 2)
-1. Redundancy reduce positives using cd-hit at 40% sequence identity --> 749 proteins
-2. Redundancy reduce negatives using cd-hit at 40% sequence identity --> 1254 proteins
-3. Redundancy reduce negatives against positives using cd-hit-2d at 40% sequence identity --> 1159 proteins
+ 1. Redundancy reduce positives using cd-hit at 40% sequence identity --> 792 proteins (511,733 residues)
+ 2. Redundancy reduce negatives using cd-hit at 40% sequence identity --> 1275 proteins
+ 3. Redundancy reduce negatives against positives using cd-hit-2d at 40% sequence identity --> 1172 proteins (649,335 residues) (cd-hit-2d -i <positives> -i2 <negatives> -o <negatives_reduced> -c 0.4 -n 2 -s2 0.9)
 
 ## Finalize test set
-1. Choose 166 (all) negatives and 99 positives (60% of negatives) to mirror distribution in training set
-2. **Final test set: 267 proteins (166 negatives, 99 positives)**
+ >1. Choose all 93 positives (31,069 residues) and 116 negatives (127% of positives = 39,423 residues -> whole proteins -> 39,377 residues) to mirror distribution in training set (in terms of residue count)
+ >2. **Final test set: 209 proteins (116 negatives, 93 positives)**
+ >3. Add the 7 excluded negative proteins to the negative training set
 
 ## Finalize train set	
-1. Redundancy reduce training set against test set using mmseqs-uniqueprot at H-val=0. (python -m rostclust uniqueprot2d <train_set> <test_set> <output_file>)
-2. **Final training set: 1582 proteins (972 negatives, 610 positives)**
+ 1. Redundancy reduce training set against test set using mmseqs-uniqueprot at H-val=0. (python -m rostclust uniqueprot2d <train_set> <test_set> <output_file>)
+ 2. **Final training set: 1815 proteins (1082 negatives, 733 positives)**
+
