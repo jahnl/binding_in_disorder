@@ -96,7 +96,7 @@ def ML_input_labels(t_list, t_set):
           f'# other-binding residues: {o_counter}')
 
 
-def preprocess(test_set_fasta: str, train_set_fasta: str, disprot_annotations: str, overwrite: bool):
+def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, overwrite: bool):
     # match the annotation with the data actually used
     # write new, more useful annotation
     # print statistics

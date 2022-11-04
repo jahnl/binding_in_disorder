@@ -87,9 +87,11 @@ def check_config_items(step, config):
         if not exists(config['input_files']['train_set_fasta']):
             raise ValueError(f"Config item 'train_set_fasta': {config['input_files']['train_set_fasta']} is no existing"
                              f" file.")
-        if not exists(config['input_files']['disprot_annotations']):
-            raise ValueError(f"Config item 'disprot_annotations': {config['input_files']['disprot_annotations']} is no "
+        if not exists(config['input_files']['annotations']):
+            raise ValueError(f"Config item 'annotations': {config['input_files']['disprot_annotations']} is no "
                              f"existing file.")
+        if not config['parameters']['database'] in ['disprot', 'mobidb']:
+            raise ValueError("Config item 'database' must be 'disprot' or 'mobidb'.")
     elif step == 3:  # edge case, residues is tested twice, bc of restrictions in combination with architecture
         if not config['parameters']['residues'] in ['all', 'disorder_only']:
             raise ValueError("Config item 'residues' must be 'all' or 'disorder_only'.")
@@ -178,7 +180,8 @@ if __name__ == '__main__':
         else:
             src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
                                               train_set_fasta=config['input_files']['train_set_fasta'],
-                                              disprot_annotations=config['input_files']['disprot_annotations'],
+                                              annotations=config['input_files']['annotations'],
+                                              database=config['parameters']['database'],
                                               overwrite=wf_overwrite)
     if '2' in steps:
         print('step 2: CV and oversampling')
