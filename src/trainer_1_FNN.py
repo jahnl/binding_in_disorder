@@ -19,8 +19,8 @@ import datetime
 import copy
 
 
-def read_labels(fold, oversampling):
-    with open(f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
+def read_labels(fold, oversampling, dataset_dir):
+    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -197,11 +197,12 @@ def test_performance(dataset, model, loss_function, device, output, batch_size: 
     return test_loss
 
 
-def FNN_trainer(train_embeddings: str, model_name: str = '2-2_dropout_0.3_lr_0.01', n_splits: int = 5,
+def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_dropout_0.3_lr_0.01', n_splits: int = 5,
                 oversampling: str = 'binary_residues', dropout: float = 0.3, learning_rate: float = 0.01,
                 patience: int = 10, max_epochs: int = 200, batch_size: int = 512, mode: str = 'all'):
     """
     trains the FNN
+    :param dataset_dir: directory where the dataset files are stored
     :param train_embeddings: path to the embedding file of the train set datapoints
     :param mode: either 'all' or 'disorder_only'; train model on all residues or on disordered residues only
     :param batch_size: batch_size, number of residues that are fed in at once
@@ -232,11 +233,11 @@ def FNN_trainer(train_embeddings: str, model_name: str = '2-2_dropout_0.3_lr_0.0
 
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, oversampling)
+        val_labels = read_labels(fold, oversampling, dataset_dir)
         train_labels = {}
         for train_fold in range(n_splits):
             if train_fold != fold:
-                train_labels.update(read_labels(train_fold, oversampling))
+                train_labels.update(read_labels(train_fold, oversampling, dataset_dir))
         print(len(val_labels), len(train_labels))
 
         # load pre-computed datapoint embeddings
@@ -245,11 +246,11 @@ def FNN_trainer(train_embeddings: str, model_name: str = '2-2_dropout_0.3_lr_0.0
         if oversampling == 'binary_residues':
             for f in range(n_splits):
                 if f == fold:
-                    v_datapoints = np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{fold}.npy',
+                    v_datapoints = np.load(f'{dataset_dir}folds/new_datapoints_binary_residues_fold_{fold}.npy',
                                            allow_pickle=True)
                 else:
                     t_datapoints.extend(
-                        np.load(f'../dataset/folds/new_datapoints_binary_residues_fold_{f}.npy', allow_pickle=True))
+                        np.load(f'{dataset_dir}folds/new_datapoints_binary_residues_fold_{f}.npy', allow_pickle=True))
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
@@ -303,7 +304,3 @@ def FNN_trainer(train_embeddings: str, model_name: str = '2-2_dropout_0.3_lr_0.0
                    f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth")
         output_file.flush()
         output_file.close()
-
-
-if __name__ == '__main__':
-    FNN_trainer('../dataset/train_set.h5')

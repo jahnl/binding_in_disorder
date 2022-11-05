@@ -36,7 +36,7 @@ def ML_input_labels(t_list, t_set):
     # simpler labelling of the classes: non-binding, protein-binding, nuc-binding and other-binding
     # for each AA sequence annotate the position of disordered and specific binding regions
     # also print out the number of specific residue types
-    # is always executed, regardless of overwrite
+    # is always executed, regardless of 'overwrite' parameter
     ligands = {'non-binding': '_', 'protein': 'P', 'nuc': 'N',
                'lipid': 'O', 'small': 'O', 'metal': 'O', 'ion': 'O', 'carbohydrate': 'O'}
     with open('../dataset/' + t_set + '_set_input.txt', 'w') as out:
@@ -96,19 +96,8 @@ def ML_input_labels(t_list, t_set):
           f'# other-binding residues: {o_counter}')
 
 
-def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, overwrite: bool):
-    # match the annotation with the data actually used
-    # write new, more useful annotation
-    # print statistics
-    # call ML input label creation
-
-    # sort the train and test set to enable fast access for a later point in the workflow
-    with open(test_set_fasta, 'r') as test_set:
-        test_list = sort_dataset(test_set)
-    with open(train_set_fasta, 'r') as train_set:
-        train_list = sort_dataset(train_set)
-
-    with open(disprot_annotations, 'r') as annotation:
+def disprot_preprocessing(test_list, train_list, annotations: str, dataset_dir: str, overwrite: bool):
+    with open(annotations, 'r') as annotation:
         # sort annotation
         ann_list = list()
         last_id = ''
@@ -129,12 +118,11 @@ def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, data
                     ann_list[-1][5] = '>1 regions'
                     ann_list.append(tabs)
                     last_id = tabs[0]
-                else:   # same region
+                else:  # same region
                     ann_list[-1][1] = tabs[1]
-                    ann_list[-1][3] += ','+tabs[3]
-                    ann_list[-1][4] += ','+tabs[4]
+                    ann_list[-1][3] += ',' + tabs[3]
+                    ann_list[-1][4] += ',' + tabs[4]
         ann_list = sorted(ann_list, key=lambda x: x[0])
-
 
     test_pointer = 0
     train_pointer = 0
@@ -184,7 +172,7 @@ def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, data
         # print('ann_id ' + ann_id + '\n last_id ' + last_id + '\n test_id ' + test_id + '\n test_hit ' + str(test_hit)+
         #      '\n test_pointer ' + str(test_pointer) + '\n')
 
-    test_ann_tsv = '../dataset/test_set_annotation.tsv'
+    test_ann_tsv = dataset_dir + 'test_set_annotation.tsv'
     if not overwrite and exists(test_ann_tsv):
         print(test_ann_tsv + ' already exists, will not be written again.')
     else:
@@ -195,7 +183,7 @@ def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, data
                     out_test.write(tab + '\t')
                 out_test.write('\n')
 
-    train_ann_tsv = '../dataset/train_set_annotation.tsv'
+    train_ann_tsv = dataset_dir + 'train_set_annotation.tsv'
     if not overwrite and exists(train_ann_tsv):
         print(train_ann_tsv + ' already exists, will not be written again.')
     else:
@@ -210,6 +198,36 @@ def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, data
     ML_input_labels(test_list, 'test')
     ML_input_labels(train_list, 'train')
 
-
     print('test bind counts: ', bind_counts_test)
     print('train bind counts: ', bind_counts_train)
+
+
+def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: str, overwrite: bool):
+    # TODO, also check for output file names. Shouldn't overwrite the other dataset's output --> different folder!
+    # rather use a dict for the sequences than a sorted list
+    test_dict = {test_list[:, 0]: test_list[:, 1]}
+    print(test_dict)
+    train_dict = {train_list[:, 0]: train_list[:, 1]}
+    with open(annotations, 'r') as annotation:
+        # we need: add labels to specific set,  ML label generation from different annotation
+        # bind_counts_test/train, # binding residues, # non-binding residues, # disorder but non-binding residues
+
+        pass
+
+
+def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str, overwrite: bool):
+    # match the annotation with the data actually used, different computation depending on database
+    # write new, more useful annotation, if database==disprot
+    # print statistics
+    # call ML input label creation
+
+    # sort the train and test set to enable fast access for a later point in the workflow
+    with open(test_set_fasta, 'r') as test_set:
+        test_list = sort_dataset(test_set)
+    with open(train_set_fasta, 'r') as train_set:
+        train_list = sort_dataset(train_set)
+
+    if database == 'disprot':
+        disprot_preprocessing(test_list, train_list, annotations, dataset_dir, overwrite)
+    elif database == 'mobidb':  # based on mobidb's fasta-like output format, with merge and disorder annotation
+        mobidb_preprocessing(test_list, train_list, annotations, dataset_dir, overwrite)

@@ -8,8 +8,8 @@ import h5py
 from Bio import SeqIO
 
 
-def read_labels(fold, oversampling):
-    with open(f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt') as handle:
+def read_labels(fold, oversampling, dataset_dir):
+    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -56,10 +56,11 @@ def get_ML_data(labels, embeddings, mode):
     return input
 
 
-def sample_datapoints(train_embeddings: str, oversampling: str = 'binary_residues', mode: str = 'all',
+def sample_datapoints(train_embeddings: str, dataset_dir: str, oversampling: str = 'binary_residues', mode: str = 'all',
                       n_splits: int = 5):
     """
     create new embeddings for the residue-wise oversampled datapoints
+    :param dataset_dir: directory where the dataset files are stored
     :param train_embeddings: path to the embedding file of the train set datapoints
     :param oversampling: 'binary_residues' or 'multiclass_residues'
     :param mode: either 'disorder_only' or 'all'
@@ -81,14 +82,10 @@ def sample_datapoints(train_embeddings: str, oversampling: str = 'binary_residue
         print("Fold: " + str(fold))
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        labels = read_labels(fold, oversampling)
+        labels = read_labels(fold, oversampling, dataset_dir)
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
         # and save new embeddings to file
         new_embs = get_ML_data(labels, embeddings, mode)
-        np.save(file=f'../dataset/folds/new_datapoints_{oversampling}_fold_{fold}.npy', arr=new_embs)
-
-
-if __name__ == '__main__':
-    sample_datapoints()
+        np.save(file=f'{dataset_dir}folds/new_datapoints_{oversampling}_fold_{fold}.npy', arr=new_embs)

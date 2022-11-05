@@ -10,8 +10,9 @@ output: ../dataset/folds/CV_fold_[0 - n_splits]_labels[_oversampling].txt
 """
 
 
-def split(n_splits: int = 5, oversampling: str = 'binary_residues'):
+def split(dataset_dir: str, n_splits: int = 5, oversampling: str = 'binary_residues'):
     """
+    :param dataset_dir: directory where the dataset files are stored
     :param n_splits: number of Cross-Validation splits
     :param oversampling:
     None: no oversampling
@@ -24,8 +25,7 @@ def split(n_splits: int = 5, oversampling: str = 'binary_residues'):
         --> p*11.68, n*51.82, o*66.66
     """
     # Input Training Data
-    data_dir = '../dataset/'
-    with open(data_dir + "train_set_input.txt", 'r') as train_set_labels:
+    with open(dataset_dir + "train_set_input.txt", 'r') as train_set_labels:
         # Split Training Set for k-fold Cross Validation
         k_fold = KFold(n_splits=n_splits, shuffle=True, random_state=707)
         # generate list of arrays of indices
@@ -35,7 +35,7 @@ def split(n_splits: int = 5, oversampling: str = 'binary_residues'):
         # for each subset write annotation to a new file
         # if required: apply oversampling to training set
         for i in enumerate(subsets):
-            with open(f'{data_dir}folds/CV_fold_{i[0]}_labels_{oversampling}.txt', mode="w") as output_labels:
+            with open(f'{dataset_dir}folds/CV_fold_{i[0]}_labels_{oversampling}.txt', mode="w") as output_labels:
                 # read out the required set of 4 lines for each protein in subset i
                 entries = [''.join(label_lines[4 * x:4 * x + 4]) for x in subsets[i[0]]]
                 for j in entries:

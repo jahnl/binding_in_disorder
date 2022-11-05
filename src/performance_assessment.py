@@ -1,6 +1,7 @@
 """
 comparable performance assessment of all models (except 3_disorder_only, is not comparable):
 bootstrapping, avg over all folds, all relevant metrics
+not part of pipeline
 """
 
 import numpy as np

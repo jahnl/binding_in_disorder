@@ -17,8 +17,8 @@ import datetime
 import copy
 
 
-def read_labels(fold, oversampling):
-    with open(f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
+def read_labels(fold, oversampling, dataset_dir):
+    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -211,11 +211,12 @@ def test_performance(dataset, model, loss_function, device, output):
     return test_loss
 
 
-def CNN_trainer(train_embeddings: str, model_name: str = '1_5layers', n_splits: int = 5, oversampling: str = 'binary',
+def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5layers', n_splits: int = 5, oversampling: str = 'binary',
                 n_layers: int = 5, dropout: float = 0.0, learning_rate: float = 0.0001, patience: int = 10,
                 max_epochs: int = 200):
     """
     trains the CNN
+    :param dataset_dir: directory where the dataset files are stored
     :param train_embeddings: path to the embedding file of the train set datapoints
     :param model_name: name of the model
     :param n_splits: number of Cross-Validation splits
@@ -245,11 +246,11 @@ def CNN_trainer(train_embeddings: str, model_name: str = '1_5layers', n_splits: 
 
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, oversampling)
+        val_labels = read_labels(fold, oversampling, dataset_dir)
         train_labels = {}
         for train_fold in range(n_splits):
             if train_fold != fold:
-                train_labels.update(read_labels(train_fold, oversampling))
+                train_labels.update(read_labels(train_fold, oversampling, dataset_dir))
         print(len(val_labels), len(train_labels))
 
         # create the input and target data exactly how it's fed into the ML model

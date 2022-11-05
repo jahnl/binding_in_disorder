@@ -18,11 +18,11 @@ import datetime
 import copy
 
 
-def read_labels(fold, oversampling):
+def read_labels(fold, oversampling, dataset_dir):
     if oversampling is None:        # no oversampling on validation set!
-        file_name = f'../dataset/folds/CV_fold_{fold}_labels.txt'
+        file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels.txt'
     else:
-        file_name = f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt'
+        file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt'
     with open(file_name, 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
@@ -209,11 +209,12 @@ def test_performance(dataset, model, loss_function, device, output, batch_size: 
     return test_loss
 
 
-def multilabel_FNN_trainer(train_embeddings: str, model_name: str = '4_multiclass', n_splits: int = 5,
+def multilabel_FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '4_multiclass', n_splits: int = 5,
                            oversampling: str = 'binary_residues', dropout: float = 0.0, learning_rate: float = 0.01,
                            patience: int = 10, max_epochs: int = 200, batch_size: int = 512):
     """
     trains the multi-label FNN
+    :param dataset_dir: directory where the dataset files are stored
     :param train_embeddings: path to the embedding file of the train set datapoints
     :param batch_size: batch_size, number of residues that are fed in at once
     :param model_name: name of the model
@@ -243,11 +244,11 @@ def multilabel_FNN_trainer(train_embeddings: str, model_name: str = '4_multiclas
 
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, None)  # no oversampling on val_labels
+        val_labels = read_labels(fold, None, dataset_dir)  # no oversampling on val_labels
         train_labels = {}
         for train_fold in range(n_splits):
             if train_fold != fold:
-                train_labels.update(read_labels(train_fold, oversampling))
+                train_labels.update(read_labels(train_fold, oversampling, dataset_dir))
         print(len(val_labels), len(train_labels))
 
         # load pre-computed datapoint embeddings
@@ -256,7 +257,7 @@ def multilabel_FNN_trainer(train_embeddings: str, model_name: str = '4_multiclas
             for f in range(n_splits):
                 if f != fold:
                     t_datapoints.extend(
-                        np.load(f'../dataset/folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
+                        np.load(f'{dataset_dir}folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
@@ -308,7 +309,3 @@ def multilabel_FNN_trainer(train_embeddings: str, model_name: str = '4_multiclas
         torch.save(best_state_dict, f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth")
         output_file.flush()
         output_file.close()
-
-
-if __name__ == '__main__':
-    multilabel_FNN_trainer('../dataset/train_set.h5')
