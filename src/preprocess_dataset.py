@@ -213,7 +213,8 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
 
     with open(annotations, 'r') as annotation:
         # add labels to specific set,  ML label generation from different annotation
-        # bind_counts_test/train, # binding residues, # non-binding residues, # disorder but non-binding residues
+        # (bind_counts_test/train (per protein...))
+        # # binding residues, # non-binding residues, # disorder but non-binding residues
         for record in SeqIO.parse(annotation, 'fasta'):
             id = record.id.split('|')[0]
             if id in train_dict and 'sequence' not in record.id:
@@ -222,6 +223,9 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                 test_dict[id].append(str(record.seq))
             # else: has been excluded from development set
     for set in [test_dict, train_dict]:
+        bind_count = 0
+        nbind_count = 0
+        diso_nbind_count = 0
         name = 'test' if set == test_dict else 'train'
         with open(dataset_dir + name + '_set_input.txt', 'w') as out:
             for entry_id in set.keys():
@@ -236,9 +240,15 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                     elif residue == '-' and set[entry_id][2][i] == 'B':
                         # exclude binding regions outside of disordered regions
                         set[entry_id][2] = set[entry_id][2][:i] + '-' + set[entry_id][2][i + 1:]
+                b_c = set[entry_id][2].count('B')
+                bind_count += b_c
+                nbind_count += len(set[entry_id][2]) - b_c
+                diso_nbind_count += set[entry_id][2].count('_')
                 # write ML input file
                 out.write('>' + entry_id + '\n' + set[entry_id][0] + '\n' + set[entry_id][1] + '\n' + set[entry_id][2]
                           + '\n')
+        print(f'{name} set:\nbinding residues: {bind_count}\nnon-binding residues: {nbind_count}\n'
+              f'non-binding residues in disorder: {diso_nbind_count}')
 
 
 def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str,
