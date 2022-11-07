@@ -1,4 +1,3 @@
-
 """
 Preprocessing of the dataset. Includes:
 1. statistics about the dataset,
@@ -11,6 +10,7 @@ output: ../dataset/test_set_annotation.tsv, ../dataset/train_set_annotation.tsv,
 """
 
 from os.path import exists
+from Bio import SeqIO
 
 
 def sort_dataset(file):
@@ -32,14 +32,14 @@ def sort_dataset(file):
     return sorted(ls, key=lambda x: x[0])
 
 
-def ML_input_labels(t_list, t_set):
+def ML_input_labels(t_list, t_set, dataset_dir):
     # simpler labelling of the classes: non-binding, protein-binding, nuc-binding and other-binding
     # for each AA sequence annotate the position of disordered and specific binding regions
     # also print out the number of specific residue types
     # is always executed, regardless of 'overwrite' parameter
     ligands = {'non-binding': '_', 'protein': 'P', 'nuc': 'N',
                'lipid': 'O', 'small': 'O', 'metal': 'O', 'ion': 'O', 'carbohydrate': 'O'}
-    with open('../dataset/' + t_set + '_set_input.txt', 'w') as out:
+    with open(dataset_dir + t_set + '_set_input.txt', 'w') as out:
         special_case = False
         disorder_str = ''
         ligand_str = ''
@@ -195,27 +195,54 @@ def disprot_preprocessing(test_list, train_list, annotations: str, dataset_dir: 
                 out_train.write('\n')
 
     # write input labels for ML
-    ML_input_labels(test_list, 'test')
-    ML_input_labels(train_list, 'train')
+    ML_input_labels(test_list, 'test', dataset_dir)
+    ML_input_labels(train_list, 'train', dataset_dir)
 
     print('test bind counts: ', bind_counts_test)
     print('train bind counts: ', bind_counts_train)
 
 
 def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: str, overwrite: bool):
-    # TODO, also check for output file names. Shouldn't overwrite the other dataset's output --> different folder!
     # rather use a dict for the sequences than a sorted list
-    test_dict = {test_list[:, 0]: test_list[:, 1]}
-    print(test_dict)
-    train_dict = {train_list[:, 0]: train_list[:, 1]}
+    test_dict = {}
+    for entry in test_list:
+        test_dict[entry[0].split('|')[0]] = [entry[1]]
+    train_dict = {}
+    for entry in train_list:
+        train_dict[entry[0].split('|')[0]] = [entry[1]]
+
     with open(annotations, 'r') as annotation:
-        # we need: add labels to specific set,  ML label generation from different annotation
+        # add labels to specific set,  ML label generation from different annotation
         # bind_counts_test/train, # binding residues, # non-binding residues, # disorder but non-binding residues
+        for record in SeqIO.parse(annotation, 'fasta'):
+            id = record.id.split('|')[0]
+            if id in train_dict and 'sequence' not in record.id:
+                train_dict[id].append(str(record.seq))
+            elif id in test_dict and 'sequence' not in record.id:
+                test_dict[id].append(str(record.seq))
+            # else: has been excluded from development set
+    for set in [test_dict, train_dict]:
+        name = 'test' if set == test_dict else 'train'
+        with open(dataset_dir + name + '_set_input.txt', 'w') as out:
+            for entry_id in set.keys():
+                set[entry_id][1] = set[entry_id][1].replace('0', '-').replace('1', 'D')     # adapt annotation
+                if len(set[entry_id]) < 3:
+                    set[entry_id].append('-'*len(set[entry_id][0]))  # add labels for 'no LIP'
+                else:
+                    set[entry_id][2] = set[entry_id][2].replace('1', 'B').replace('0', '-')     # adapt annotation
+                for i, residue in enumerate(set[entry_id][1]):
+                    if residue == 'D' and set[entry_id][2][i] == '-':
+                        set[entry_id][2] = set[entry_id][2][:i] + '_' + set[entry_id][2][i+1:]
+                    elif residue == '-' and set[entry_id][2][i] == 'B':
+                        # exclude binding regions outside of disordered regions
+                        set[entry_id][2] = set[entry_id][2][:i] + '-' + set[entry_id][2][i + 1:]
+                # write ML input file
+                out.write('>' + entry_id + '\n' + set[entry_id][0] + '\n' + set[entry_id][1] + '\n' + set[entry_id][2]
+                          + '\n')
 
-        pass
 
-
-def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str, overwrite: bool):
+def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str,
+               overwrite: bool):
     # match the annotation with the data actually used, different computation depending on database
     # write new, more useful annotation, if database==disprot
     # print statistics

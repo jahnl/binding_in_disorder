@@ -88,7 +88,7 @@ def check_config_items(step, config):
             raise ValueError(f"Config item 'train_set_fasta': {config['input_files']['train_set_fasta']} is no existing"
                              f" file.")
         if not exists(config['input_files']['annotations']):
-            raise ValueError(f"Config item 'annotations': {config['input_files']['disprot_annotations']} is no "
+            raise ValueError(f"Config item 'annotations': {config['input_files']['annotations']} is no "
                              f"existing file.")
         if not config['parameters']['database'] in ['disprot', 'mobidb']:
             raise ValueError("Config item 'database' must be 'disprot' or 'mobidb'.")
