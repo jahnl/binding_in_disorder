@@ -57,7 +57,7 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                         # oversample only binding residues, 'binary_residues(_disorder)'
                         # then 'create' new protein with asterisk-ID from only these residues * 9.2
                         # (or less when not disprot and binary_residues)
-                        elif oversampling.startswith('binary_residues'):
+                        elif oversampling is not None and oversampling.startswith('binary_residues'):
                             # indices of binding residues in this protein
                             indices = [x for x, r in enumerate(j.split('\n')[3]) if
                                        re.match(r'(B|P|N|O|X|Y|Z|A)', r) is not None]
@@ -133,7 +133,7 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                     except IndexError:  # end of file = single line break reached
                         pass
 
-                    if 'residues' not in oversampling:
+                    if oversampling is None or 'residues' not in oversampling:
                         for _ in range(repeat):
                             output_labels.write(j)
                     elif oversampling == 'binary_residues':

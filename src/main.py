@@ -97,8 +97,8 @@ def check_config_items(step, config):
         if not config['parameters']['residues'] in ['all', 'disorder_only']:
             raise ValueError("Config item 'residues' must be 'all' or 'disorder_only'.")
     elif step == 4:
-        if not set(config['workflow']['learning_rate']) <= set(string.digits + '.') or \
-                not 0 < float(config['workflow']['learning_rate']) < 1:
+        if not set(config['parameters']['learning_rate']) <= set(string.digits + '.') or \
+                not 0 < float(config['parameters']['learning_rate']) < 1:
             raise ValueError("Config item 'learning_rate' must be a float between 0 and 1.")
         if not config['parameters']['patience'].isnumeric() or not 0 < int(config['parameters']['patience']) < 100:
             raise ValueError("Config item 'patience' must be an integer between 1 and 99.")

@@ -206,22 +206,57 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
     # rather use a dict for the sequences than a sorted list
     test_dict = {}
     for entry in test_list:
-        test_dict[entry[0].split('|')[0]] = [entry[1]]
+        test_dict[entry[0]] = [entry[1]]
     train_dict = {}
     for entry in train_list:
-        train_dict[entry[0].split('|')[0]] = [entry[1]]
+        train_dict[entry[0]] = [entry[1]]
 
     with open(annotations, 'r') as annotation:
         # add labels to specific set,  ML label generation from different annotation
         # (bind_counts_test/train (per protein...))
         # # binding residues, # non-binding residues, # disorder but non-binding residues
+        ann_no = 0
+        long_id = ''
+        lip_seq = ''
         for record in SeqIO.parse(annotation, 'fasta'):
-            id = record.id.split('|')[0]
-            if id in train_dict and 'sequence' not in record.id:
-                train_dict[id].append(str(record.seq))
-            elif id in test_dict and 'sequence' not in record.id:
-                test_dict[id].append(str(record.seq))
-            # else: has been excluded from development set
+            # first sequence, then lip-merge, then disorder-merge (different from output file)
+            if ann_no == 0:     # new entry
+                long_id = record.description
+                if long_id in test_dict:
+                    ann_no += 1
+                elif long_id in train_dict:
+                    ann_no += 11
+                else:   # has been excluded from development set
+                    ann_no = 0
+
+            elif ann_no == 1:   # in test set
+                if 'disorder' in record.id:
+                    # there was no lip annotation --> jump back to ann_no 0
+                    test_dict[long_id].append(str(record.seq))
+                    ann_no = 0
+                elif 'lip' in record.id:
+                    lip_seq = str(record.seq)
+                    ann_no += 1
+            elif ann_no == 2:       # there was LIP --> there is disorder annotation here
+                test_dict[long_id].append(str(record.seq))
+                test_dict[long_id].append(lip_seq)
+                ann_no = 0
+                lip_seq = ''
+
+            elif ann_no == 11:  # in train set
+                if 'disorder' in record.id:
+                    # there was no lip annotation --> jump back to ann_no 0
+                    train_dict[long_id].append(str(record.seq))
+                    ann_no = 0
+                elif 'lip' in record.id:
+                    lip_seq = str(record.seq)
+                    ann_no += 1
+            elif ann_no == 12:       # there was LIP --> there is disorder annotation here
+                train_dict[long_id].append(str(record.seq))
+                train_dict[long_id].append(lip_seq)
+                ann_no = 0
+                lip_seq = ''
+
     for set in [test_dict, train_dict]:
         bind_count = 0
         nbind_count = 0
