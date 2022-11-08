@@ -11,14 +11,17 @@ import torch.tensor
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch import nn
+from os.path import exists
 
 
 def read_labels(fold, oversampling, dataset_dir):
     if fold is None:  # --> test set
         file_name = f'{dataset_dir}test_set_input.txt'
     else:
-        if oversampling is None:  # no oversampling on validation set!
+        if oversampling is None:  # no oversampling on validation set! (or mode with no oversampling)
             file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels.txt'
+            if not exists(file_name):
+                file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_None.txt'
         else:
             file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt'
     with open(file_name, 'r') as handle:
@@ -65,7 +68,7 @@ def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
                 binding = re.sub(r'-|_', '0', binding)
             elif mode == 'disorder_only':
                 binding = binding.replace('-', '').replace('_', '0')
-            binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
+            binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
             binding = np.array(binding, dtype=float)
             target.append(binding)
         else:
@@ -403,7 +406,7 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = CNN(n_layers, dropout).to(device)
         model.load_state_dict(
-            torch.load(f"../results/models/binding_regions_{model_name}_fold_{fold}.pth"))
+            torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
         # test performance again, should be the same
 
         test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1, shuffle=False)
