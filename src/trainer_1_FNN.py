@@ -65,7 +65,7 @@ def get_ML_data(labels, embeddings, mode, new_datapoints):
             binding = re.sub(r'-|_', '0', binding)
         elif mode == 'disorder_only':
             binding = binding.replace('-', '').replace('_', '0')
-        binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
+        binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
         target.append(binding)
         """

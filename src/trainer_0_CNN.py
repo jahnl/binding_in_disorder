@@ -47,7 +47,7 @@ def get_ML_data(labels, embeddings):
         # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesn't work!)
         binding = str(labels[id][2])
         binding = re.sub(r'-|_', '0', binding)
-        binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
+        binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
         target.append(binding)
         """

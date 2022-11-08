@@ -51,7 +51,7 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                             if re.match(r'.*(B|P|N|O|X|Y|Z|A).*', j.split('\n')[3]) is not None:
                                 if database =='disprot' and chance <= 98:  # only 98% of binding proteins are duplicated
                                     repeat = 2
-                            elif database == 'mobidb' and chance <= 61:     # 61% of non-binding proteins are duplicated
+                            elif database == 'mobidb' and chance <= 62:     # 62% of non-binding proteins are duplicated
                                 repeat = 2
 
                         # oversample only binding residues, 'binary_residues(_disorder)'
@@ -82,8 +82,8 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                                         repeat = 14  # not 15, bc it's already written 1 time per default
                                     else:
                                         repeat = 13
-                                else:   # mobidb, 'binary_residues_disorder', times 1.32
-                                    if (random.randint(1, 100)) <= 32:
+                                else:   # mobidb, 'binary_residues_disorder', times 1.69
+                                    if (random.randint(1, 100)) <= 69:
                                         repeat = 1
 
                         elif oversampling == 'multiclass_residues':
