@@ -1,0 +1,33 @@
+2022-11-08 17:57:08.707592	Epoch 1
+	Training set: Avg loss: 0.000627 
+	Cross-Training set: Accuracy: 91.8%, Sensitivity: 73.3%, Precision: 41.1%, Avg loss: 0.000357 
+2022-11-08 17:58:08.855591	Epoch 2
+	Training set: Avg loss: 0.000338 
+	Cross-Training set: Accuracy: 92.3%, Sensitivity: 70.0%, Precision: 42.9%, Avg loss: 0.000376 
+2022-11-08 17:59:29.170589	Epoch 3
+	Training set: Avg loss: 0.000269 
+	Cross-Training set: Accuracy: 92.7%, Sensitivity: 67.2%, Precision: 44.4%, Avg loss: 0.000434 
+2022-11-08 18:00:46.125587	Epoch 4
+	Training set: Avg loss: 0.000227 
+	Cross-Training set: Accuracy: 92.8%, Sensitivity: 65.0%, Precision: 44.4%, Avg loss: 0.000497 
+2022-11-08 18:02:11.635589	Epoch 5
+	Training set: Avg loss: 0.000181 
+	Cross-Training set: Accuracy: 93.0%, Sensitivity: 64.0%, Precision: 45.8%, Avg loss: 0.000539 
+2022-11-08 18:03:31.319594	Epoch 6
+	Training set: Avg loss: 0.000160 
+	Cross-Training set: Accuracy: 92.7%, Sensitivity: 64.2%, Precision: 44.0%, Avg loss: 0.000553 
+2022-11-08 18:04:48.392586	Epoch 7
+	Training set: Avg loss: 0.000124 
+	Cross-Training set: Accuracy: 93.1%, Sensitivity: 63.9%, Precision: 46.1%, Avg loss: 0.001014 
+2022-11-08 18:06:03.507588	Epoch 8
+	Training set: Avg loss: 0.000117 
+	Cross-Training set: Accuracy: 93.1%, Sensitivity: 57.5%, Precision: 46.0%, Avg loss: 0.001300 
+2022-11-08 18:07:26.842588	Epoch 9
+	Training set: Avg loss: 0.000139 
+	Cross-Training set: Accuracy: 93.1%, Sensitivity: 63.1%, Precision: 46.2%, Avg loss: 0.000607 
+2022-11-08 18:08:42.695587	Epoch 10
+	Training set: Avg loss: 0.000104 
+	Cross-Training set: Accuracy: 93.3%, Sensitivity: 55.6%, Precision: 46.7%, Avg loss: 0.000727 
+2022-11-08 18:09:58.866586	Epoch 11
+	Training set: Avg loss: 0.000080 
+	Cross-Training set: Accuracy: 93.2%, Sensitivity: 67.5%, Precision: 46.8%, Avg loss: 0.000584 
