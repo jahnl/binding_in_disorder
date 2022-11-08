@@ -226,6 +226,10 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
         bind_count = 0
         nbind_count = 0
         diso_nbind_count = 0
+        positive_proteins = 0
+        negative_proteins = 0
+        pos_prot_res = 0
+        neg_prot_res = 0
         name = 'test' if set == test_dict else 'train'
         with open(dataset_dir + name + '_set_input.txt', 'w') as out:
             for entry_id in set.keys():
@@ -240,15 +244,25 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                     elif residue == '-' and set[entry_id][2][i] == 'B':
                         # exclude binding regions outside of disordered regions
                         set[entry_id][2] = set[entry_id][2][:i] + '-' + set[entry_id][2][i + 1:]
+                # statistics
                 b_c = set[entry_id][2].count('B')
+                length = len(set[entry_id][2])
                 bind_count += b_c
-                nbind_count += len(set[entry_id][2]) - b_c
+                nbind_count += length - b_c
                 diso_nbind_count += set[entry_id][2].count('_')
+                if b_c > 0:
+                    positive_proteins += 1
+                    pos_prot_res += length
+                else:
+                    negative_proteins += 1
+                    neg_prot_res += length
+
                 # write ML input file
                 out.write('>' + entry_id + '\n' + set[entry_id][0] + '\n' + set[entry_id][1] + '\n' + set[entry_id][2]
                           + '\n')
         print(f'{name} set:\nbinding residues: {bind_count}\nnon-binding residues: {nbind_count}\n'
-              f'non-binding residues in disorder: {diso_nbind_count}')
+              f'non-binding residues in disorder: {diso_nbind_count}\npositive proteins: {positive_proteins} with '
+              f'{pos_prot_res} residues\nnegative proteins: {negative_proteins} with {neg_prot_res} residues\n')
 
 
 def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str,

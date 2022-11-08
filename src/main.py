@@ -28,7 +28,10 @@ def check_config_items(step, config):
         raise ValueError("Config item 'overwrite' must be 'True' or 'False'.")
 
     # for subsets of steps
-    if step in [3, 4, 5, 7]:
+    if step in [1, 2]:
+        if not config['parameters']['database'] in ['disprot', 'mobidb']:
+            raise ValueError("Config item 'database' must be 'disprot' or 'mobidb'.")
+    elif step in [3, 4, 5, 7]:
         if not exists(config['input_files']['train_set_embeddings']):
             raise ValueError(f"Config item 'train_set_embeddings': {config['input_files']['train_set_embeddings']} "
                              f"is no existing file.")
@@ -71,13 +74,13 @@ def check_config_items(step, config):
                         not config['parameters']['oversampling'] in ['', 'binary']:
                     ValueError("Config item 'oversampling' must be None or 'binary', when architecture is 'CNN'.")
                 elif config['parameters']['multilabel'] == 'False' and not config['parameters']['oversampling'] in \
-                                                                           ['', 'binary', 'binary_residues']:
-                    ValueError("Config item 'oversampling' must be None, 'binary' or 'binary_residues, when "
-                               "architecture is 'FNN' and 'multilabel' is False.")
+                                                          ['', 'binary', 'binary_residues', 'binary_residues_disorder']:
+                    ValueError("Config item 'oversampling' must be None, 'binary', 'binary_residues' or "
+                               "'binary_residues_disorder', when architecture is 'FNN' and 'multilabel' is False.")
             elif not config['parameters']['oversampling'] in ['', 'binary', 'binary_residues',
-                                                              'multiclass_residues']:
-                ValueError("Config item 'oversampling' must be None, 'binary', 'binary_residues' or "
-                           "'multiclass_residues'.")
+                                                              'binary_residues_disorder', 'multiclass_residues']:
+                ValueError("Config item 'oversampling' must be None, 'binary', 'binary_residues', 'binary_residues_"
+                           "disorder' or 'multiclass_residues'.")
 
     # for single steps
     if step == 1:
@@ -90,8 +93,6 @@ def check_config_items(step, config):
         if not exists(config['input_files']['annotations']):
             raise ValueError(f"Config item 'annotations': {config['input_files']['annotations']} is no "
                              f"existing file.")
-        if not config['parameters']['database'] in ['disprot', 'mobidb']:
-            raise ValueError("Config item 'database' must be 'disprot' or 'mobidb'.")
     elif step == 3:  # edge case, residues is tested twice, bc of restrictions in combination with architecture
         if not config['parameters']['residues'] in ['all', 'disorder_only']:
             raise ValueError("Config item 'residues' must be 'all' or 'disorder_only'.")
@@ -197,7 +198,8 @@ if __name__ == '__main__':
         else:
             src.CV_and_oversampling.split(n_splits=int(config['parameters']['n_splits']),
                                           oversampling=oversampling,
-                                          dataset_dir=config['input_files']['dataset_directory']
+                                          dataset_dir=config['input_files']['dataset_directory'],
+                                          database=config['parameters']['database']
                                           )
     if '3' in steps:
         print('step 3: sampling data points')

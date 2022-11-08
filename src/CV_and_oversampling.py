@@ -10,7 +10,7 @@ output: ../dataset/folds/CV_fold_[0 - n_splits]_labels[_oversampling].txt
 """
 
 
-def split(dataset_dir: str, n_splits: int = 5, oversampling: str = 'binary_residues'):
+def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str = 'binary_residues'):
     """
     :param dataset_dir: directory where the dataset files are stored
     :param n_splits: number of Cross-Validation splits
@@ -45,28 +45,46 @@ def split(dataset_dir: str, n_splits: int = 5, oversampling: str = 'binary_resid
                     p_sampled_residues, n_sampled_residues, o_sampled_residues = ['', '', ''], ['', '', ''], ['', '',
                                                                                                               '']
                     try:
-                        # is there a binding disordered residue in sequence?
-                        if oversampling == 'binary' and re.match(r'.*(P|N|O|X|Y|Z|A).*', j.split('\n')[3]) is not None:
+                        if oversampling == 'binary':
                             chance = (random.randint(1, 100))
-                            if chance <= 98:  # only 98% of binding proteins are duplicated
+                            # is there a binding disordered residue in sequence?
+                            if re.match(r'.*(B|P|N|O|X|Y|Z|A).*', j.split('\n')[3]) is not None:
+                                if database =='disprot' and chance <= 98:  # only 98% of binding proteins are duplicated
+                                    repeat = 2
+                            elif database == 'mobidb' and chance <= 61:     # 61% of non-binding proteins are duplicated
                                 repeat = 2
 
-                        # oversample only binding residues,
+                        # oversample only binding residues, 'binary_residues(_disorder)'
                         # then 'create' new protein with asterisk-ID from only these residues * 9.2
-                        elif oversampling == 'binary_residues':
+                        # (or less when not disprot and binary_residues)
+                        elif oversampling.startswith('binary_residues'):
                             # indices of binding residues in this protein
                             indices = [x for x, r in enumerate(j.split('\n')[3]) if
-                                       re.match(r'(P|N|O|X|Y|Z|A)', r) is not None]
+                                       re.match(r'(B|P|N|O|X|Y|Z|A)', r) is not None]
                             line_1 = j.split('\n')[1]
                             line_2 = j.split('\n')[2]
                             line_3 = j.split('\n')[3]
                             sampled_residues[0] = ''.join([line_1[x] for x in indices])
                             sampled_residues[1] = ''.join([line_2[x] for x in indices])
                             sampled_residues[2] = ''.join([line_3[x] for x in indices])
-                            if (random.randint(1, 100)) <= 20:
-                                repeat = 9  # not 10, bc it's already written 1 time per default
-                            else:
-                                repeat = 8
+                            if database == 'disprot':
+                                if 'disorder' not in oversampling:
+                                    if (random.randint(1, 100)) <= 20:
+                                        repeat = 9  # not 10, bc it's already written 1 time per default
+                                    else:
+                                        repeat = 8
+                                else:   # disprot, 'binary_residues_disorder'
+                                    # TODO, what's this ratio in disprot dataset?
+                                    pass
+                            else:   # mobidb
+                                if 'disorder' not in oversampling:  # times 14.2
+                                    if (random.randint(1, 100)) <= 20:
+                                        repeat = 14  # not 15, bc it's already written 1 time per default
+                                    else:
+                                        repeat = 13
+                                else:   # mobidb, 'binary_residues_disorder', times 1.32
+                                    if (random.randint(1, 100)) <= 32:
+                                        repeat = 1
 
                         elif oversampling == 'multiclass_residues':
                             # indices of p-binding residues in this protein
