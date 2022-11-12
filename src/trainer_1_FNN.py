@@ -141,7 +141,7 @@ def train(dataset, model, loss_function, optimizer, device, output, batch_size: 
         loss.backward()
         optimizer.step()
 
-        if i % 100 == 0:
+        if i % 250 == 0:
             print(f'\tLoss: {loss.item()} \t batch:{i}/{int(nr_samples / batch_size)}')
 
     avg_train_loss /= int(nr_samples / batch_size)

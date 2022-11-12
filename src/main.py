@@ -28,7 +28,7 @@ def check_config_items(step, config):
         raise ValueError("Config item 'overwrite' must be 'True' or 'False'.")
 
     # for subsets of steps
-    if step in [1, 2]:
+    if step in [1, 2]:      # TODO: for steps 1,2, and 3!
         if not config['parameters']['database'] in ['disprot', 'mobidb']:
             raise ValueError("Config item 'database' must be 'disprot' or 'mobidb'.")
     elif step in [3, 4, 5, 7]:
@@ -214,6 +214,7 @@ if __name__ == '__main__':
         else:
             src.sampling_datapoints.sample_datapoints(train_embeddings=config['input_files']['train_set_embeddings'],
                                                       dataset_dir=config['input_files']['dataset_directory'],
+                                                      database=config['parameters']['database'],
                                                       n_splits=int(config['parameters']['n_splits']),
                                                       oversampling=oversampling,
                                                       mode=config['parameters']['residues'])

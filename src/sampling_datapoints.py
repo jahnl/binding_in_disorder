@@ -29,7 +29,7 @@ def read_labels(fold, oversampling, dataset_dir):
     return labels
 
 
-def get_ML_data(labels, embeddings, mode):
+def get_ML_data(labels, embeddings, mode, database):
     input = list()
     for id in labels.keys():
         if mode == 'all':
@@ -39,9 +39,10 @@ def get_ML_data(labels, embeddings, mode):
 
             print(f'building new embedding for data points of {id}...')
             indices = labels[id][3].split(', ')
-            emb = np.array(embeddings[id[:-1]][int(indices[0])], dtype=float)
+            name = id[:-1] if database == 'disprot' else id[1:]
+            emb = np.array(embeddings[name][int(indices[0])], dtype=float)
             for i in indices[1:]:
-                emb = np.row_stack((emb, embeddings[id[:-1]][int(i)]))
+                emb = np.row_stack((emb, embeddings[name][int(i)]))
             emb_with_conf = np.column_stack((emb, conf_feature))
 
             input.append(emb_with_conf)
@@ -56,10 +57,11 @@ def get_ML_data(labels, embeddings, mode):
     return input
 
 
-def sample_datapoints(train_embeddings: str, dataset_dir: str, oversampling: str = 'binary_residues', mode: str = 'all',
-                      n_splits: int = 5):
+def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, oversampling: str = 'binary_residues',
+                      mode: str = 'all', n_splits: int = 5):
     """
     create new embeddings for the residue-wise oversampled datapoints
+    :param database: mobidb or disprot annotation format
     :param dataset_dir: directory where the dataset files are stored
     :param train_embeddings: path to the embedding file of the train set datapoints
     :param oversampling: 'binary_residues' or 'multiclass_residues'
@@ -87,5 +89,5 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, oversampling: str
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
         # and save new embeddings to file
-        new_embs = get_ML_data(labels, embeddings, mode)
+        new_embs = get_ML_data(labels, embeddings, mode, database)
         np.save(file=f'{dataset_dir}folds/new_datapoints_{oversampling}_fold_{fold}.npy', arr=new_embs)

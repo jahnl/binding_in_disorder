@@ -139,8 +139,10 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                     elif oversampling == 'binary_residues':
                         output_labels.write(j)
                         if sampled_residues != ['', '', '']:
+                            # in mobidb annotation the fasta id has description -> * would be placed behind the 'id'
+                            name = j.split('\n')[0] + '*' if database == 'disprot' else '>*' + j.split('\n')[0][1:]
                             output_labels.write(
-                                j.split('\n')[0] + '*\t' + ((str(indices)[1:-1] + ', ') * repeat) + "\n")
+                                name + '\t' + ((str(indices)[1:-1] + ', ') * repeat) + "\n")
                             for _ in range(repeat):
                                 output_labels.write(sampled_residues[0])
                             output_labels.write('\n')
