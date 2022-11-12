@@ -64,7 +64,7 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, ov
     :param database: mobidb or disprot annotation format
     :param dataset_dir: directory where the dataset files are stored
     :param train_embeddings: path to the embedding file of the train set datapoints
-    :param oversampling: 'binary_residues' or 'multiclass_residues'
+    :param oversampling: 'binary_residues', 'binary_residues_disorder' or 'multiclass_residues'
     :param mode: either 'disorder_only' or 'all'
     :param n_splits: number of cross-validation splits
     """

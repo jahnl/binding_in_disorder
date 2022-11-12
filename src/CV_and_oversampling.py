@@ -33,15 +33,17 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
         subsets = [x[1] for x in k_fold.split(label_lines)]
         # print(subsets)
         # for each subset write annotation to a new file
-        # if required: apply oversampling to training set
+        # if required: apply over/under-sampling to training set
         for i in enumerate(subsets):
             with open(f'{dataset_dir}folds/CV_fold_{i[0]}_labels_{oversampling}.txt', mode="w") as output_labels:
                 # read out the required set of 4 lines for each protein in subset i
                 entries = [''.join(label_lines[4 * x:4 * x + 4]) for x in subsets[i[0]]]
                 for j in entries:
-                    repeat = 1
+                    repeat = 1      # for oversampling of binding residues
+                    repeat_neg = 1    # for undersampling of non-binding residues
                     p_repeat, n_repeat, o_repeat = 0, 0, 0
-                    sampled_residues = ['', '', '']
+                    sampled_residues = ['', '', ''] # positives in disorder
+                    diso_sampled_residues = ['', '', ''] # disorder
                     p_sampled_residues, n_sampled_residues, o_sampled_residues = ['', '', ''], ['', '', ''], ['', '',
                                                                                                               '']
                     try:
@@ -67,6 +69,11 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                             sampled_residues[0] = ''.join([line_1[x] for x in indices])
                             sampled_residues[1] = ''.join([line_2[x] for x in indices])
                             sampled_residues[2] = ''.join([line_3[x] for x in indices])
+                            # indices of disordered residues in this protein
+                            diso_indices = [x for x, r in enumerate(j.split('\n')[2]) if r == 'D']
+                            diso_sampled_residues[0] = ''.join([line_1[x] for x in diso_indices])
+                            diso_sampled_residues[1] = ''.join([line_2[x] for x in diso_indices])
+                            diso_sampled_residues[2] = ''.join([line_3[x] for x in diso_indices])
                             if database == 'disprot':
                                 if 'disorder' not in oversampling:
                                     if (random.randint(1, 100)) <= 20:
@@ -82,9 +89,12 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                                         repeat = 14  # not 15, bc it's already written 1 time per default
                                     else:
                                         repeat = 13
-                                else:   # mobidb, 'binary_residues_disorder', times 1.69
-                                    if (random.randint(1, 100)) <= 69:
-                                        repeat = 1
+                                else:   # mobidb, 'binary_residues_disorder', times 1.69,
+                                        # negatives outside of disorder: times 0.12
+                                    if (random.randint(1, 100)) > 69:
+                                        repeat = 0 # not 1, because original positives are always written down once
+                                    if (random.randint(1, 100)) > 12:
+                                        repeat_neg = 0
 
                         elif oversampling == 'multiclass_residues':
                             # indices of p-binding residues in this protein
@@ -139,6 +149,28 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                     elif oversampling == 'binary_residues':
                         output_labels.write(j)
                         if sampled_residues != ['', '', '']:
+                            # in mobidb annotation the fasta id has description -> * would be placed behind the 'id'
+                            name = j.split('\n')[0] + '*' if database == 'disprot' else '>*' + j.split('\n')[0][1:]
+                            output_labels.write(
+                                name + '\t' + ((str(indices)[1:-1] + ', ') * repeat) + "\n")
+                            for _ in range(repeat):
+                                output_labels.write(sampled_residues[0])
+                            output_labels.write('\n')
+                            for _ in range(repeat):
+                                output_labels.write(sampled_residues[1])
+                            output_labels.write('\n')
+                            for _ in range(repeat):
+                                output_labels.write(sampled_residues[2])
+                            output_labels.write('\n')
+                    elif oversampling == 'binary_residues_disorder':
+                        if repeat_neg == 1:
+                            output_labels.write(j)
+                        else: # write down disordered region only
+                            name = j.split('\n')[0] + '$' if database == 'disprot' else '>$' + j.split('\n')[0][1:]
+                            output_labels.write(
+                                name + '\t' + (str(diso_indices)[1:-1] + ', ') + "\n")
+                            output_labels.write('\n'.join(diso_sampled_residues) + '\n')
+                        if sampled_residues != ['', '', ''] and repeat != 0:
                             # in mobidb annotation the fasta id has description -> * would be placed behind the 'id'
                             name = j.split('\n')[0] + '*' if database == 'disprot' else '>*' + j.split('\n')[0][1:]
                             output_labels.write(

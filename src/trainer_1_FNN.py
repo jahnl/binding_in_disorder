@@ -20,7 +20,11 @@ import copy
 
 
 def read_labels(fold, oversampling, dataset_dir):
-    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
+    if oversampling is None:        # no oversampling on validation set!
+        file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_None.txt'
+    else:
+        file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt'
+    with open(file_name, 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -46,7 +50,7 @@ def get_ML_data(labels, embeddings, mode, new_datapoints):
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
-            if '*' not in id:
+            if '*' not in id and '$' not in id:
                 emb_with_conf = np.column_stack((embeddings[id], conf_feature))
             else:  # data points created by residue-oversampling
                 # use pre-computed embedding
@@ -208,7 +212,7 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
     :param batch_size: batch_size, number of residues that are fed in at once
     :param model_name: name of the model
     :param n_splits: number of Cross-Validation splits
-    :param oversampling: oversampling mode; either None, 'binary' or 'binary_residues'
+    :param oversampling: oversampling mode; either None, 'binary', 'binary_residues' or 'binary_residues_disorder'
     :param dropout: dropout probability between 0.0 and 1.0
     :param learning_rate: learning rate
     :param max_epochs: max number of epochs before the training stops
@@ -233,7 +237,7 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
 
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, oversampling, dataset_dir)
+        val_labels = read_labels(fold, None, dataset_dir)  # no oversampling on val_labels
         train_labels = {}
         for train_fold in range(n_splits):
             if train_fold != fold:
@@ -242,20 +246,17 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
 
         # load pre-computed datapoint embeddings
         t_datapoints = list()
-        v_datapoints = list()
-        if oversampling == 'binary_residues':
+        if 'binary_residues' in oversampling:
             for f in range(n_splits):
-                if f == fold:
-                    v_datapoints = np.load(f'{dataset_dir}folds/new_datapoints_binary_residues_fold_{fold}.npy',
-                                           allow_pickle=True)
-                else:
+                if f != fold:
                     t_datapoints.extend(
-                        np.load(f'{dataset_dir}folds/new_datapoints_binary_residues_fold_{f}.npy', allow_pickle=True))
+                        np.load(f'{dataset_dir}folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
+
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
         this_fold_input, this_fold_target = get_ML_data(train_labels, embeddings, mode, t_datapoints)
-        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, v_datapoints)
+        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, None)
 
         # instantiate the dataset
         training_dataset = BindingDataset(this_fold_input, this_fold_target)
