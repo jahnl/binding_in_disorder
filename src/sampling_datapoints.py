@@ -14,8 +14,8 @@ def read_labels(fold, oversampling, dataset_dir):
         labels = dict()
         for record in records:
             # re-format input information to 3 sequences in a list per protein in dict labels{}
-            # additionally record description for data points created via oversampling of residues (*)
-            if '*' in record.id:
+            # additionally record description for data points created via oversampling of residues (*/$)
+            if '*' in record.id or '$' in record.id:
                 seqs = list()
                 seqs.append(record.seq[:int(len(record.seq) / 3)])
                 seqs.append(record.seq[int(len(record.seq) / 3):2 * int(len(record.seq) / 3)])
