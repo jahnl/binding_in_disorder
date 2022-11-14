@@ -41,11 +41,13 @@ def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
     input = list()
     target = list()
     datapoint_counter = 0
+    disorder = []
     for id in labels.keys():
         if mode == 'all' or multilabel:
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
+            disorder.append(conf_feature)
             if '*' not in id:
                 emb_with_conf = np.column_stack((embeddings[id], conf_feature))
             else:  # data points created by residue-wise oversampling
@@ -81,14 +83,15 @@ def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
             binding_encoded[2] = list(re.sub(r'O|Y|Z|A', '1', re.sub(r'-|_|P|N|X', '0', binding)))  # other-binding?
             target.append(np.array(binding_encoded, dtype=float).T)
 
-    return input, target
+    return input, target, disorder
 
 
 # build the dataset
 class BindingDataset(Dataset):
-    def __init__(self, embeddings, binding_labels, architecture: str):
+    def __init__(self, embeddings, binding_labels, disorder_labels, architecture: str):
         self.inputs = embeddings
         self.labels = binding_labels
+        self.disorder = disorder_labels
         if architecture in ["CNN", "FNN"]:
             self.architecture = architecture
         else:
@@ -104,11 +107,15 @@ class BindingDataset(Dataset):
     def number_residues(self):
         return sum([len(protein) for protein in self.labels])
 
+    def number_diso_residues(self):
+        return sum([sum(d) for d in self.disorder])
+
     def __getitem__(self, index):
         if self.architecture == 'CNN':
             # 3-dimensional input must be provided to conv1d, so proteins must be organised in batches
             try:
-                return torch.tensor(self.inputs[index]).float(), torch.tensor(self.labels[index], dtype=torch.long)
+                return torch.tensor(self.inputs[index]).float(), torch.tensor(self.labels[index], dtype=torch.long), \
+                       torch.tensor(self.disorder[index], dtype=torch.long)
             except IndexError:
                 return None
         else:  # FNN
@@ -118,7 +125,8 @@ class BindingDataset(Dataset):
                 index = index - protein_length
                 k += 1
                 protein_length = len(self.labels[k])
-            return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index])
+            return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index]), \
+                torch.tensor(self.disorder[k][index])
 
 
 class CNN(nn.Module):
@@ -204,7 +212,8 @@ def transform_output(p, n, o):
     return transformation[binding_code]
 
 
-def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all', multilabel: bool = False, n_splits: int = 5,
+def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all', multilabel: bool = False,
+                n_splits: int = 5,
                 architecture: str = 'FNN', n_layers: int = 0, batch_size: int = 512, cutoff_percent_min: int = 0,
                 cutoff_percent_max: int = 100, step_percent: int = 5, dropout: float = 0.3):
     def criterion(loss_func, prediction, label):  # sum over all classification heads
@@ -219,6 +228,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                          cutoff_percent_max, step_percent):
         test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
         size = dataset.number_residues()
+        diso_size = dataset.number_diso_residues()
         # print(size)
         model.eval()
         with torch.no_grad():
@@ -306,8 +316,10 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
 
                 else:  # not multilabel
                     test_loss, correct, tp, fp, tn, fn = 0, 0, 0, 0, 0, 0
-                    for input, label in test_loader:
-                        input, label = input.to(device), label[:, None].to(device)
+                    diso_loss, diso_correct, diso_tp, diso_fp, diso_tn, diso_fn = 0, 0, 0, 0, 0, 0
+                    for input, label, disorder in test_loader:
+                        input, label, disorder = input.to(device), label[:, None].to(device), \
+                                                 disorder[:, None].to(device)
                         prediction = model(input)
                         test_loss += loss_function(prediction, label.to(torch.float32)).item()
                         # apply activation function to prediction to get classification
@@ -319,22 +331,49 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                         fp += (prediction_max != label)[label == 0].type(torch.float).sum().item()
                         tn += (prediction_max == label)[label == 0].type(torch.float).sum().item()
                         fn += (prediction_max != label)[label == 1].type(torch.float).sum().item()
+                        # metrics within disorder
+                        diso_correct += (prediction_max == label)[disorder == 1].type(torch.float).sum().item()
+                        mask_0 = (label == 0) & (disorder == 1)
+                        mask_1 = (label == 1) & (disorder == 1)
+                        diso_tp += (prediction_max == label)[mask_1].type(torch.float).sum().item()
+                        diso_fp += (prediction_max != label)[mask_0].type(torch.float).sum().item()
+                        diso_tn += (prediction_max == label)[mask_0].type(torch.float).sum().item()
+                        diso_fn += (prediction_max != label)[mask_1].type(torch.float).sum().item()
 
                     test_loss /= int(size / batch_size)
                     correct /= size
+                    diso_loss /= diso_size  # just to be comparable...
+                    diso_correct /= diso_size
                     try:
                         print(
-                            f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp / (tp + fn))): >0.1f}%, Precision: {(100 * (tp / (tp + fp))): >0.1f}%, Avg loss: {test_loss:>8f}")
+                            f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: {(100 * (tp / (tp + fn))): >0.1f}%, Precision: {(100 * (tp / (tp + fp))): >0.1f}%, Avg loss: {test_loss:>8f}, ")
                         output.write(
                             '\t'.join([str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
                                        str(round(100 * (tp / (tp + fp)), 1)), str(round(100 * (tp / (tp + fn)), 1)),
-                                       str(tp), str(fp), str(tn), str(fn)]) + '\n')
+                                       str(tp), str(fp), str(tn), str(fn)]) + '\t')
                     except ZeroDivisionError:
                         print(
                             f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: 0.0%, Precision: 0.0%, Avg loss: {test_loss:>8f}")
                         output.write('\t'.join(
                             [str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
                              '0.0', '0.0', str(tp), str(fp), str(tn), str(fn)]) + '\n')
+
+                    try:
+                        print(
+                            f"\t D_Accuracy: {(100 * diso_correct):>0.1f}%, D_N_Sens: {(100 * (diso_tn / (diso_tn + diso_fp))): >0.1f}%, D_N_Prec: {(100 * (diso_tn / (diso_tn + diso_fn))): >0.1f}%, D_Avg loss: {diso_loss:>8f}")
+                        output.write(
+                            '\t'.join([str(round(100 * diso_correct, 1)),
+                                       str(round(100 * (diso_tn / (diso_tn + diso_fn)), 1)),
+                                       str(round(100 * (diso_tn / (diso_tn + diso_fp)), 1)),
+                                       str(round(diso_loss, 6)),
+                                       str(diso_tp), str(diso_fp), str(diso_tn), str(diso_fn)]) + '\n')
+                    except ZeroDivisionError:
+                        print(
+                            f"\t D_Accuracy: {(100 * diso_correct):>0.1f}%, D_N_Sens: 0.0%, D_N_Prec: 0.0%, D_Avg loss: {diso_loss:>8f}")
+                        output.write(
+                            '\t'.join([str(round(100 * diso_correct, 1)),
+                                       '0.0', '0.0', str(round(diso_loss, 6)),
+                                       str(diso_tp), str(diso_fp), str(diso_tn), str(diso_fn)]) + '\n')
 
     # iterate over folds
     with open(f"../results/logs/validation_{model_name}.txt", "w") as output_file:
@@ -343,7 +382,8 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                               'N_Acc\tN_Prec\tN_Rec\tN_TP\tN_FP\tN_TN\tN_FN\t'
                               'O_Acc\tO_Prec\tO_Rec\tO_TP\tO_FP\tO_TN\tO_FN\n')
         else:
-            output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\n')
+            output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\t'
+                              'D_Acc\tD_NPrec\tD_NRec\tD_Loss\tD_TP\tD_FP\tD_TN\tD_FN\n')
 
         for fold in range(n_splits):
             print("Fold: " + str(fold))
@@ -353,9 +393,11 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
             val_labels = read_labels(fold, None, dataset_dir)  # no oversampling on validation labels
             # create the input and target data exactly how it's fed into the ML model
             # and add the confounding feature of disorder to the embeddings
-            this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, multilabel, None)
+            this_fold_val_input, this_fold_val_target, this_fold_disorder = \
+                get_ML_data(val_labels, embeddings, mode, multilabel, None)
             # instantiate the dataset
-            validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, architecture)
+            validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder,
+                                                architecture)
             """
             # look at some data:
             for i in range(50, 54):
@@ -526,7 +568,8 @@ def post_process(prediction: torch.tensor):
     return torch.tensor(prediction_pp)
 
 
-def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name, batch_size, dropout):
+def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name, batch_size,
+               dropout):
     output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
         f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
 
@@ -601,6 +644,7 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
             else:
                 output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
                 # f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
+                print(f'{p_id}\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0: delimiter_1])}')
                 output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}')
                 if post_processing:
                     output_file.write(
@@ -642,7 +686,8 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
                 cutoff_percent_min, cutoff_percent_max, step_percent, dropout)
 
 
-def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model_name: str, fold: int, cutoff, mode: str = 'all',
+def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model_name: str, fold: int, cutoff,
+            mode: str = 'all',
             architecture: str = 'FNN', n_layers: int = 0, batch_size: int = 512, multilabel: bool = False,
             dropout: float = 0.3, test: bool = False, post_processing: bool = True):
     """
@@ -676,6 +721,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
     if architecture == 'CNN':
         predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, dropout, test)
     elif architecture == 'FNN':
-        predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name, batch_size, dropout)
+        predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name,
+                   batch_size, dropout)
     else:
         raise ValueError("architecture must be 'CNN' or 'FNN'")
