@@ -27,6 +27,65 @@ print(data[data$Prec == max(data$Prec) ,])
 
 
 
+# ROC curve, binary prediction, including negative curve within disorder
+data_file <- '../results/logs/validation_mobidb_FNN_2.txt'
+data <- read.table(data_file, sep = '\t', header = TRUE)
+ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = Fold, linetype = 'whole dataset,\npositives'))+   # change color to Fold to match lines with folds; Cutoff to have it colorful
+  # general P-curve
+  geom_point(data = data[data$Fold==0,], size = 2)+
+  geom_line(data = data[data$Fold==0,], size = 1)+
+  geom_point(data = data[data$Fold==1,], size = 2)+
+  geom_line(data = data[data$Fold==1,], size = 1)+
+  geom_point(data = data[data$Fold==2,], size = 2)+
+  geom_line(data = data[data$Fold==2,], size = 1)+
+  geom_point(data = data[data$Fold==3,], size = 2)+
+  geom_line(data = data[data$Fold==3,], size = 1)+
+  geom_point(data = data[data$Fold==4,], size = 2)+
+  geom_line(data = data[data$Fold==4,], size = 1)+
+  # D_N-curve
+  geom_point(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold), data = data[data$Fold==0,], size = 2)+
+  geom_line(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold, linetype = 'disorder only,\nnegatives'), data = data[data$Fold==0,], size = 1)+
+  geom_point(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold), data = data[data$Fold==1,], size = 2)+
+  geom_line(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold, linetype = 'disorder only,\nnegatives'), data = data[data$Fold==1,], size = 1)+
+  geom_point(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold), data = data[data$Fold==2,], size = 2)+
+  geom_line(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold, linetype = 'disorder only,\nnegatives'), data = data[data$Fold==2,], size = 1)+
+  geom_point(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold), data = data[data$Fold==3,], size = 2)+
+  geom_line(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold, linetype = 'disorder only,\nnegatives'), data = data[data$Fold==3,], size = 1)+
+  geom_point(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold), data = data[data$Fold==4,], size = 2)+
+  geom_line(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = Fold, linetype = 'disorder only,\nnegatives'), data = data[data$Fold==4,], size = 1)+
+  # aesthetics
+  scale_color_continuous(type = 'viridis')+
+  geom_abline(slope = 1, intercept = 0)+
+  xlim(0,100)+
+  ylim(0,100)+
+  ggtitle('ROC Curves on Validation Set - Model mobidb_FNN_2')+
+  xlab('FPR')+
+  ylab('TPR')
+
+# to show cutoffs of best fold
+best_fold = 2
+ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, linetype = 'whole dataset,\npositives'))+
+  # general P-curve
+  geom_point(data = data[data$Fold==best_fold,], size = 2)+
+  geom_line(data = data[data$Fold==best_fold,], size = 1)+
+  geom_text(mapping = aes(label = Cutoff), data = data[data$Fold==best_fold,], nudge_x = -4)+
+  # D_N-curve
+  geom_point(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec), data = data[data$Fold==best_fold,], size = 2)+
+  geom_line(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, linetype = 'disorder only,\nnegatives'), data = data[data$Fold==best_fold,], size = 1)+
+  geom_text(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, label = Cutoff), data = data[data$Fold==best_fold,], nudge_x = 6)+
+  # aesthetics
+  geom_abline(slope = 1, intercept = 0)+
+  ggtitle(paste('ROC Curves on Validation Set - Model mobidb_FNN_2 Fold', toString(best_fold)))+
+  xlab('FPR')+
+  ylab('TPR')
+
+print(data[data$Prec == max(data$Prec) ,])
+
+
+
+
+
+
 # multilabel classifier ROC curve
 data_file <-  '../results/logs/validation_4-1_new_oversampling.txt'
 data <- read.table(data_file, sep = "\t", header = TRUE)

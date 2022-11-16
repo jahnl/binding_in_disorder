@@ -356,7 +356,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                             f"cutoff {cutoff}\tAccuracy: {(100 * correct):>0.1f}%, Sensitivity: 0.0%, Precision: 0.0%, Avg loss: {test_loss:>8f}")
                         output.write('\t'.join(
                             [str(fold), str(round(test_loss, 6)), str(cutoff), str(round(100 * correct, 1)),
-                             '0.0', '0.0', str(tp), str(fp), str(tn), str(fn)]) + '\n')
+                             '0.0', '0.0', str(tp), str(fp), str(tn), str(fn)]) + '\t')
 
                     try:
                         print(
@@ -585,10 +585,10 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, multilabel, None)
+        this_fold_val_input, this_fold_val_target, disorder_labels = get_ML_data(val_labels, embeddings, mode, multilabel, None)
 
         # instantiate the dataset
-        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, 'FNN')
+        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'FNN')
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         input_size = 1025 if mode == 'all' or multilabel else 1024
@@ -604,7 +604,7 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
         all_prediction_max = list()
         all_labels = list()
         with torch.no_grad():
-            for i, (input, label) in enumerate(test_loader):
+            for i, (input, label, _) in enumerate(test_loader):
                 if multilabel:
                     input, label = input.to(device), label.to(device).T
                     label = [transform_output(
@@ -644,7 +644,7 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
             else:
                 output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
                 # f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
-                print(f'{p_id}\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0: delimiter_1])}')
+                # print(f'{p_id}\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0: delimiter_1])}')
                 output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}')
                 if post_processing:
                     output_file.write(
