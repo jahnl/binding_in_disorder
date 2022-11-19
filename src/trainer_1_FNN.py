@@ -63,6 +63,7 @@ def get_ML_data(labels, embeddings, mode, new_datapoints):
         elif mode == 'disorder_only':
             bool_list = [False if x == '-' else True for x in list(labels[id][2])]
             input.append(embeddings[id][bool_list])
+            # TODO: implement combination disorder_only and residue-wise oversampling
         # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesn't work!, would be multi-class)
         binding = str(labels[id][2])
         if mode == 'all':

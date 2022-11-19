@@ -202,3 +202,53 @@ ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model))+
   ylab('TPR')
 
 
+
+
+
+# mobidb and disorder val
+data_d0 <- read.table('../results/logs/validation_mobidb_CNN_0.txt', sep = '\t', header = TRUE)
+data_d0 <- data.table(data_d0, model = 'mobidb_CNN_0')
+data_d1 <- read.table('../results/logs/validation_mobidb_CNN_1.txt', sep = '\t', header = TRUE)
+data_d1 <- data.table(data_d1, model = 'mobidb_CNN_1')
+data_d2 <- read.table('../results/logs/validation_mobidb_FNN_0.txt', sep = '\t', header = TRUE)
+data_d2 <- data.table(data_d2, model = 'mobidb_FNN_0')
+data_d3 <- read.table('../results/logs/validation_mobidb_FNN_1.txt', sep = '\t', header = TRUE)
+data_d3 <- data.table(data_d3, model = 'mobidb_FNN_1')
+data_d4 <- read.table('../results/logs/validation_mobidb_FNN_2.txt', sep = '\t', header = TRUE)
+data_d4 <- data.table(data_d4, model = 'mobidb_FNN_2')
+data_all = rbindlist(list(data_d0, data_d1, data_d2, data_d3, data_d4), fill = TRUE)
+
+ggplot(mapping = aes(x = D_FN/(D_FN+D_TP)*100, y = D_NRec, color = model, linetype = 'disorder only,\nnegatives'))+  
+  geom_point(data = data_all[data_all$model == 'mobidb_CNN_0' & data_all$Fold==2,], size = 2)+
+  geom_line(data = data_all[data_all$model == 'mobidb_CNN_0' & data_all$Fold==2,], size = 1)+
+  geom_point(data = data_all[data_all$model == 'mobidb_CNN_1' & data_all$Fold==2,], size = 2)+
+  geom_line(data = data_all[data_all$model == 'mobidb_CNN_1' & data_all$Fold==2,], size = 1)+
+  geom_point(data = data_all[data_all$model == 'mobidb_FNN_0' & data_all$Fold==2,], size = 2)+
+  geom_line(data = data_all[data_all$model == 'mobidb_FNN_0' & data_all$Fold==2,], size = 1)+
+  geom_point(data = data_all[data_all$model == 'mobidb_FNN_1' & data_all$Fold==3,], size = 2)+
+  geom_line(data = data_all[data_all$model == 'mobidb_FNN_1' & data_all$Fold==3,], size = 1)+
+  geom_point(data = data_all[data_all$model == 'mobidb_FNN_2' & data_all$Fold==2,], size = 2)+
+  geom_line(data = data_all[data_all$model == 'mobidb_FNN_2' & data_all$Fold==2,], size = 1)+
+  
+  geom_point(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model), data = data_all[data_all$model == 'mobidb_CNN_0' & data_all$Fold==2,], size = 2)+
+  geom_line(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model, linetype = 'whole dataset,\npositives'), data = data_all[data_all$model == 'mobidb_CNN_0' & data_all$Fold==2,], size = 1)+
+  geom_point(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model), data = data_all[data_all$model == 'mobidb_CNN_1' & data_all$Fold==2,], size = 2)+
+  geom_line(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model, linetype = 'whole dataset,\npositives'), data = data_all[data_all$model == 'mobidb_CNN_1' & data_all$Fold==2,], size = 1)+
+  geom_point(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model), data = data_all[data_all$model == 'mobidb_FNN_0' & data_all$Fold==2,], size = 2)+
+  geom_line(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model, linetype = 'whole dataset,\npositives'), data = data_all[data_all$model == 'mobidb_FNN_0' & data_all$Fold==2,], size = 1)+
+  geom_point(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model), data = data_all[data_all$model == 'mobidb_FNN_1' & data_all$Fold==2,], size = 2)+
+  geom_line(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model, linetype = 'whole dataset,\npositives'), data = data_all[data_all$model == 'mobidb_FNN_1' & data_all$Fold==2,], size = 1)+
+  geom_point(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model), data = data_all[data_all$model == 'mobidb_FNN_2' & data_all$Fold==2,], size = 2)+
+  geom_line(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model, linetype = 'whole dataset,\npositives'), data = data_all[data_all$model == 'mobidb_FNN_2' & data_all$Fold==2,], size = 1)+
+  
+  
+  scale_color_discrete(type = c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"))+
+  geom_abline(slope = 1, intercept = 0)+
+  xlim(0,100)+
+  ggtitle('ROC Curves of Different Models on Validation Set')+
+  xlab('FPR')+
+  ylab('TPR')
+
+
+
+

@@ -36,11 +36,7 @@ def check_config_items(step, config):
             raise ValueError(f"Config item 'train_set_embeddings': {config['input_files']['train_set_embeddings']} "
                              f"is no existing file.")
         if step != 3:
-            if config['parameters']['architecture'] == 'CNN' and config['parameters']['residues'] != 'all':
-                print("Warning: When architecture is 'CNN', residue-mode will always be set to 'all'. "
-                      f"(Your residue parameter was '{config['parameters']['residues']}'.)")
-            elif config['parameters']['architecture'] == 'FNN' and \
-                    not config['parameters']['residues'] in ['all', 'disorder_only']:
+            if not config['parameters']['residues'] in ['all', 'disorder_only']:
                 raise ValueError("Config item 'residues' must be 'all' or 'disorder_only'.")
 
             bad_c = '/\\:*?"<>|'
@@ -239,7 +235,8 @@ if __name__ == '__main__':
                                               dropout=float(config['parameters']['dropout']),
                                               learning_rate=float(config['parameters']['learning_rate']),
                                               patience=int(config['parameters']['patience']),
-                                              max_epochs=int(config['parameters']['max_epochs']))
+                                              max_epochs=int(config['parameters']['max_epochs']),
+                                              mode=config['parameters']['residues'])
             elif not param_multilabel:
                 src.trainer_1_FNN.FNN_trainer(train_embeddings=config['input_files']['train_set_embeddings'],
                                               dataset_dir=config['input_files']['dataset_directory'],

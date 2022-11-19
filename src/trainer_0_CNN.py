@@ -35,27 +35,58 @@ def read_labels(fold, oversampling, dataset_dir):
     return labels
 
 
-def get_ML_data(labels, embeddings):
+def get_ML_data(labels, embeddings, mode):
     input = list()
     target = list()
     for id in labels.keys():
-        conf_feature = str(labels[id][1])
-        conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
-        conf_feature = np.array(conf_feature, dtype=float)
-        emb_with_conf = np.column_stack((embeddings[id], conf_feature))
-        input.append(emb_with_conf)
-        # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesn't work!)
-        binding = str(labels[id][2])
-        binding = re.sub(r'-|_', '0', binding)
-        binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
-        binding = np.array(binding, dtype=float)
-        target.append(binding)
-        """
-        if id == 'Q98157':
-            print(conf_feature)
-            print(emb_with_conf.shape)
-            print(binding)
-        """
+        if mode == 'all':
+            conf_feature = str(labels[id][1])
+            conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
+            conf_feature = np.array(conf_feature, dtype=float)
+            emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            input.append(emb_with_conf)
+            # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesn't work!)
+            binding = str(labels[id][2])
+            binding = re.sub(r'-|_', '0', binding)
+            binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+            binding = np.array(binding, dtype=float)
+            target.append(binding)
+            """
+            if id == 'Q98157':
+                print(conf_feature)
+                print(emb_with_conf.shape)
+                print(binding)
+            """
+        elif mode == 'disorder_only':
+            # separate regions of the same protein from each other!
+            bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+            starts = []
+            stops = []
+            current = bool_list[0]
+            diso_start = 0
+            for i, diso_residue in enumerate(bool_list):
+                if diso_residue != current and diso_residue:        # order to disorder conformation change
+                    diso_start = i
+                elif diso_residue != current and not diso_residue:    # disorder to order conformation change
+                    input.append(embeddings[id][diso_start:i])
+                    starts.append(diso_start)
+                    stops.append(i)
+                    # print(f'{id}: region from {diso_start} to {i}')
+                current = diso_residue
+            # disorder at final residue?
+            if current:
+                input.append(embeddings[id][diso_start:])
+                starts.append(diso_start)
+                stops.append(len(bool_list))
+                # print(f'{id}: region from {diso_start} to {stops[-1]}')
+
+            for i, s in enumerate(starts):
+                binding = str(labels[id][2][starts[i]:stops[i]])
+                binding = re.sub('_', '0', binding)
+                binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+                binding = np.array(binding, dtype=float)
+                target.append(binding)
+
     return input, target
 
 
@@ -81,12 +112,13 @@ class BindingDataset(Dataset):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_layers: int = 5, dropout: float = 0.0):
+    def __init__(self, n_layers: int = 5, dropout: float = 0.0, mode: str = 'all'):
         super().__init__()
         self.n_layers = n_layers
+        in_c = 1025 if mode == 'all' else 1024
         if self.n_layers == 2:
             # version 0: 2 C layers
-            self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=32, kernel_size=5, padding=2)
             # --> out: (32, proteins_length)
             self.dropout = nn.Dropout(p=dropout)
             self.relu = nn.ReLU()
@@ -94,7 +126,7 @@ class CNN(nn.Module):
             # --> out: (1, protein_length)
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            self.conv1 = nn.Conv1d(in_channels=1025, out_channels=512, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=512, kernel_size=5, padding=2)
             self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
             self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
             self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
@@ -213,7 +245,7 @@ def test_performance(dataset, model, loss_function, device, output):
 
 def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5layers', n_splits: int = 5, oversampling: str = 'binary',
                 n_layers: int = 5, dropout: float = 0.0, learning_rate: float = 0.0001, patience: int = 10,
-                max_epochs: int = 200):
+                max_epochs: int = 200, mode: str = 'all'):
     """
     trains the CNN
     :param dataset_dir: directory where the dataset files are stored
@@ -226,6 +258,7 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
     :param learning_rate: learning rate
     :param max_epochs: max number of epochs before the training stops
     :param patience: early stopping after this number of epochs without improvement
+    :param mode: 'all' or 'disorder_only', describes the selection of residues used for training
     """
     # apply cross-validation and oversampling on training dataset
     # CV_and_oversampling.split(n_splits, oversampling)
@@ -246,7 +279,7 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
 
         # read target data y and disorder information
         # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-        val_labels = read_labels(fold, oversampling, dataset_dir)
+        val_labels = read_labels(fold, None, dataset_dir)
         train_labels = {}
         for train_fold in range(n_splits):
             if train_fold != fold:
@@ -255,8 +288,8 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_input, this_fold_target = get_ML_data(train_labels, embeddings)
-        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings)
+        this_fold_input, this_fold_target = get_ML_data(train_labels, embeddings, mode)
+        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode)
 
         # instantiate the dataset
         training_dataset = BindingDataset(this_fold_input, this_fold_target)
@@ -271,7 +304,7 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
-        model = CNN(n_layers, dropout).to(device)
+        model = CNN(n_layers, dropout, mode).to(device)
         criterion = nn.BCEWithLogitsLoss()  # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 

@@ -37,7 +37,7 @@ def read_labels(fold, oversampling, dataset_dir):
     return labels
 
 
-def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
+def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoints):
     input = list()
     target = list()
     datapoint_counter = 0
@@ -60,19 +60,57 @@ def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
 
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
-            bool_list = [False if x == '-' else True for x in list(labels[id][2])]
-            input.append(embeddings[id][bool_list])
+            if architecture == 'FNN':
+                bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+                input.append(embeddings[id][bool_list])
+                disorder.append([1]*len(labels[id][2]))
+                #disorder.append(list('1'*len(labels[id][2])))
+            else:   # CNN
+                # separate regions of the same protein from each other!
+                bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+                starts = []
+                stops = []
+                current = bool_list[0]
+                diso_start = 0
+                for i, diso_residue in enumerate(bool_list):
+                    if diso_residue != current and diso_residue:  # order to disorder conformation change
+                        diso_start = i
+                    elif diso_residue != current and not diso_residue:  # disorder to order conformation change
+                        input.append(embeddings[id][diso_start:i])
+                        disorder.append([1] * (i-diso_start))
+                        #disorder.append(list('1' * (i-diso_start)))
+                        starts.append(diso_start)
+                        stops.append(i)
+                        # print(f'{id}: region from {diso_start} to {i}')
+                    current = diso_residue
+                # disorder at final residue?
+                if current:
+                    input.append(embeddings[id][diso_start:])
+                    disorder.append([1] * (len(bool_list)-diso_start))
+                    #disorder.append(list('1' * (len(bool_list)-diso_start)))
+                    starts.append(diso_start)
+                    stops.append(len(bool_list))
+                    # print(f'{id}: region from {diso_start} to {stops[-1]}')
+
+                # binding data for CNN + disorder_only
+                for i, s in enumerate(starts):
+                    binding = str(labels[id][2][starts[i]:stops[i]])
+                    binding = re.sub('_', '0', binding)
+                    binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+                    binding = np.array(binding, dtype=float)
+                    target.append(binding)
 
         if not multilabel:
-            # for target: 0 = non-binding or not in disordered region, 1 = binding
-            binding = str(labels[id][2])
-            if mode == 'all':
-                binding = re.sub(r'-|_', '0', binding)
-            elif mode == 'disorder_only':
-                binding = binding.replace('-', '').replace('_', '0')
-            binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
-            binding = np.array(binding, dtype=float)
-            target.append(binding)
+            if not (architecture == 'CNN' and mode == 'disorder_only'):
+                # for target: 0 = non-binding or not in disordered region, 1 = binding
+                binding = str(labels[id][2])
+                if mode == 'all':
+                    binding = re.sub(r'-|_', '0', binding)
+                elif mode == 'disorder_only':
+                    binding = binding.replace('-', '').replace('_', '0')
+                binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+                binding = np.array(binding, dtype=float)
+                target.append(binding)
         else:
             # for target: 0 = non-binding or not in disordered region, 1 = binding; 3-dimensions per residue
             binding = str(labels[id][2])
@@ -130,12 +168,12 @@ class BindingDataset(Dataset):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_layers: int, dropout: float):
+    def __init__(self, n_layers: int, dropout: float, input_size: int):
         super().__init__()
         self.n_layers = n_layers
         if self.n_layers == 2:
             # version 0: 2 C layers
-            self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=5, padding=2)
             # --> out: (32, proteins_length)
             self.dropout = nn.Dropout(p=dropout)
             self.relu = nn.ReLU()
@@ -143,7 +181,7 @@ class CNN(nn.Module):
             # --> out: (1, protein_length)
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            self.conv1 = nn.Conv1d(in_channels=1025, out_channels=512, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=5, padding=2)
             self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
             self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
             self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
@@ -394,7 +432,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
             # create the input and target data exactly how it's fed into the ML model
             # and add the confounding feature of disorder to the embeddings
             this_fold_val_input, this_fold_val_target, this_fold_disorder = \
-                get_ML_data(val_labels, embeddings, mode, multilabel, None)
+                get_ML_data(val_labels, embeddings, architecture, mode, multilabel, None)
             # instantiate the dataset
             validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder,
                                                 architecture)
@@ -412,7 +450,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                 model = FNN(input_size=input_size, output_size=output_size, dropout=dropout, multilabel=multilabel) \
                     .to(device)
             else:
-                model = CNN(n_layers=n_layers, dropout=dropout).to(device)
+                model = CNN(n_layers=n_layers, dropout=dropout, input_size=input_size).to(device)
                 batch_size = 1  # batch size is always 1 (protein) if the model is a CNN
             model.load_state_dict(
                 torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
@@ -422,7 +460,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                              cutoff_percent_min, cutoff_percent_max, step_percent)
 
 
-def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers, dropout, test):
+def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers, dropout, mode, test):
     output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
         f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
     with open(output_name, "w") as output_file:
@@ -440,7 +478,7 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, 'all', False, None)
+        this_fold_val_input, this_fold_val_target, _ = get_ML_data(val_labels, embeddings, 'CNN', mode, False, None)
 
         # instantiate the dataset
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, 'CNN')
@@ -585,7 +623,7 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_val_input, this_fold_val_target, disorder_labels = get_ML_data(val_labels, embeddings, mode, multilabel, None)
+        this_fold_val_input, this_fold_val_target, disorder_labels = get_ML_data(val_labels, embeddings, 'FNN', mode, multilabel, None)
 
         # instantiate the dataset
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'FNN')
@@ -719,7 +757,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
 
     # get predictions for chosen cutoff, fold
     if architecture == 'CNN':
-        predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, dropout, test)
+        predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, dropout, mode, test)
     elif architecture == 'FNN':
         predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name,
                    batch_size, dropout)
