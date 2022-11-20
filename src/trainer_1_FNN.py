@@ -62,8 +62,17 @@ def get_ML_data(labels, embeddings, mode, new_datapoints):
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
             bool_list = [False if x == '-' else True for x in list(labels[id][2])]
-            input.append(embeddings[id][bool_list])
-            # TODO: implement combination disorder_only and residue-wise oversampling
+            if '*' not in id and '$' not in id:
+                input.append(embeddings[id][bool_list])
+            else:   # data points created by residue-oversampling
+                # use pre-computed embedding
+                emb = new_datapoints[datapoint_counter][bool_list][:, :-1]      # no additonal feature
+                datapoint_counter += 1
+                if emb.shape[0] != len(labels[id][1]):  # sanity check
+                    raise ValueError(f'Wrong match between label and embedding. Label of {id} has length '
+                                     f'{len(labels[id][1])}, emb has shape {emb.shape}')
+                input.append(emb)
+
         # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesn't work!, would be multi-class)
         binding = str(labels[id][2])
         if mode == 'all':
