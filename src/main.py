@@ -67,8 +67,9 @@ def check_config_items(step, config):
         if step != 5:
             if step == 4:
                 if config['parameters']['architecture'] == 'CNN' and \
-                        not config['parameters']['oversampling'] in ['', 'binary']:
-                    ValueError("Config item 'oversampling' must be None or 'binary', when architecture is 'CNN'.")
+                        not config['parameters']['oversampling'] in ['', 'binary', 'binary_D']:
+                    ValueError("Config item 'oversampling' must be None, 'binary' or 'binary_D', when architecture is "
+                               "'CNN'.")
                 elif config['parameters']['multilabel'] == 'False' and not config['parameters']['oversampling'] in \
                                                           ['', 'binary', 'binary_residues', 'binary_residues_disorder']:
                     ValueError("Config item 'oversampling' must be None, 'binary', 'binary_residues' or "

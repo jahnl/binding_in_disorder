@@ -14,10 +14,12 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
     """
     :param dataset_dir: directory where the dataset files are stored
     :param n_splits: number of Cross-Validation splits
-    :param oversampling:
+    :param oversampling: (ratios are different for mobidb dataset!)
     None: no oversampling
     'binary': oversampling for binding(276) vs non-binding(547) proteins
         --> duplicate all-minus-5 = 98 % of binding proteins --> 1:1
+    'binary_D': oversampling for binding vs non-binding proteins, but accounting for residue-wise balance
+        within disorder
     'binary_residues': binary oversampling on residue-level
         binding(25,051), non-binding(230,173) --> all-binding residues * 9, some (20%) * 10
     'multiclass_residues': multi-class oversampling on residue-level
@@ -47,13 +49,16 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                     p_sampled_residues, n_sampled_residues, o_sampled_residues = ['', '', ''], ['', '', ''], ['', '',
                                                                                                               '']
                     try:
-                        if oversampling == 'binary':
+                        if oversampling in ['binary', 'binary_D']:
                             chance = (random.randint(1, 100))
+                            pos_cut = 98 if oversampling == 'binary' else 69    # 69 is for mobidb-binary_D!
                             # is there a binding disordered residue in sequence?
                             if re.match(r'.*(B|P|N|O|X|Y|Z|A).*', j.split('\n')[3]) is not None:
-                                if database =='disprot' and chance <= 98:  # only 98% of binding proteins are duplicated
+                                if (database == 'disprot' or oversampling == 'binary_D') and chance <= pos_cut:
+                                    # 98% (/69%) of binding proteins are duplicated
                                     repeat = 2
-                            elif database == 'mobidb' and chance <= 62:     # 62% of non-binding proteins are duplicated
+                            elif database == 'mobidb' and oversampling != 'binary_D' and chance <= 62:
+                                # 62% of non-binding proteins are duplicated
                                 repeat = 2
 
                         # oversample only binding residues, 'binary_residues(_disorder)'
