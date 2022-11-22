@@ -14,16 +14,19 @@ from torch.utils.data import Dataset
 from torch import nn
 from scipy import stats
 from pathlib import Path
+from os.path import exists
 
 
-def read_labels(fold, oversampling):
+def read_labels(fold, oversampling, dataset_dir):
     if fold is None:   # --> test set
         file_name = f'../dataset/test_set_input.txt'
     else:
-        if oversampling is None:  # no oversampling on validation set!
-            file_name = f'../dataset/folds/CV_fold_{fold}_labels.txt'
+        if oversampling is None:  # no oversampling on validation set! (or mode with no oversampling)
+            file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels.txt'
+            if not exists(file_name):
+                file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_None.txt'
         else:
-            file_name = f'../dataset/folds/CV_fold_{fold}_labels_{oversampling}.txt'
+            file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt'
     with open(file_name) as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
@@ -37,42 +40,72 @@ def read_labels(fold, oversampling):
     return labels
 
 
-def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
+def get_ML_data(labels, embeddings, architecture, mode, multilabel):
     input = list()
     target = list()
     datapoint_counter = 0
+    disorder = []
     for id in labels.keys():
         if mode == 'all' or multilabel:
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
-            if '*' not in id:
-                emb_with_conf = np.column_stack((embeddings[id], conf_feature))
-            else:  # data points created by residue-oversampling
-                # use pre-computed embedding
-                emb_with_conf = new_datapoints[datapoint_counter]
-                datapoint_counter += 1
-                if emb_with_conf.shape[0] != len(labels[id][1]):  # sanity check
-                    raise ValueError(f'Wrong match between label and embedding. Label of {id} has length '
-                                     f'{len(labels[id][1])}, emb has shape {emb_with_conf.shape}')
-
+            disorder.append(conf_feature)
+            emb_with_conf = np.column_stack((embeddings[id], conf_feature))
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
-            bool_list = [False if x == '-' else True for x in list(labels[id][2])]
-            input.append(embeddings[id][bool_list])
+            if architecture == 'FNN':
+                bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+                input.append(embeddings[id][bool_list])
+                disorder.append([1] * len(labels[id][2]))
+            else:  # CNN
+                # separate regions of the same protein from each other!
+                bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+                starts = []
+                stops = []
+                current = bool_list[0]
+                diso_start = 0
+                for i, diso_residue in enumerate(bool_list):
+                    if diso_residue != current and diso_residue:  # order to disorder conformation change
+                        diso_start = i
+                    elif diso_residue != current and not diso_residue:  # disorder to order conformation change
+                        input.append(embeddings[id][diso_start:i])
+                        disorder.append([1] * (i - diso_start))
+                        # disorder.append(list('1' * (i-diso_start)))
+                        starts.append(diso_start)
+                        stops.append(i)
+                        # print(f'{id}: region from {diso_start} to {i}')
+                    current = diso_residue
+                # disorder at final residue?
+                if current:
+                    input.append(embeddings[id][diso_start:])
+                    disorder.append([1] * (len(bool_list) - diso_start))
+                    # disorder.append(list('1' * (len(bool_list)-diso_start)))
+                    starts.append(diso_start)
+                    stops.append(len(bool_list))
+                    # print(f'{id}: region from {diso_start} to {stops[-1]}')
+
+                # binding data for CNN + disorder_only
+                for i, s in enumerate(starts):
+                    binding = str(labels[id][2][starts[i]:stops[i]])
+                    binding = re.sub('_', '0', binding)
+                    binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+                    binding = np.array(binding, dtype=float)
+                    target.append(binding)
 
         if not multilabel:
-            # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region (2 doesnt work!, would be multi-class)
-            binding = str(labels[id][2])
-            if mode == 'all':
-                binding = re.sub(r'-|_', '0', binding)
-            elif mode == 'disorder_only':
-                binding = binding.replace('-', '').replace('_', '0')
-            binding = list(re.sub(r'P|N|O|X|Y|Z|A', '1', binding))
-            binding = np.array(binding, dtype=float)
-            target.append(binding)
+            if not (architecture == 'CNN' and mode == 'disorder_only'):
+                # for target: 0 = non-binding or not in disordered region, 1 = binding
+                binding = str(labels[id][2])
+                if mode == 'all':
+                    binding = re.sub(r'-|_', '0', binding)
+                elif mode == 'disorder_only':
+                    binding = binding.replace('-', '').replace('_', '0')
+                binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+                binding = np.array(binding, dtype=float)
+                target.append(binding)
         else:
-            # for target: 0 = non-binding or not in disordered region, 1 = binding, 3-dimensions per residue
+            # for target: 0 = non-binding or not in disordered region, 1 = binding; 3-dimensions per residue
             binding = str(labels[id][2])
             binding_encoded = [[], [], []]
             binding_encoded[0] = list(re.sub(r'P|X|Y|A', '1', re.sub(r'-|_|N|O|Z', '0', binding)))  # protein-binding?
@@ -81,118 +114,116 @@ def get_ML_data(labels, embeddings, mode, multilabel, new_datapoints):
             binding_encoded[2] = list(re.sub(r'O|Y|Z|A', '1', re.sub(r'-|_|P|N|X', '0', binding)))  # other-binding?
             target.append(np.array(binding_encoded, dtype=float).T)
 
-        """
-        if id == 'P17947*':
-            print(input[-1])
-            print(input[-1].shape)
-            print(binding)
-        """
-
-    return input, target
+    return input, target, disorder
 
 
 # build the dataset
 class BindingDataset(Dataset):
-    def __init__(self, embeddings, binding_labels, network):
+    def __init__(self, embeddings, binding_labels, disorder_labels, architecture: str):
         self.inputs = embeddings
         self.labels = binding_labels
-        self.network = network
-
-    def set_network(self, network):
-        self.network = network
+        self.disorder = disorder_labels
+        if architecture in ["CNN", "FNN"]:
+            self.architecture = architecture
+        else:
+            raise ValueError('architecture must be "FNN" or "CNN"')
 
     def __len__(self):
-        # this time the batch size = number of proteins = number of datapoints for the dataloader
-        # For CNN:
-        if self.network == "CNN":
+        if self.architecture == 'CNN':
+            # this time the batch size = number of proteins = number of datapoints for the dataloader
             return len(self.labels)
-        # For FNN:
-        elif self.network == "FNN":
+        else:  # FNN
             return sum([len(protein) for protein in self.labels])
 
     def number_residues(self):
         return sum([len(protein) for protein in self.labels])
 
+    def number_diso_residues(self):
+        return sum([sum(d) for d in self.disorder])
+
     def __getitem__(self, index):
-        if self.network == "CNN":
-            # I have to provide 3-dimensional input to conv1d, so proteins must be organised in batches
+        if self.architecture == 'CNN':
+            # 3-dimensional input must be provided to conv1d, so proteins must be organised in batches
             try:
-                return torch.tensor(self.inputs[index]).float(), torch.tensor(self.labels[index], dtype=torch.long)
+                return torch.tensor(self.inputs[index]).float(), torch.tensor(self.labels[index], dtype=torch.long), \
+                       torch.tensor(self.disorder[index], dtype=torch.long)
             except IndexError:
                 return None
-        elif self.network == "FNN":
+        else:  # FNN
             k = 0  # k is the current protein index, index gets transformed to the position in the sequence
             protein_length = len(self.labels[k])
             while index >= protein_length:
                 index = index - protein_length
                 k += 1
                 protein_length = len(self.labels[k])
-            return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index])
+            return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index]), \
+                torch.tensor(self.disorder[k][index])
 
 
-class CNNSmall(nn.Module):
-    def __init__(self):
+class CNN(nn.Module):
+    def __init__(self, n_layers: int, dropout: float, input_size: int):
         super().__init__()
-        # version 0: 2 C layers
-        self.conv1 = nn.Conv1d(in_channels=1025, out_channels=32, kernel_size=5, padding=2)
-        # --> out: (32, proteins_length)
-        # self.dropout = nn.Dropout(p=0.2)
-        self.relu = nn.ReLU()
-        self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
-        # --> out: (1, protein_length)
+        self.n_layers = n_layers
+        if self.n_layers == 2:
+            # version 0: 2 C layers
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=5, padding=2)
+            # --> out: (32, proteins_length)
+            self.dropout = nn.Dropout(p=dropout)
+            self.relu = nn.ReLU()
+            self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
+            # --> out: (1, protein_length)
+        elif self.n_layers == 5:
+            # version 1: 5 C layers
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=5, padding=2)
+            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
+            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
+            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
+            self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=5, padding=2)
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(p=dropout)
+            # --> out: (1, protein_length)
+        else:
+            raise ValueError("n_layers must be 2 or 5.")
 
     def forward(self, input):
-        # version 0: 2 C layers
-        x = self.conv1(input.transpose(1, 2).contiguous())
-        # x = self.dropout(x)   # dropout makes it worse...
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = x + 2
-        return x
-
-
-class CNNLarge(nn.Module):
-    def __init__(self):
-        super().__init__()
-        # version 1: 5 C layers
-        self.conv1 = nn.Conv1d(in_channels=1025, out_channels=512, kernel_size=5, padding=2)
-        self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
-        self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
-        self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
-        self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=5, padding=2)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=0.2)
-        # --> out: (1, protein_length)
-
-    def forward(self, input):
-        # version 1: 5 C layers
-        x = self.conv1(input.transpose(1, 2).contiguous())
-        # x = self.dropout(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.conv3(x)
-        x = self.relu(x)
-        x = self.conv4(x)
-        x = self.relu(x)
-        x = self.conv5(x)
+        if self.n_layers == 2:
+            # version 0: 2 C layers
+            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.dropout(x)
+            x = self.relu(x)
+            x = self.conv2(x)
+            x = x + 2
+        else:  # 5 layers; check that n_layers is one of 2 or 5 is already done in init()
+            # version 1: 5 C layers
+            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.dropout(x)
+            x = self.relu(x)
+            x = self.conv2(x)
+            x = self.relu(x)
+            x = self.conv3(x)
+            x = self.relu(x)
+            x = self.conv4(x)
+            x = self.relu(x)
+            x = self.conv5(x)
+            x += 3
         return x
 
 
 class FNN(nn.Module):
-    def __init__(self, input_size, output_size, p):
+    def __init__(self, input_size: int, output_size: int, dropout: float, multilabel: bool):
         super(FNN, self).__init__()
         self.input_layer = nn.Linear(input_size, input_size)
         self.hidden_layer = nn.Linear(input_size, int(input_size / 2))
         self.output_layer = nn.Linear(int(input_size / 2), output_size)
-        self.dropout = nn.Dropout(p)
+        self.dropout = nn.Dropout(dropout)
+        self.multilabel = multilabel
 
-    def forward(self, input, multilabel):
+    def forward(self, input):
         x = F.relu(self.input_layer(input))
         x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
         x = self.dropout(x)
-        if multilabel:
+        if self.multilabel:
             output = torch.sigmoid(self.output_layer(x))
         else:
             output = self.output_layer(x)  # rather without sigmoid to apply BCEWithLogitsLoss later
@@ -221,7 +252,7 @@ def criterion(loss_func, prediction, label):  # sum over all classification head
     return losses
 
 
-def conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold, random):
+def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random):
     if fold is not None:
         batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
     # apply activation function to prediction to enable classification and transpose matrices
@@ -245,6 +276,15 @@ def conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold, random):
     batch_wise["FN"].append(
         (prediction_max != label)[label == 1].type(torch.float).sum().item())
 
+    # metrics within disorder
+    batch_wise["diso_correct"].append((prediction_max == label)[disorder == 1].type(torch.float).sum().item())
+    mask_0 = (label == 0) & (disorder == 1)
+    mask_1 = (label == 1) & (disorder == 1)
+    batch_wise["diso_TP"].append((prediction_max == label)[mask_1].type(torch.float).sum().item())
+    batch_wise["diso_FP"].append((prediction_max != label)[mask_0].type(torch.float).sum().item())
+    batch_wise["diso_TN"].append((prediction_max == label)[mask_0].type(torch.float).sum().item())
+    batch_wise["diso_FN"].append((prediction_max != label)[mask_1].type(torch.float).sum().item())
+
     return batch_wise_loss, batch_wise
 
 
@@ -260,8 +300,21 @@ def metrics(confusion_dict):
     mcc = (confusion_dict["TN"] * confusion_dict["TP"] - confusion_dict["FP"] * confusion_dict["FN"]) / \
           np.sqrt((confusion_dict["TN"] + confusion_dict["FN"]) * (confusion_dict["FP"] + confusion_dict["TP"]) *
                   (confusion_dict["TN"] + confusion_dict["FP"]) * (confusion_dict["FN"] + confusion_dict["TP"]))
+    # analog in disorder
+    precision_D = confusion_dict["diso_TP"] / (confusion_dict["diso_TP"] + confusion_dict["diso_FP"])
+    neg_precision_D = confusion_dict["diso_TN"] / (confusion_dict["diso_TN"] + confusion_dict["diso_FN"])
+    recall_D = confusion_dict["diso_TP"] / (confusion_dict["diso_TP"] + confusion_dict["diso_FN"])
+    neg_recall_D = confusion_dict["diso_TN"] / (confusion_dict["diso_TN"] + confusion_dict["diso_FP"])
+    specificity_D = confusion_dict["diso_TN"] / (confusion_dict["diso_TN"] + confusion_dict["diso_FP"])
+    balanced_acc_D = (recall_D + specificity_D) / 2
+    f1_D = 2 * ((precision_D * recall_D) / (precision_D + recall_D))
+    mcc_D = (confusion_dict["diso_TN"] * confusion_dict["diso_TP"] - confusion_dict["diso_FP"] * confusion_dict["diso_FN"]) / \
+          np.sqrt((confusion_dict["diso_TN"] + confusion_dict["diso_FN"]) * (confusion_dict["diso_FP"] + confusion_dict["diso_TP"]) *
+                  (confusion_dict["diso_TN"] + confusion_dict["diso_FP"]) * (confusion_dict["diso_FN"] + confusion_dict["diso_TP"]))
     return {"Precision": precision, "Recall": recall, "Neg_Precision": neg_precision, "Neg_Recall": neg_recall,
-            "Balanced Acc.": balanced_acc, "F1": f1, "MCC": mcc}
+            "Balanced Acc.": balanced_acc, "F1": f1, "MCC": mcc,
+            "D Precision": precision_D, "D Recall": recall_D, "D Neg_Precision": neg_precision_D, "D Neg_Recall": neg_recall_D,
+            "D Balanced Acc.": balanced_acc_D, "D F1": f1_D, "D MCC": mcc_D}
 
 
 class Zone:
@@ -364,14 +417,15 @@ def post_process(prediction: torch.tensor):
     return torch.tensor(prediction_pp)[:, None]
 
 
-def assess(name, cutoff, mode, multilabel, network, loss_function, post_processing, test, best_fold):
+def assess(name, cutoff, mode, multilabel, architecture, n_layers, batch_size, loss_function, post_processing, test, best_fold, dataset_dir):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
                              {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
                              {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}]
     else:
-        all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+        all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
+                             "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
     if test:
         cutoff = [cutoff[best_fold]]
     for fold, _ in enumerate(cutoff):
@@ -379,31 +433,30 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
             print(f"{name} Fold {best_fold}")
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val_labels{}
-            val_labels = read_labels(None, None)
+            val_labels = read_labels(None, None, dataset_dir)
         else:
             print(f"{name} Fold {fold}")
             # for validation use the training IDs in the current fold
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-            val_labels = read_labels(fold, None)
+            val_labels = read_labels(fold, None, dataset_dir)
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_val_input, this_fold_val_target = get_ML_data(val_labels, embeddings, mode, multilabel, None)
+        this_fold_val_input, this_fold_val_target, this_fold_disorder = \
+            get_ML_data(val_labels, embeddings, architecture, mode, multilabel)
 
         # instantiate the dataset
-        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, network)
+        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder, architecture)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         input_size = 1025 if mode == 'all' else 1024
         output_size = 3 if multilabel else 1
 
-        if network == "FNN":
-            model = FNN(input_size, output_size, dropout).to(device)
-        elif variant == 0.0:
-            model = CNNSmall().to(device)
-        elif variant == 1.0:
-            model = CNNLarge().to(device)
+        if architecture == "FNN":
+            model = FNN(input_size, output_size, dropout, multilabel).to(device)
+        else:
+            model = CNN(n_layers, dropout, input_size).to(device)
 
         if name.startswith("random"):
             model = None
@@ -411,7 +464,8 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
             model.load_state_dict(
                 torch.load(f"../results/models/binding_regions_model_{name}_fold_{fold}.pth"))
 
-        batch_size = 1 if network == "CNN" else 339  # 339 is avg protein length
+        if architecture == "CNN":
+            batch_size = 1
         test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
         if model is not None:
             model.eval()
@@ -477,19 +531,20 @@ def assess(name, cutoff, mode, multilabel, network, loss_function, post_processi
             else:  # not multilabel
                 # save confusion matrix values for each protein
                 batch_wise_loss = []
-                batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+                batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
+                              "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
 
-                for input, label in test_loader:
-                    input, label = input.to(device), label[:, None].to(device)
+                for input, label, disorder in test_loader:
+                    input, label, disorder = input.to(device), label[:, None].to(device), disorder[:, None].to(device)
                     if name.startswith("random"):
                         prediction = torch.rand(len(label), 1).to(device)
                         random = True
                     else:
-                        prediction = model(input, multilabel) if network == "FNN" else model(input)
+                        prediction = model(input)
                         random = False
                         if post_processing:
                             prediction = post_process(prediction).to(device)
-                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, batch_wise_loss, batch_wise, fold, random)
+                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random)
 
                 for k in batch_wise.keys():
                     all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -557,7 +612,7 @@ def assess_bindEmbed():
             predictions_binary[p.name[:-16]] = prediction
 
     all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
-    val_labels = read_labels(None, None)
+    val_labels = read_labels(None, None, dataset_dir)
 
     target = []
     predictions = []
@@ -588,7 +643,7 @@ def assess_bindEmbed():
     for i, label in enumerate(target):
         pr = predictions[i].to(device)
         label = torch.tensor(label).to(device)
-        batch_wise_loss, batch_wise = conf_matrix(pr, label, batch_wise_loss, batch_wise, None, False)
+        batch_wise_loss, batch_wise = conf_matrix(pr, label, disorder, batch_wise_loss, batch_wise, None, False)
 
     for k in batch_wise.keys():
         all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -619,8 +674,8 @@ def assess_bindEmbed():
 
 if __name__ == '__main__':
     # read input embeddings
-    test = True
-    embeddings_in = '../dataset/test_set.h5' if test else '../dataset/train_set.h5'
+    test = False
+    embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
         for key, embedding in f.items():
@@ -628,6 +683,7 @@ if __name__ == '__main__':
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
+    """ disprot code
     variants = [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 2.213, 12.0, 3.0, 13.0, 4.0, 4.1, 14.0]
     # cutoffs are different for each fold, variant (and class, if multiclass)!
     cutoffs = {0.0: [0.315, 0.16, 0.235, 0.245, 0.39],
@@ -678,15 +734,62 @@ if __name__ == '__main__':
                   4.1: 2,
                   14.0: 0}
 
+    """
+
+    # mobidb code
+    dataset_dir = '../dataset/MobiDB_dataset/'
+    variants = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0]
+    # cutoffs are different for each fold and variant
+    cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
+               1.0: [0.2, 0.2, 0.3, 0.3, 0.4],
+               2.0: [0.4, 0.25, 0.4, 0.3, 0.45],
+               3.0: [0.9, 0.9, 0.9, 0.9, 0.85],
+               4.0: [0.55, 0.55, 0.6, 0.6, 0.65],
+               5.0: [0.4, 0.35, 0.45, 0.35, 0.35],
+               6.0: [0.2, 0.4, 0.45, 0.55, 0.2],
+               7.0: [0.4, 0.45, 0.45, 0.45, 0.4],
+               8.0: [0.5, 0.5, 0.55, 0.5, 0.5],
+               10.0: [0.94, 0.94, 0.94, 0.94, 0.94],
+               15.0: [0.63, 0.63, 0.63, 0.63, 0.63]
+               }
+    names = {0.0: "mobidb_CNN_0",
+             1.0: "mobidb_CNN_1",
+             2.0: "mobidb_FNN_0",
+             3.0: "mobidb_FNN_1",
+             4.0: "mobidb_FNN_2",
+             5.0: "mobidb_D_CNN_0",
+             6.0: "mobidb_D_CNN_1",
+             7.0: "mobidb_D_FNN_0",
+             8.0: "mobidb_D_FNN_1",
+             10.0: "random_binary",
+             15.0: "random_d_only",
+             }
+
+    best_folds = {0.0: 2,
+                  1.0: 2,
+                  2.0: 2,
+                  3.0: 3,
+                  4.0: 2,
+                  5.0: 2,
+                  6.0: 2,
+                  7.0: 4,
+                  8.0: 2,
+                  10.0: 2,
+                  15.0: 2,
+                  }
+
+
+
     performances = []
     per_model_metrics = []
     for variant in variants:
         # set parameters
         print(f"variant {variant}:")
+
+        """ disprot implementation
         mode = 'disorder_only' if (variant % 10) == 3.0 else 'all'
         multilabel = True if (variant % 10) >= 4.0 else False
         network = 'CNN' if (variant % 10) < 2.0 else 'FNN'
-        loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
         if variant == 2.20:
             dropout = 0.2
         elif 2.21 <= variant < 3.0:
@@ -697,13 +800,24 @@ if __name__ == '__main__':
             post_processing = True
         else:
             post_processing = False
+        """
+        # mobidb implementation
+        mode = 'disorder_only' if (variant % 10) >= 5.0 else 'all'
+        multilabel = False
+        architecture = 'CNN' if 'CNN' in names[variant] else 'FNN'  # 0, 1, 5, 6
+        n_layers = 5
+        dropout = 0.0
+        post_processing = False
+        batch_size = 512
 
+
+        loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
         cutoff = cutoffs[variant]
         name = names[variant]
         best_fold = best_folds[variant]
 
-        assessment = assess(name, cutoff, mode, multilabel, network, loss_function, post_processing,
-                                   test, best_fold)
+        assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, batch_size, loss_function,
+                            post_processing, test, best_fold, dataset_dir)
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
 
@@ -716,13 +830,12 @@ if __name__ == '__main__':
         print(stats.ttest_ind(per_model_metrics[5][k], per_model_metrics[6][k], equal_var=True))
     """
 
-
     if test:
         bindEmbed_performance = assess_bindEmbed()
 
+    output_name = '../results/logs/performance_assessment_mobidb.tsv' if not test else \
+        '../results/logs/performance_assessment_test_mobidb.tsv'
 
-    output_name = '../results/logs/performance_assessment.tsv' if not test else \
-        '../results/logs/performance_assessment_test.tsv'
     with open(output_name, "w") as output:
         output.write("model\tclass\t")
         for key in performances[0][0].keys():  # conf-matrix
@@ -734,7 +847,7 @@ if __name__ == '__main__':
         output.write("\n")
 
         for i, v in enumerate(variants):
-            if (v % 10) >= 4.0:  # multiclass
+            if 'MobiDB' not in dataset_dir and (v % 10) >= 4.0:  # multiclass
                 for j, b_class in enumerate(["protein", "nuc", "other"]):
                     output.write(f"{names[v]}\t{b_class}\t")
                     for key in performances[0][0].keys():  # conf-matrix
