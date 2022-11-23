@@ -301,7 +301,7 @@ ggplot(data = rbind(performance[1:5], performance[10:11]))+
 
 
 # disorder only prediction, part 2
-ggplot(data = rbind(performance[1], performance[6:11]))+
+ggplot(data = rbind(performance[2], performance[6:11]))+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -323,7 +323,7 @@ ggplot(data = rbind(performance[1], performance[6:11]))+
   theme_bw()
 
 # disorder only prediction, part 2, selection + text
-ggplot(data = rbind(performance[1], performance[6:11]))+
+ggplot(data = rbind(performance[2], performance[6:11]))+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
