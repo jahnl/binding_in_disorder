@@ -256,7 +256,7 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
 
         # load pre-computed datapoint embeddings
         t_datapoints = list()
-        if 'binary_residues' in oversampling:
+        if oversampling is not None and 'binary_residues' in oversampling:
             for f in range(n_splits):
                 if f != fold:
                     t_datapoints.extend(
