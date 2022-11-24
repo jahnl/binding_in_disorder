@@ -25,6 +25,7 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
     'multiclass_residues': multi-class oversampling on residue-level
         non-binding(230,173), protein-binding(19,711), nuc-binding(4,442), other-binding(3,453)
         --> p*11.68, n*51.82, o*66.66
+    TODO: and more...
     """
     # Input Training Data
     with open(dataset_dir + "train_set_input.txt", 'r') as train_set_labels:
@@ -49,20 +50,31 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                     p_sampled_residues, n_sampled_residues, o_sampled_residues = ['', '', ''], ['', '', ''], ['', '',
                                                                                                               '']
                     try:
-                        if oversampling in ['binary', 'binary_D']:
+                        if oversampling in ['binary', 'binary_D', 'binary_U', 'binary_D_U']:
                             chance = (random.randint(1, 100))
-                            pos_cut = 98 if oversampling == 'binary' else 69    # 69 is for mobidb-binary_D!
+                            disprot_cut = {'binary': 98}    # oversample 98% of binding proteins
+                            mobidb_cut = {'binary': 62,     # oversample 62% of non-binding proteins
+                                          'binary_D': 69,   # oversample 69% of binding proteins (based on distr. in disorder)
+                                          'binary_U': 38,    # undersample 38% of binding proteins
+                                          'binary_D_U': 31}  # undersample 31% of non-binding proteins (based on disorder)
+                            cut_dir = mobidb_cut if database == 'mobidb' else disprot_cut
                             # is there a binding disordered residue in sequence?
                             if re.match(r'.*(B|P|N|O|X|Y|Z|A).*', j.split('\n')[3]) is not None:
-                                if (database == 'disprot' or oversampling == 'binary_D') and chance <= pos_cut:
+                                if (database == 'disprot' or oversampling == 'binary_D') and chance <= cut_dir[oversampling]:
                                     # 98% (/69%) of binding proteins are duplicated
                                     repeat = 2
-                            elif database == 'mobidb' and oversampling != 'binary_D' and chance <= 62:
+                                elif oversampling == 'binary_U' and chance <= cut_dir[oversampling]:
+                                    repeat = 0
+                            # non-binding sequence
+                            elif database == 'mobidb' and oversampling == 'binary' and chance <= cut_dir[oversampling]:
                                 # 62% of non-binding proteins are duplicated
                                 repeat = 2
+                            elif database == 'mobidb' and oversampling == 'binary_D_U' and chance <= cut_dir[oversampling]:
+                                repeat = 0
+
 
                         # oversample only binding residues, 'binary_residues(_disorder)'
-                        # then 'create' new protein with asterisk-ID from only these residues * 9.2
+                        # then 'create' new protein with */$-ID from only these residues * 9.2
                         # (or less when not disprot and binary_residues)
                         elif oversampling is not None and oversampling.startswith('binary_residues'):
                             # indices of binding residues in this protein
@@ -80,7 +92,7 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                             diso_sampled_residues[1] = ''.join([line_2[x] for x in diso_indices])
                             diso_sampled_residues[2] = ''.join([line_3[x] for x in diso_indices])
                             if database == 'disprot':
-                                if 'disorder' not in oversampling:
+                                if 'D' not in oversampling:     # not disorder-focused balancing
                                     if (random.randint(1, 100)) <= 20:
                                         repeat = 9  # not 10, bc it's already written 1 time per default
                                     else:
@@ -89,17 +101,25 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                                     # TODO, what's this ratio in disprot dataset?
                                     pass
                             else:   # mobidb
-                                if 'disorder' not in oversampling:  # times 14.2
+                                if 'D' not in oversampling:  # times 14.2
                                     if (random.randint(1, 100)) <= 20:
                                         repeat = 14  # not 15, bc it's already written 1 time per default
                                     else:
                                         repeat = 13
-                                else:   # mobidb, 'binary_residues_disorder', times 1.69,
-                                        # negatives outside of disorder: times 0.12
+                                elif 'U' not in oversampling:   # mobidb, 'binary_residues_D', times 1.69,
+                                    # negatives outside of disorder: times 0.12
                                     if (random.randint(1, 100)) > 69:
                                         repeat = 0 # not 1, because original positives are always written down once
                                     if (random.randint(1, 100)) > 12:
                                         repeat_neg = 0
+                                else:   # mobidb, 'binary_residues_D_U', negatives in disorder: times 0.59,
+                                        # negatives outside of disorder: times 0.12
+                                    if (random.randint(1, 100)) > 12:
+                                            repeat_neg = 0      # --> disorder only
+                                            if (random.randint(1, 100)) > (59-12):   # --> positives only
+                                                repeat = 0 # special case: this will be used for undersampling
+                                    # else: whole protein
+
 
                         elif oversampling == 'multiclass_residues':
                             # indices of p-binding residues in this protein
@@ -148,9 +168,11 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                     except IndexError:  # end of file = single line break reached
                         pass
 
+
                     if oversampling is None or 'residues' not in oversampling:
                         for _ in range(repeat):
                             output_labels.write(j)
+
                     elif oversampling == 'binary_residues':
                         output_labels.write(j)
                         if sampled_residues != ['', '', '']:
@@ -167,7 +189,8 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                             for _ in range(repeat):
                                 output_labels.write(sampled_residues[2])
                             output_labels.write('\n')
-                    elif oversampling == 'binary_residues_disorder':
+
+                    elif oversampling == 'binary_residues_D':
                         if repeat_neg == 1:
                             output_labels.write(j)
                         else: # write down disordered region only
@@ -189,6 +212,23 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                             for _ in range(repeat):
                                 output_labels.write(sampled_residues[2])
                             output_labels.write('\n')
+
+                    elif oversampling == 'binary_residues_D_U':
+                        if repeat_neg == 1:
+                            output_labels.write(j)
+                        elif repeat == 1: # write down disordered region only
+                            name = j.split('\n')[0] + '$' if database == 'disprot' else '>$' + j.split('\n')[0][1:]
+                            output_labels.write(
+                                name + '\t' + (str(diso_indices)[1:-1] + ', ') + "\n")
+                            output_labels.write('\n'.join(diso_sampled_residues) + '\n')
+                        else:   # repeat == 0 --> write down positives only
+                            if sampled_residues != ['', '', '']:
+                                # in mobidb annotation the fasta id has description -> * would be placed behind the 'id'
+                                name = j.split('\n')[0] + '*' if database == 'disprot' else '>*' + j.split('\n')[0][1:]
+                                output_labels.write(
+                                    name + '\t' + ((str(indices)[1:-1] + ', ') * repeat) + "\n")
+                                output_labels.write('\n'.join(sampled_residues) + '\n')
+
                     elif oversampling == 'multiclass_residues':
                         output_labels.write(j)
                         if p_sampled_residues != sampled_residues or n_sampled_residues != sampled_residues or \

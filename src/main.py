@@ -67,17 +67,18 @@ def check_config_items(step, config):
         if step != 5:
             if step == 4:
                 if config['parameters']['architecture'] == 'CNN' and \
-                        not config['parameters']['oversampling'] in ['', 'binary', 'binary_D']:
-                    ValueError("Config item 'oversampling' must be None, 'binary' or 'binary_D', when architecture is "
-                               "'CNN'.")
-                elif config['parameters']['multilabel'] == 'False' and not config['parameters']['oversampling'] in \
-                                                          ['', 'binary', 'binary_residues', 'binary_residues_disorder']:
-                    ValueError("Config item 'oversampling' must be None, 'binary', 'binary_residues' or "
-                               "'binary_residues_disorder', when architecture is 'FNN' and 'multilabel' is False.")
-            elif not config['parameters']['oversampling'] in ['', 'binary', 'binary_residues',
-                                                              'binary_residues_disorder', 'multiclass_residues']:
-                ValueError("Config item 'oversampling' must be None, 'binary', 'binary_residues', 'binary_residues_"
-                           "disorder' or 'multiclass_residues'.")
+                        not config['parameters']['balancing'] in ['', 'binary', 'binary_D', 'binary_U', 'binary_D_U']:
+                    ValueError("Config item 'balancing' must be None, 'binary', 'binary_D', 'binary_U' or 'binary_D_U'"
+                               ", when architecture is 'CNN'.")
+                elif config['parameters']['multilabel'] == 'False' and not config['parameters']['balancing'] in \
+                                                          ['', 'binary', 'binary_residues', 'binary_residues_D']:
+                    ValueError("Config item 'balancing' must be None, 'binary', 'binary_D', 'binary_U', 'binary_D_U'"
+                               ", 'binary_residues', 'binary_residues_D' or 'binary_residues_D_U', "
+                               "when architecture is 'FNN' and 'multilabel' is False.")
+            elif not config['parameters']['balancing'] in ['', 'binary', 'binary_residues',
+                                                              'binary_residues_D', 'multiclass_residues']:
+                ValueError("Config item 'balancing' must be None, 'binary', 'binary_residues', 'binary_residues_"
+                           "D' or 'multiclass_residues'.")
 
     # for single steps
     if step == 1:
@@ -164,7 +165,7 @@ if __name__ == '__main__':
     cutoff = config['parameters']['cutoff'].split(',')
 
     # parse potential empty string to None
-    oversampling = config['parameters']['oversampling']
+    oversampling = config['parameters']['balancing']
     if oversampling == '':
         oversampling = None
 
@@ -183,11 +184,11 @@ if __name__ == '__main__':
                                               dataset_dir=config['input_files']['dataset_directory'],
                                               overwrite=wf_overwrite)
     if '2' in steps:
-        print('step 2: CV and oversampling')
+        print('step 2: CV and balancing')
         if not wf_overwrite:  # overwrite = False
             all_CV_splits_present = True  # check if at least 1 file is missing
             for i in range(int(config['parameters']['n_splits'])):
-                if not exists(f'{config["input_files"]["dataset_directory"]}folds/CV_fold_{i}_labels_{config["parameters"]["oversampling"]}.txt'):
+                if not exists(f'{config["input_files"]["dataset_directory"]}folds/CV_fold_{i}_labels_{config["parameters"]["balancing"]}.txt'):
                     all_CV_splits_present = False
                     break
         if not wf_overwrite and all_CV_splits_present:
@@ -203,7 +204,7 @@ if __name__ == '__main__':
         if not wf_overwrite:
             all_datapoints_present = True
             for i in range(int(config['parameters']['n_splits'])):
-                if not exists(f'{config["input_files"]["dataset_directory"]}folds/new_datapoints_{config["parameters"]["oversampling"]}_fold_{i}.npy'):
+                if not exists(f'{config["input_files"]["dataset_directory"]}folds/new_datapoints_{config["parameters"]["balancing"]}_fold_{i}.npy'):
                     all_datapoints_present = False
                     break
         if not wf_overwrite and all_datapoints_present:
