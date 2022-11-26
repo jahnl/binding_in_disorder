@@ -63,7 +63,7 @@ ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = Fold, linetype = 'whol
   ylab('TPR')
 
 # to show cutoffs of best fold
-best_fold = 0
+best_fold = 4
 ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, linetype = 'whole dataset,\npositives'))+
   # general P-curve
   #geom_point(data = data[data$Fold==best_fold,], size = 2)+
