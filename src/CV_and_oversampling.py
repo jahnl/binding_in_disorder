@@ -226,7 +226,7 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                                 # in mobidb annotation the fasta id has description -> * would be placed behind the 'id'
                                 name = j.split('\n')[0] + '*' if database == 'disprot' else '>*' + j.split('\n')[0][1:]
                                 output_labels.write(
-                                    name + '\t' + ((str(indices)[1:-1] + ', ') * repeat) + "\n")
+                                    name + '\t' + (str(indices)[1:-1] + ', ') + "\n")
                                 output_labels.write('\n'.join(sampled_residues) + '\n')
 
                     elif oversampling == 'multiclass_residues':

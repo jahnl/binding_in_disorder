@@ -1,0 +1,36 @@
+2022-11-26 15:26:55.438039	Epoch 1
+	Training set: Avg loss: 0.734241 
+	Cross-Training set: Accuracy: 45.8%, Sensitivity: 100.0%, Precision: 45.8%, Avg loss: 0.700943 
+2022-11-26 15:27:07.691043	Epoch 2
+	Training set: Avg loss: 0.691826 
+	Cross-Training set: Accuracy: 46.1%, Sensitivity: 99.8%, Precision: 45.9%, Avg loss: 0.695094 
+2022-11-26 15:27:19.938044	Epoch 3
+	Training set: Avg loss: 0.674293 
+	Cross-Training set: Accuracy: 46.5%, Sensitivity: 99.7%, Precision: 46.1%, Avg loss: 0.697867 
+2022-11-26 15:27:32.293050	Epoch 4
+	Training set: Avg loss: 0.656992 
+	Cross-Training set: Accuracy: 45.7%, Sensitivity: 99.3%, Precision: 45.8%, Avg loss: 0.716700 
+2022-11-26 15:27:44.862042	Epoch 5
+	Training set: Avg loss: 0.630296 
+	Cross-Training set: Accuracy: 47.8%, Sensitivity: 98.9%, Precision: 46.7%, Avg loss: 0.707365 
+2022-11-26 15:27:57.440044	Epoch 6
+	Training set: Avg loss: 0.621740 
+	Cross-Training set: Accuracy: 47.6%, Sensitivity: 99.1%, Precision: 46.6%, Avg loss: 0.721942 
+2022-11-26 15:28:09.510043	Epoch 7
+	Training set: Avg loss: 0.582750 
+	Cross-Training set: Accuracy: 51.1%, Sensitivity: 93.1%, Precision: 48.2%, Avg loss: 0.722763 
+2022-11-26 15:28:21.625040	Epoch 8
+	Training set: Avg loss: 0.556837 
+	Cross-Training set: Accuracy: 52.7%, Sensitivity: 91.5%, Precision: 49.2%, Avg loss: 0.752994 
+2022-11-26 15:28:33.838040	Epoch 9
+	Training set: Avg loss: 0.568327 
+	Cross-Training set: Accuracy: 51.8%, Sensitivity: 91.7%, Precision: 48.6%, Avg loss: 0.769445 
+2022-11-26 15:28:46.449042	Epoch 10
+	Training set: Avg loss: 0.518370 
+	Cross-Training set: Accuracy: 54.4%, Sensitivity: 88.5%, Precision: 50.2%, Avg loss: 0.794634 
+2022-11-26 15:28:58.774039	Epoch 11
+	Training set: Avg loss: 0.469081 
+	Cross-Training set: Accuracy: 56.8%, Sensitivity: 81.4%, Precision: 51.8%, Avg loss: 0.907169 
+2022-11-26 15:29:11.263041	Epoch 12
+	Training set: Avg loss: 0.456328 
+	Cross-Training set: Accuracy: 57.6%, Sensitivity: 82.6%, Precision: 52.4%, Avg loss: 0.888223 
