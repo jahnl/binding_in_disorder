@@ -738,7 +738,9 @@ if __name__ == '__main__':
 
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
-    variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0]
+    # variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.02, 2.03, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0]
+    variants = [2.0, 2.02, 2.03, 12.0]
+    assessment_name = "mobidb_D_CNN_0_dropout"      # "mobidb" / "2.21_only" / ""
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
                0.1: [0.2, 0.2, 0.3, 0.3, 0.4],
@@ -750,6 +752,8 @@ if __name__ == '__main__':
                1.4: [0.25, 0.3, 0.3, 0.35, 0.25],
                1.5: [0.65, 0.55, 0.45, 0.5, 0.55],
                2.0: [0.4, 0.35, 0.45, 0.35, 0.35],
+               2.02: [0.55, 0.55, 0.55, 0.55, 0.5],
+               2.03: [0.15, 0.5, 0.25, 0.55, 0.3],
                2.1: [0.2, 0.4, 0.45, 0.55, 0.2],
                2.2: [0.5, 0.6, 0.5, 0.45, 0.35],
                3.0: [0.4, 0.45, 0.45, 0.45, 0.4],
@@ -770,6 +774,8 @@ if __name__ == '__main__':
              1.4: "mobidb_FNN_4",
              1.5: "mobidb_FNN_5",
              2.0: "mobidb_D_CNN_0",
+             2.02: "mobidb_D_CNN_0_d2",
+             2.03: "mobidb_D_CNN_0_d3",
              2.1: "mobidb_D_CNN_1",
              2.2: "mobidb_D_CNN_2",
              3.0: "mobidb_D_FNN_0",
@@ -791,6 +797,8 @@ if __name__ == '__main__':
                   1.4: 0,
                   1.5: 2,
                   2.0: 2,
+                  2.02: 4,
+                  2.03: 3,
                   2.1: 2,
                   2.2: 3,
                   3.0: 4,
@@ -857,8 +865,8 @@ if __name__ == '__main__':
     if test:
         bindEmbed_performance = assess_bindEmbed()
 
-    output_name = '../results/logs/performance_assessment_mobidb.tsv' if not test else \
-        '../results/logs/performance_assessment_test_mobidb.tsv'
+    output_name = f'../results/logs/performance_assessment_{assessment_name}.tsv' if not test else \
+        f'../results/logs/performance_assessment_test_{assessment_name}.tsv'
 
     with open(output_name, "w") as output:
         output.write("model\tclass\t")
