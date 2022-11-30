@@ -168,29 +168,40 @@ class BindingDataset(Dataset):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_layers: int, dropout: float, input_size: int):
+    def __init__(self, n_layers: int, kernel_size: int, dropout: float, input_size: int):
         super().__init__()
         self.n_layers = n_layers
+        padding = int((kernel_size - 1) / 2)
         if self.n_layers == 2:
             # version 0: 2 C layers
-            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=kernel_size, padding=padding)
             # --> out: (32, proteins_length)
             self.dropout = nn.Dropout(p=dropout)
             self.relu = nn.ReLU()
-            self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
+            self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=kernel_size, padding=padding)
             # --> out: (1, protein_length)
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=5, padding=2)
-            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
-            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
-            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
-            self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
+            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
+            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
+            self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=kernel_size, padding=padding)
             self.relu = nn.ReLU()
             self.dropout = nn.Dropout(p=dropout)
             # --> out: (1, protein_length)
-        else:
-            raise ValueError("n_layers must be 2 or 5.")
+        elif self.n_layers == 8:
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
+            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
+            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
+            self.conv5 = nn.Conv1d(in_channels=64, out_channels=32, kernel_size=kernel_size, padding=padding)
+            self.conv6 = nn.Conv1d(in_channels=32, out_channels=16, kernel_size=kernel_size, padding=padding)
+            self.conv7 = nn.Conv1d(in_channels=16, out_channels=8, kernel_size=kernel_size, padding=padding)
+            self.conv8 = nn.Conv1d(in_channels=8, out_channels=1, kernel_size=kernel_size, padding=padding)
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(p=dropout)
+            # --> out: (1, protein_length)
 
     def forward(self, input):
         if self.n_layers == 2:
@@ -200,7 +211,7 @@ class CNN(nn.Module):
             x = self.relu(x)
             x = self.conv2(x)
             x = x + 2
-        else:  # 5 layers; check that n_layers is one of 2 or 5 is already done in init()
+        elif self.n_layers == 5:
             # version 1: 5 C layers
             x = self.conv1(input.transpose(1, 2).contiguous())
             x = self.dropout(x)
@@ -213,6 +224,25 @@ class CNN(nn.Module):
             x = self.relu(x)
             x = self.conv5(x)
             x += 3
+        elif self.n_layers == 8:
+            # version 2: 8 C layers
+            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.dropout(x)
+            x = self.relu(x)
+            x = self.conv2(x)
+            x = self.relu(x)
+            x = self.conv3(x)
+            x = self.relu(x)
+            x = self.conv4(x)
+            x = self.relu(x)
+            x = self.conv5(x)
+            x = self.relu(x)
+            x = self.conv6(x)
+            x = self.relu(x)
+            x = self.conv7(x)
+            x = self.relu(x)
+            x = self.conv8(x)
+            x += 4
         return x
 
 
@@ -252,7 +282,7 @@ def transform_output(p, n, o):
 
 def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all', multilabel: bool = False,
                 n_splits: int = 5,
-                architecture: str = 'FNN', n_layers: int = 0, batch_size: int = 512, cutoff_percent_min: int = 0,
+                architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512, cutoff_percent_min: int = 0,
                 cutoff_percent_max: int = 100, step_percent: int = 5, dropout: float = 0.3):
     def criterion(loss_func, prediction, label):  # sum over all classification heads
         losses = 0
@@ -450,7 +480,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                 model = FNN(input_size=input_size, output_size=output_size, dropout=dropout, multilabel=multilabel) \
                     .to(device)
             else:
-                model = CNN(n_layers=n_layers, dropout=dropout, input_size=input_size).to(device)
+                model = CNN(n_layers=n_layers, kernel_size=kernel_size, dropout=dropout, input_size=input_size).to(device)
                 batch_size = 1  # batch size is always 1 (protein) if the model is a CNN
             model.load_state_dict(
                 torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
@@ -460,7 +490,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                              cutoff_percent_min, cutoff_percent_max, step_percent)
 
 
-def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers, dropout, mode, test):
+def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers, kernel_size, dropout, mode, test):
     output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
         f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
     with open(output_name, "w") as output_file:
@@ -484,7 +514,7 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, 'CNN')
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = CNN(n_layers, dropout).to(device)
+        model = CNN(n_layers, kernel_size, dropout).to(device)
         model.load_state_dict(
             torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
         # test performance again, should be the same
@@ -692,7 +722,7 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
 
 
 def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str, mode: str = 'all', n_splits: int = 5,
-                        architecture: str = 'FNN', n_layers: int = 0, batch_size: int = 512,
+                        architecture: str = 'FNN', n_layers: int = 0, kernel_size: int =5, batch_size: int = 512,
                         cutoff_percent_min: int = 0,
                         cutoff_percent_max: int = 100, step_percent: int = 5, multilabel: bool = False,
                         dropout: float = 0.3):
@@ -704,7 +734,8 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
     :param mode: residues considered in the model, 'all' or 'disorder_only'
     :param n_splits: number of splits in cross validation
     :param architecture: 'CNN' or 'FNN'
-    :param n_layers: number of layers in the CNN, must be 2 or 5, is ignored if architecture == 'FNN'
+    :param n_layers: number of layers in the CNN, must be 2, 5 or 8, is ignored if architecture == 'FNN'
+    :param kernel_size: number of neighboring datapoints considered for prediction
     :param batch_size: batch_size, ignored if architecture == 'CNN'
     :param cutoff_percent_min: int between 0 and 100, this value / 100 = minimal cutoff that is tried out
     :param cutoff_percent_max: int between 0 and 100, this value / 100 = maximal cutoff that is tried out
@@ -720,14 +751,14 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
-    try_cutoffs(model_name, dataset_dir, embeddings, mode, multilabel, n_splits, architecture, n_layers, batch_size,
-                cutoff_percent_min, cutoff_percent_max, step_percent, dropout)
+    try_cutoffs(model_name, dataset_dir, embeddings, mode, multilabel, n_splits, architecture, n_layers, kernel_size,
+                batch_size, cutoff_percent_min, cutoff_percent_max, step_percent, dropout)
 
 
 def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model_name: str, fold: int, cutoff,
             mode: str = 'all',
-            architecture: str = 'FNN', n_layers: int = 0, batch_size: int = 512, multilabel: bool = False,
-            dropout: float = 0.3, test: bool = False, post_processing: bool = True):
+            architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512,
+            multilabel: bool = False, dropout: float = 0.3, test: bool = False, post_processing: bool = True):
     """
     make a final prediction on a validation (set fold!) or test set using the newly determined cutoff
     :param dataset_dir: directory where the dataset files are stored
@@ -741,6 +772,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
     :param mode: residues considered in the model, 'all' or 'disorder_only'
     :param architecture: ML architecture, 'CNN' or 'FNN'
     :param n_layers: number of convolutional layers used in the CNN, ignored if architecture=='FNN'
+    :param kernel_size: number of neighboring datapoints considered for prediction
     :param batch_size: batch_size
     :param multilabel: multilabel classifier?
     :param dropout: float between 0.0 and 1.0, dropout chance in the used model.
@@ -757,7 +789,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
 
     # get predictions for chosen cutoff, fold
     if architecture == 'CNN':
-        predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, dropout, mode, test)
+        predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, kernel_size, dropout, mode, test)
     elif architecture == 'FNN':
         predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name,
                    batch_size, dropout)

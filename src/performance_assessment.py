@@ -161,29 +161,40 @@ class BindingDataset(Dataset):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_layers: int, dropout: float, input_size: int):
+    def __init__(self, n_layers: int, kernel_size: int, dropout: float, input_size: int):
         super().__init__()
+        padding = int((kernel_size - 1) / 2)
         self.n_layers = n_layers
         if self.n_layers == 2:
             # version 0: 2 C layers
-            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=kernel_size, padding=padding)
             # --> out: (32, proteins_length)
             self.dropout = nn.Dropout(p=dropout)
             self.relu = nn.ReLU()
-            self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
+            self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=kernel_size, padding=padding)
             # --> out: (1, protein_length)
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=5, padding=2)
-            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
-            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
-            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
-            self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
+            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
+            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
+            self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=kernel_size, padding=padding)
             self.relu = nn.ReLU()
             self.dropout = nn.Dropout(p=dropout)
             # --> out: (1, protein_length)
-        else:
-            raise ValueError("n_layers must be 2 or 5.")
+        elif self.n_layers == 8:
+            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
+            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
+            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
+            self.conv5 = nn.Conv1d(in_channels=64, out_channels=32, kernel_size=kernel_size, padding=padding)
+            self.conv6 = nn.Conv1d(in_channels=32, out_channels=16, kernel_size=kernel_size, padding=padding)
+            self.conv7 = nn.Conv1d(in_channels=16, out_channels=8, kernel_size=kernel_size, padding=padding)
+            self.conv8 = nn.Conv1d(in_channels=8, out_channels=1, kernel_size=kernel_size, padding=padding)
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(p=dropout)
+            # --> out: (1, protein_length)
 
     def forward(self, input):
         if self.n_layers == 2:
@@ -193,7 +204,7 @@ class CNN(nn.Module):
             x = self.relu(x)
             x = self.conv2(x)
             x = x + 2
-        else:  # 5 layers; check that n_layers is one of 2 or 5 is already done in init()
+        elif self.n_layers == 5:
             # version 1: 5 C layers
             x = self.conv1(input.transpose(1, 2).contiguous())
             x = self.dropout(x)
@@ -206,6 +217,25 @@ class CNN(nn.Module):
             x = self.relu(x)
             x = self.conv5(x)
             x += 3
+        elif self.n_layers == 8:
+            # version 1: 5 C layers
+            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.dropout(x)
+            x = self.relu(x)
+            x = self.conv2(x)
+            x = self.relu(x)
+            x = self.conv3(x)
+            x = self.relu(x)
+            x = self.conv4(x)
+            x = self.relu(x)
+            x = self.conv5(x)
+            x = self.relu(x)
+            x = self.conv6(x)
+            x = self.relu(x)
+            x = self.conv7(x)
+            x = self.relu(x)
+            x = self.conv8(x)
+            x += 4
         return x
 
 
@@ -417,7 +447,7 @@ def post_process(prediction: torch.tensor):
     return torch.tensor(prediction_pp)[:, None]
 
 
-def assess(name, cutoff, mode, multilabel, architecture, n_layers, batch_size, loss_function, post_processing, test, best_fold, dataset_dir):
+def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size, loss_function, post_processing, test, best_fold, dataset_dir):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -456,7 +486,7 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, batch_size, l
         if architecture == "FNN":
             model = FNN(input_size, output_size, dropout, multilabel).to(device)
         else:
-            model = CNN(n_layers, dropout, input_size).to(device)
+            model = CNN(n_layers, kernel_size, dropout, input_size).to(device)
 
         if name.startswith("random"):
             model = None
@@ -738,9 +768,9 @@ if __name__ == '__main__':
 
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
-    # variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.02, 2.03, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0]
-    variants = [2.0, 2.02, 2.03, 12.0]
-    assessment_name = "mobidb_D_CNN_0_dropout"      # "mobidb" / "2.21_only" / ""
+    # variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0]
+    variants = [2.0, 2.06, 2.07]
+    assessment_name = "mobidb_D_CNN_0_kernel_size"      # "mobidb" / "2.21_only" / ""
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
                0.1: [0.2, 0.2, 0.3, 0.3, 0.4],
@@ -752,8 +782,13 @@ if __name__ == '__main__':
                1.4: [0.25, 0.3, 0.3, 0.35, 0.25],
                1.5: [0.65, 0.55, 0.45, 0.5, 0.55],
                2.0: [0.4, 0.35, 0.45, 0.35, 0.35],
+               2.0005: [0.45, 0.45, 0.5, 0.45, 0.2],
+               2.001: [0.5, 0.5, 0.5, 0.55, 0.25],
                2.02: [0.55, 0.55, 0.55, 0.55, 0.5],
                2.03: [0.15, 0.5, 0.25, 0.55, 0.3],
+               2.06: [0.45, 0.4, 0.5, 0.5, 0.3],
+               2.07: [0.2, 0.2, 0.45, 0.35, 0.5],
+               2.08: [0.25, 0.25, 0.25, 0.5, 0.25],
                2.1: [0.2, 0.4, 0.45, 0.55, 0.2],
                2.2: [0.5, 0.6, 0.5, 0.45, 0.35],
                3.0: [0.4, 0.45, 0.45, 0.45, 0.4],
@@ -774,8 +809,13 @@ if __name__ == '__main__':
              1.4: "mobidb_FNN_4",
              1.5: "mobidb_FNN_5",
              2.0: "mobidb_D_CNN_0",
+             2.0005: "mobidb_D_CNN_0_lr0005",
+             2.001: "mobidb_D_CNN_0_lr001",
              2.02: "mobidb_D_CNN_0_d2",
              2.03: "mobidb_D_CNN_0_d3",
+             2.06: "mobidb_D_CNN_0_k3",
+             2.07: "mobidb_D_CNN_0_k7",
+             2.08: "mobidb_D_CNN_0_l8",
              2.1: "mobidb_D_CNN_1",
              2.2: "mobidb_D_CNN_2",
              3.0: "mobidb_D_FNN_0",
@@ -797,8 +837,13 @@ if __name__ == '__main__':
                   1.4: 0,
                   1.5: 2,
                   2.0: 2,
+                  2.0005: 2,
+                  2.001: 2,
                   2.02: 4,
                   2.03: 3,
+                  2.06: 2,
+                  2.07: 2,
+                  2.08: 3,
                   2.1: 2,
                   2.2: 3,
                   3.0: 4,
@@ -837,7 +882,16 @@ if __name__ == '__main__':
         mode = 'disorder_only' if (variant % 10) >= 2.0 else 'all'
         multilabel = False
         architecture = 'CNN' if 'CNN' in names[variant] else 'FNN'  # 0, 1, 5, 6
-        n_layers = 5
+        if 'k7' in names[variant]:
+            kernel_size = 7
+        elif 'k3' in names[variant]:
+            kernel_size = 3
+        else:
+            kernel_size = 5
+        if 'l8' in names[variant]:
+            n_layers = 8
+        else:
+            n_layers = 5
         dropout = 0.0
         post_processing = False
         batch_size = 512
@@ -848,8 +902,8 @@ if __name__ == '__main__':
         name = names[variant]
         best_fold = best_folds[variant]
 
-        assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, batch_size, loss_function,
-                            post_processing, test, best_fold, dataset_dir)
+        assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size,
+                            loss_function, post_processing, test, best_fold, dataset_dir)
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
 

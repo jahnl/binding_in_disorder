@@ -53,8 +53,10 @@ def check_config_items(step, config):
                     raise ValueError("Config item 'multilabel' must be 'True' or 'False'.")
                 if not config['parameters']['batch_size'].isdecimal():
                     raise ValueError("Config item 'batch_size' must be an integer > 0.")
-            elif config['parameters']['n_layers'] not in ['2', '5']:
-                raise ValueError("Config item 'n_layers' must be 2 or 5.")
+            elif config['parameters']['n_layers'] not in ['2', '5', '8']:
+                raise ValueError("Config item 'n_layers' must be 2, 5 or 8.")
+            elif int(config['parameters']['kernel_size']) % 2 != 1:
+                raise ValueError("Config item 'kernel_size' must be an odd number.")
 
             if not set(config['parameters']['dropout']) <= set(string.digits + '.') or \
                     not 0 <= float(config['parameters']['learning_rate']) <= 1:
@@ -234,6 +236,7 @@ if __name__ == '__main__':
                                               n_splits=int(config['parameters']['n_splits']),
                                               oversampling=oversampling,
                                               n_layers=int(config['parameters']['n_layers']),
+                                              kernel_size=int(config['parameters']['kernel_size']),
                                               dropout=float(config['parameters']['dropout']),
                                               learning_rate=float(config['parameters']['learning_rate']),
                                               patience=int(config['parameters']['patience']),
@@ -278,6 +281,7 @@ if __name__ == '__main__':
                                                       architecture=config['parameters']['architecture'],
                                                       multilabel=param_multilabel,
                                                       n_layers=int(config['parameters']['n_layers']),
+                                                      kernel_size=int(config['parameters']['kernel_size']),
                                                       dropout=float(config['parameters']['dropout']),
                                                       batch_size=int(config['parameters']['batch_size']),
                                                       cutoff_percent_min=int(
@@ -319,6 +323,7 @@ if __name__ == '__main__':
                                           architecture=config['parameters']['architecture'],
                                           multilabel=param_multilabel,
                                           n_layers=int(config['parameters']['n_layers']),
+                                          kernel_size=int(config['parameters']['kernel_size']),
                                           dropout=float(config['parameters']['dropout']),
                                           batch_size=int(config['parameters']['batch_size']),
                                           test=param_test,

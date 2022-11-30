@@ -112,30 +112,41 @@ class BindingDataset(Dataset):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_layers: int = 5, dropout: float = 0.0, mode: str = 'all'):
+    def __init__(self, n_layers: int = 5, kernel_size: int = 5, dropout: float = 0.0, mode: str = 'all'):
         super().__init__()
         self.n_layers = n_layers
+        padding = int((kernel_size - 1) / 2)
         in_c = 1025 if mode == 'all' else 1024
         if self.n_layers == 2:
             # version 0: 2 C layers
-            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=32, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=32, kernel_size=kernel_size, padding=padding)
             # --> out: (32, proteins_length)
             self.dropout = nn.Dropout(p=dropout)
             self.relu = nn.ReLU()
-            self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, padding=2)
+            self.conv2 = nn.Conv1d(in_channels=32, out_channels=1, kernel_size=kernel_size, padding=padding)
             # --> out: (1, protein_length)
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=512, kernel_size=5, padding=2)
-            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=5, padding=2)
-            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=5, padding=2)
-            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=5, padding=2)
-            self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=5, padding=2)
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
+            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
+            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
+            self.conv5 = nn.Conv1d(in_channels=64, out_channels=1, kernel_size=kernel_size, padding=padding)
             self.relu = nn.ReLU()
             self.dropout = nn.Dropout(p=dropout)
             # --> out: (1, protein_length)
-        else:
-            raise ValueError("n_layers must be 2 or 5.")
+        elif self.n_layers == 8:
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
+            self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
+            self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
+            self.conv5 = nn.Conv1d(in_channels=64, out_channels=32, kernel_size=kernel_size, padding=padding)
+            self.conv6 = nn.Conv1d(in_channels=32, out_channels=16, kernel_size=kernel_size, padding=padding)
+            self.conv7 = nn.Conv1d(in_channels=16, out_channels=8, kernel_size=kernel_size, padding=padding)
+            self.conv8 = nn.Conv1d(in_channels=8, out_channels=1, kernel_size=kernel_size, padding=padding)
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(p=dropout)
+            # --> out: (1, protein_length)
 
 
     def forward(self, input):
@@ -146,7 +157,7 @@ class CNN(nn.Module):
             x = self.relu(x)
             x = self.conv2(x)
             x = x+2
-        else:   # 5 layers; check that n_layers is one of 2 or 5 is already done in init()
+        elif self.n_layers == 5:
             # version 1: 5 C layers
             x = self.conv1(input.transpose(1, 2).contiguous())
             x = self.dropout(x)
@@ -159,6 +170,25 @@ class CNN(nn.Module):
             x = self.relu(x)
             x = self.conv5(x)
             x += 3
+        elif self.n_layers == 8:
+            # version 1: 5 C layers
+            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.dropout(x)
+            x = self.relu(x)
+            x = self.conv2(x)
+            x = self.relu(x)
+            x = self.conv3(x)
+            x = self.relu(x)
+            x = self.conv4(x)
+            x = self.relu(x)
+            x = self.conv5(x)
+            x = self.relu(x)
+            x = self.conv6(x)
+            x = self.relu(x)
+            x = self.conv7(x)
+            x = self.relu(x)
+            x = self.conv8(x)
+            x += 4
         return x
 
 
@@ -209,7 +239,7 @@ def test_performance(dataset, model, loss_function, device, output):
             # apply activation function to prediction to enable classification
             prediction_act = torch.sigmoid(prediction)
             # some arbitrary cutoff. The optimal cutoff will be determined in performance_assessment.py
-            prediction_max = prediction_act > 0.1
+            prediction_max = prediction_act > 0.4
             # metrics (not final)
             correct += (prediction_max == label).type(torch.float).sum().item()
             tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
@@ -244,7 +274,7 @@ def test_performance(dataset, model, loss_function, device, output):
 
 
 def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5layers', n_splits: int = 5, oversampling: str = 'binary',
-                n_layers: int = 5, dropout: float = 0.0, learning_rate: float = 0.0001, patience: int = 10,
+                n_layers: int = 5, kernel_size: int = 5, dropout: float = 0.0, learning_rate: float = 0.0001, patience: int = 10,
                 max_epochs: int = 200, mode: str = 'all'):
     """
     trains the CNN
@@ -253,7 +283,8 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
     :param model_name: name of the model
     :param n_splits: number of Cross-Validation splits
     :param oversampling: oversampling mode; either None or 'binary'
-    :param n_layers: number of convolutional layers in the CNN; either 2 or 5
+    :param n_layers: number of convolutional layers in the CNN; 2 / 5 /8
+    :param kernel_size: number of neighboring datapoints considered for prediction
     :param dropout: dropout probability between 0.0 and 1.0
     :param learning_rate: learning rate
     :param max_epochs: max number of epochs before the training stops
@@ -304,7 +335,7 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
-        model = CNN(n_layers, dropout, mode).to(device)
+        model = CNN(n_layers, kernel_size, dropout, mode).to(device)
         criterion = nn.BCEWithLogitsLoss()  # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
