@@ -40,6 +40,7 @@ def read_labels(fold, oversampling, dataset_dir):
 def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoints):
     input = list()
     target = list()
+    ids = list()
     datapoint_counter = 0
     disorder = []
     for id in labels.keys():
@@ -64,7 +65,6 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
                 bool_list = [False if x == '-' else True for x in list(labels[id][2])]
                 input.append(embeddings[id][bool_list])
                 disorder.append([1]*len(labels[id][2]))
-                #disorder.append(list('1'*len(labels[id][2])))
             else:   # CNN
                 # separate regions of the same protein from each other!
                 bool_list = [False if x == '-' else True for x in list(labels[id][2])]
@@ -72,25 +72,25 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
                 stops = []
                 current = bool_list[0]
                 diso_start = 0
+                n_regions = 0
                 for i, diso_residue in enumerate(bool_list):
                     if diso_residue != current and diso_residue:  # order to disorder conformation change
                         diso_start = i
                     elif diso_residue != current and not diso_residue:  # disorder to order conformation change
                         input.append(embeddings[id][diso_start:i])
                         disorder.append([1] * (i-diso_start))
-                        #disorder.append(list('1' * (i-diso_start)))
                         starts.append(diso_start)
                         stops.append(i)
-                        # print(f'{id}: region from {diso_start} to {i}')
+                        ids.append(id.split('|')[0] + ', disordered region ' + str(n_regions))
+                        n_regions += 1
                     current = diso_residue
                 # disorder at final residue?
                 if current:
                     input.append(embeddings[id][diso_start:])
                     disorder.append([1] * (len(bool_list)-diso_start))
-                    #disorder.append(list('1' * (len(bool_list)-diso_start)))
                     starts.append(diso_start)
                     stops.append(len(bool_list))
-                    # print(f'{id}: region from {diso_start} to {stops[-1]}')
+                    ids.append(id.split('|')[0] + ', disordered region ' + str(n_regions))
 
                 # binding data for CNN + disorder_only
                 for i, s in enumerate(starts):
@@ -121,7 +121,7 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
             binding_encoded[2] = list(re.sub(r'O|Y|Z|A', '1', re.sub(r'-|_|P|N|X', '0', binding)))  # other-binding?
             target.append(np.array(binding_encoded, dtype=float).T)
 
-    return input, target, disorder
+    return input, target, disorder, ids
 
 
 # build the dataset
@@ -168,10 +168,11 @@ class BindingDataset(Dataset):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_layers: int, kernel_size: int, dropout: float, input_size: int):
+    def __init__(self, n_layers: int, kernel_size: int, dropout: float, mode: str):
         super().__init__()
         self.n_layers = n_layers
         padding = int((kernel_size - 1) / 2)
+        input_size = 1025 if mode == 'all' else 1024
         if self.n_layers == 2:
             # version 0: 2 C layers
             self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=kernel_size, padding=padding)
@@ -504,17 +505,17 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
         else:
             val_labels = read_labels(None, None, dataset_dir)
 
-        ids = list(val_labels.keys())
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_val_input, this_fold_val_target, _ = get_ML_data(val_labels, embeddings, 'CNN', mode, False, None)
+        this_fold_val_input, this_fold_val_target, disorder_labels, region_ids = \
+            get_ML_data(val_labels, embeddings, 'CNN', mode, False, None)
 
         # instantiate the dataset
-        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, 'CNN')
+        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'CNN')
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = CNN(n_layers, kernel_size, dropout).to(device)
+        model = CNN(n_layers, kernel_size, dropout, mode).to(device)
         model.load_state_dict(
             torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
         # test performance again, should be the same
@@ -522,15 +523,15 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
         test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1, shuffle=False)
         model.eval()
         with torch.no_grad():
-            for i, (input, label) in enumerate(test_loader):
-                input, label = input.to(device), label[None, :].to(device)
+            for i, (input, label, disorder) in enumerate(test_loader):
+                input, label, disorder = input.to(device), label[None, :].to(device), disorder[None, :].to(device)
                 prediction = model(input)
                 # apply activation function to prediction to enable classification
                 prediction_act = torch.sigmoid(prediction)
                 prediction_max = prediction_act > cutoff
 
                 output_file.write(
-                    f'{ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
+                    f'{region_ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
 
 class Zone:
