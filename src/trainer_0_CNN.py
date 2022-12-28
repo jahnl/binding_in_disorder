@@ -116,7 +116,10 @@ class CNN(nn.Module):
         super().__init__()
         self.n_layers = n_layers
         padding = int((kernel_size - 1) / 2)
-        in_c = 1025 if mode == 'all' else 1024
+        in_c_dict = {'all': 1025,
+                     'disorder_only': 1024,
+                     'aaindex': 566}
+        in_c = in_c_dict[mode]
         if self.n_layers == 2:
             # version 0: 2 C layers
             self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=32, kernel_size=kernel_size, padding=padding)
@@ -150,16 +153,17 @@ class CNN(nn.Module):
 
 
     def forward(self, input):
+        input = torch.nan_to_num(input).transpose(1, 2).contiguous()  # sanitize and transpose input
         if self.n_layers == 2:
             # version 0: 2 C layers
-            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.conv1(input)
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
             x = x+2
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.conv1(input)
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
@@ -172,7 +176,7 @@ class CNN(nn.Module):
             x += 3
         elif self.n_layers == 8:
             # version 1: 5 C layers
-            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.conv1(input)
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
@@ -198,6 +202,7 @@ def train(dataset, model, loss_function, optimizer, device, output):
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
     nr_samples = dataset.number_residues()
     for i, (input, label) in enumerate(train_loader):
+        # print(input, label)
         input, label = input.to(device), label[None, :].to(device)  # make sure both have same dimensions
 
         # make a prediction
@@ -206,6 +211,7 @@ def train(dataset, model, loss_function, optimizer, device, output):
         loss = loss_function(prediction, label.to(torch.float32))
 
         # if i == 260:
+        #    print(f'protein 260: input:      {input, input.dtype}')
         #    print(f'protein 260: prediction: {prediction, prediction.dtype}')
         #    print(f'protein 260: label:      {label, label.dtype}')
         #    print(f'protein 260: loss:       {loss}')
@@ -279,7 +285,7 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
     """
     trains the CNN
     :param dataset_dir: directory where the dataset files are stored
-    :param train_embeddings: path to the embedding file of the train set datapoints
+    :param train_embeddings: path to the embedding file of the train set datapoints, if '': use AAindex representations
     :param model_name: name of the model
     :param n_splits: number of Cross-Validation splits
     :param oversampling: oversampling mode; either None or 'binary'
@@ -296,11 +302,17 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
 
     # read input embeddings
     embeddings = dict()
-    with h5py.File(train_embeddings, 'r') as f:
-        for key, embedding in f.items():
-            original_id = embedding.attrs['original_id']
-            embeddings[original_id] = np.array(embedding)
-    # now {IDs: embeddings} are written in the embeddings dictionary
+    if train_embeddings != '':
+        with h5py.File(train_embeddings, 'r') as f:
+            for key, embedding in f.items():
+                original_id = embedding.attrs['original_id']
+                embeddings[original_id] = np.array(embedding)
+        # now {IDs: embeddings} are written in the embeddings dictionary
+    else:
+        # load pre-computed datapoint representations from AAindex1
+        for f in range(n_splits):
+            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
+            embeddings.update(fold_rep)
 
     # iterate over folds
     for fold in range(n_splits):
@@ -335,7 +347,7 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
-        model = CNN(n_layers, kernel_size, dropout, mode).to(device)
+        model = CNN(n_layers, kernel_size, dropout, 'aaindex' if train_embeddings == '' else mode).to(device)
         criterion = nn.BCEWithLogitsLoss()  # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 

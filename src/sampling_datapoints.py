@@ -1,15 +1,17 @@
 """
 create and save new data points based on the residue-wise oversampling process
 --> avoid long computation times during training
+special case: create AAindex representation for the baseline model instead
 """
 
 import numpy as np
+import pandas as pd
 import h5py
 from Bio import SeqIO
 
 
 def read_labels(fold, oversampling, dataset_dir):
-    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt') as handle:
+    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -26,6 +28,24 @@ def read_labels(fold, oversampling, dataset_dir):
                 if record.id == 'E2IHW6*':
                     print(record.id, labels[record.id], record)
                 """
+    return labels
+
+
+def read_all_labels(fold, oversampling, dataset_dir):
+    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
+        records = SeqIO.parse(handle, "fasta")
+        labels = dict()
+        for record in records:
+            # re-format input information to 3 sequences in a list per protein in dict labels{}
+            seqs = list()
+            seqs.append(record.seq[:int(len(record.seq) / 3)])
+            seqs.append(record.seq[int(len(record.seq) / 3):2 * int(len(record.seq) / 3)])
+            seqs.append(record.seq[2 * int(len(record.seq) / 3):])
+            labels[record.id] = seqs
+            """
+            if record.id == 'E2IHW6*':
+                print(record.id, labels[record.id], record)
+            """
     return labels
 
 
@@ -57,6 +77,28 @@ def get_ML_data(labels, embeddings, mode, database):
     return input
 
 
+def AAindex_rep(labels, aaindex):
+    all_reps = dict()
+    for id in labels.keys():
+        print(id)
+        rep = None
+        for residue in labels[id][0]:
+            if rep is None:
+                try:
+                    rep = np.array(aaindex[residue])
+                except KeyError:
+                    rep = np.zeros(shape=566)
+                    print(f"represented AA {residue} in {id} with vector of Zeros")
+            else:
+                try:
+                    rep = np.row_stack((rep, np.array(aaindex[residue])))
+                except KeyError:
+                    rep = np.row_stack((rep, np.zeros(shape=566)))
+                    print(f"represented AA {residue} in {id} with vector of Zeros")
+        all_reps[id] = rep
+    return all_reps
+
+
 def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, oversampling: str = 'binary_residues',
                       mode: str = 'all', n_splits: int = 5):
     """
@@ -68,9 +110,23 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, ov
     :param mode: either 'disorder_only' or 'all'
     :param n_splits: number of cross-validation splits
     """
-    # apply cross-validation and oversampling to training dataset
-    # CV_and_oversampling.split(n_splits, oversampling)
 
+    # special case: creation of protein representation from AAindex1
+    if train_embeddings == '':
+        for fold in range(n_splits):
+            print("Fold: " + str(fold))
+            # read target data y and disorder information
+            # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
+            labels = read_all_labels(fold, oversampling, dataset_dir)
+            aaindex = pd.read_csv("../dataset/AAindex1/aaindex1.csv")
+            # create the input and target data exactly how it's fed into the ML model
+            # and save new representations to file
+            representation = AAindex_rep(labels, aaindex)
+            np.save(file=f'{dataset_dir}folds/AAindex_representation_fold_{fold}.npy', arr=representation)
+        return
+
+
+    # else:
     # read input embeddings
     embeddings = dict()
     with h5py.File(train_embeddings, 'r') as f:

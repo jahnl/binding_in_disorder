@@ -32,7 +32,7 @@ def check_config_items(step, config):
         if not config['parameters']['database'] in ['disprot', 'mobidb']:
             raise ValueError("Config item 'database' must be 'disprot' or 'mobidb'.")
     elif step in [3, 4, 5, 7]:
-        if not exists(config['input_files']['train_set_embeddings']):
+        if not exists(config['input_files']['train_set_embeddings']) and not config['input_files']['train_set_embeddings'] == '':
             raise ValueError(f"Config item 'train_set_embeddings': {config['input_files']['train_set_embeddings']} "
                              f"is no existing file.")
         if step != 3:
@@ -137,7 +137,7 @@ def check_config_items(step, config):
         if config['parameters']['test'] not in ['True', 'False']:
             raise ValueError("Config item 'test' must be 'True' or 'False'.")
         if config['parameters']['test'] != 'False':
-            if not exists(config['input_files']['test_set_embeddings']):
+            if not exists(config['input_files']['test_set_embeddings']) and not config['input_files']['test_set_embeddings'] == '':
                 raise ValueError(f"Config item 'test_set_embeddings': {config['input_files']['test_set_embeddings']} "
                                  f"is no existing file.")
 
@@ -206,7 +206,11 @@ if __name__ == '__main__':
         if not wf_overwrite:
             all_datapoints_present = True
             for i in range(int(config['parameters']['n_splits'])):
-                if not exists(f'{config["input_files"]["dataset_directory"]}folds/new_datapoints_{config["parameters"]["balancing"]}_fold_{i}.npy'):
+                if 'AAindex' in config['parameters']['model_name']:
+                    if not exists(f'{config["input_files"]["dataset_directory"]}folds/AAindex_representation_fold_{i}.npy'):
+                        all_datapoints_present = False
+                        break
+                elif not exists(f'{config["input_files"]["dataset_directory"]}folds/new_datapoints_{config["parameters"]["balancing"]}_fold_{i}.npy'):
                     all_datapoints_present = False
                     break
         if not wf_overwrite and all_datapoints_present:
