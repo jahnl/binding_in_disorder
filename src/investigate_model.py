@@ -168,14 +168,17 @@ class BindingDataset(Dataset):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_layers: int, kernel_size: int, dropout: float, mode: str):
+    def __init__(self, n_layers: int = 5, kernel_size: int = 5, dropout: float = 0.0, mode: str = 'all'):
         super().__init__()
         self.n_layers = n_layers
         padding = int((kernel_size - 1) / 2)
-        input_size = 1025 if mode == 'all' else 1024
+        in_c_dict = {'all': 1025,
+                     'disorder_only': 1024,
+                     'aaindex': 566}
+        in_c = in_c_dict[mode]
         if self.n_layers == 2:
             # version 0: 2 C layers
-            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=32, kernel_size=kernel_size, padding=padding)
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=32, kernel_size=kernel_size, padding=padding)
             # --> out: (32, proteins_length)
             self.dropout = nn.Dropout(p=dropout)
             self.relu = nn.ReLU()
@@ -183,7 +186,7 @@ class CNN(nn.Module):
             # --> out: (1, protein_length)
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=512, kernel_size=kernel_size, padding=padding)
             self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
             self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
             self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
@@ -192,7 +195,7 @@ class CNN(nn.Module):
             self.dropout = nn.Dropout(p=dropout)
             # --> out: (1, protein_length)
         elif self.n_layers == 8:
-            self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=512, kernel_size=kernel_size, padding=padding)
+            self.conv1 = nn.Conv1d(in_channels=in_c, out_channels=512, kernel_size=kernel_size, padding=padding)
             self.conv2 = nn.Conv1d(in_channels=512, out_channels=256, kernel_size=kernel_size, padding=padding)
             self.conv3 = nn.Conv1d(in_channels=256, out_channels=128, kernel_size=kernel_size, padding=padding)
             self.conv4 = nn.Conv1d(in_channels=128, out_channels=64, kernel_size=kernel_size, padding=padding)
@@ -204,17 +207,19 @@ class CNN(nn.Module):
             self.dropout = nn.Dropout(p=dropout)
             # --> out: (1, protein_length)
 
+
     def forward(self, input):
+        input = torch.nan_to_num(input).transpose(1, 2).contiguous()  # sanitize and transpose input
         if self.n_layers == 2:
             # version 0: 2 C layers
-            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.conv1(input)
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
-            x = x + 2
+            x = x+2
         elif self.n_layers == 5:
             # version 1: 5 C layers
-            x = self.conv1(input.transpose(1, 2).contiguous())
+            x = self.conv1(input)
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
@@ -226,8 +231,8 @@ class CNN(nn.Module):
             x = self.conv5(x)
             x += 3
         elif self.n_layers == 8:
-            # version 2: 8 C layers
-            x = self.conv1(input.transpose(1, 2).contiguous())
+            # version 1: 5 C layers
+            x = self.conv1(input)
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
@@ -284,7 +289,7 @@ def transform_output(p, n, o):
 def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all', multilabel: bool = False,
                 n_splits: int = 5,
                 architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512, cutoff_percent_min: int = 0,
-                cutoff_percent_max: int = 100, step_percent: int = 5, dropout: float = 0.3):
+                cutoff_percent_max: int = 100, step_percent: int = 5, dropout: float = 0.3, aaindex: bool = False):
     def criterion(loss_func, prediction, label):  # sum over all classification heads
         losses = 0
         prediction = prediction.T
@@ -462,7 +467,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
             val_labels = read_labels(fold, None, dataset_dir)  # no oversampling on validation labels
             # create the input and target data exactly how it's fed into the ML model
             # and add the confounding feature of disorder to the embeddings
-            this_fold_val_input, this_fold_val_target, this_fold_disorder = \
+            this_fold_val_input, this_fold_val_target, this_fold_disorder, _ = \
                 get_ML_data(val_labels, embeddings, architecture, mode, multilabel, None)
             # instantiate the dataset
             validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder,
@@ -481,7 +486,8 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                 model = FNN(input_size=input_size, output_size=output_size, dropout=dropout, multilabel=multilabel) \
                     .to(device)
             else:
-                model = CNN(n_layers=n_layers, kernel_size=kernel_size, dropout=dropout, input_size=input_size).to(device)
+                model = CNN(n_layers=n_layers, kernel_size=kernel_size, dropout=dropout,
+                            mode='aaindex' if aaindex else mode).to(device)
                 batch_size = 1  # batch size is always 1 (protein) if the model is a CNN
             model.load_state_dict(
                 torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
@@ -746,14 +752,22 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
     """
     # read input embeddings
     embeddings = dict()
-    with h5py.File(train_embeddings, 'r') as f:
-        for key, embedding in f.items():
-            original_id = embedding.attrs['original_id']
-            embeddings[original_id] = np.array(embedding)
-    # now {IDs: embeddings} are written in the embeddings dictionary
+    aaindex = False
+    if train_embeddings != '':
+        with h5py.File(train_embeddings, 'r') as f:
+            for key, embedding in f.items():
+                original_id = embedding.attrs['original_id']
+                embeddings[original_id] = np.array(embedding)
+        # now {IDs: embeddings} are written in the embeddings dictionary
+    else:
+        # load pre-computed datapoint representations from AAindex1
+        aaindex = True
+        for f in range(n_splits):
+            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
+            embeddings.update(fold_rep)
 
     try_cutoffs(model_name, dataset_dir, embeddings, mode, multilabel, n_splits, architecture, n_layers, kernel_size,
-                batch_size, cutoff_percent_min, cutoff_percent_max, step_percent, dropout)
+                batch_size, cutoff_percent_min, cutoff_percent_max, step_percent, dropout, aaindex)
 
 
 def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model_name: str, fold: int, cutoff,
