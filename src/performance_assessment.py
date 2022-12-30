@@ -707,10 +707,116 @@ def assess_bindEmbed():
     return sum_matrix, avg_metrics, all_sd_errors
 
 
+def submit_prediction(prediction, device, dataset_dir):
+    all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+    val_labels = read_labels(None, None, dataset_dir)
+
+    target = []
+    disorder = []
+    for id in prediction.keys():
+        # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region
+        binding = str(val_labels[id][2])
+        binding = re.sub(r'-|_', '0', binding)
+        binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+        binding = np.array(binding, dtype=float)
+        target.append(binding)
+        diso = str(val_labels[id][1]).replace('-', '0').replace('D', '1')
+        disorder.append(np.array(diso, dtype=float))
+
+    # save confusion matrix values for each protein
+    batch_wise_loss = []
+    batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+
+    for i, label in enumerate(target):
+        pr = prediction[i].to(device)
+        label = torch.tensor(label).to(device)
+        batch_wise_loss, batch_wise = conf_matrix(pr, label, disorder, batch_wise_loss, batch_wise, None, False)
+
+    for k in batch_wise.keys():
+        all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
+
+    # metrics and sd over all folds/proteins
+    # protein-wise metrics
+    all_metrics = metrics(all_conf_matrices)
+
+    # exclude nan values
+    for k in all_metrics.keys():
+        all_metrics[k] = all_metrics[k][np.logical_not(np.isnan(all_metrics[k]))]
+
+    # standard error calculation
+    all_sd_errors = {}
+    for k in all_metrics.keys():
+        all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
+
+    # calculate sum and absolute (avg) metrics
+    sum_matrix = {}
+    for k in all_conf_matrices.keys():
+        sum_matrix[k] = np.sum(all_conf_matrices[k])
+
+    avg_metrics = metrics(sum_matrix)
+
+    return sum_matrix, avg_metrics, all_sd_errors
+
+
+def assess_anchor2(dataset_dir):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    in_folder = "../results/IUPred2"
+
+    # extract prediction
+    predictions_binary = {}
+    with open(f"{in_folder}/test_set_200_reduction4.result", "r") as file:
+        for line in file.readlines():
+            if line[0] == '>':
+                # new protein
+                name = line.split(' ')[0]
+                prediction = list()
+            elif line == '\n' and prediction != []:
+                # protein finished
+                predictions_binary[name] = torch.tensor(prediction).to(device)
+                prediction.clear()
+            elif line[0] != '#' and line != '\n':
+                # continue
+                prediction.append(round(float(line.split('\t')[3])))
+            else:   # comment line
+                pass
+
+    # evaluate prediction
+    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir)
+
+    return sum_matrix, avg_metrics, all_sd_errors
+
+
+def assess_deepdisobind(dataset_dir):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    in_folder = "../results/DeepDISOBind"
+
+    # extract prediction
+    predictions_binary = {}
+    for p in Path(in_folder).glob('*.txt'):
+        with p.open() as f:
+            for line in f.readlines():
+                if line.startswith('>'):    # new entry
+                    parts = line.split('_')
+                    name = '|'.join(parts[:3])
+                    prediction = None
+                elif 'binary' in line:
+                    this_p = np.array(line.split(':')[1].split(' '), dtype=float)
+                    if prediction is None:
+                        prediction = this_p
+                    else:   # unite all binding categories to binding in general
+                        prediction = np.logical_or(prediction, this_p)
+                    if 'RNA_binary' in line:   # the last prediction for this entry
+                        predictions_binary[name] = prediction
+                # else: ignore
+    # evaluate prediction
+    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir)
+
+    return sum_matrix, avg_metrics, all_sd_errors
+
 
 if __name__ == '__main__':
     # read input embeddings
-    test = False
+    test = True
     embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
@@ -781,8 +887,8 @@ if __name__ == '__main__':
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
     # variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 22.0]
-    variants = [22.0, 2.0, 10.0, 12.0 ]
-    assessment_name = "AAindex_baseline"      # "mobidb" / "2.21_only" / ""
+    variants = []
+    assessment_name = "test_other_tools"      # "mobidb" / "2.21_only" / ""
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
                0.1: [0.2, 0.2, 0.3, 0.3, 0.4],
@@ -933,7 +1039,9 @@ if __name__ == '__main__':
     """
 
     if test:
-        bindEmbed_performance = assess_bindEmbed()
+        # bindEmbed_performance = assess_bindEmbed()
+        anchor2_performance = assess_anchor2(dataset_dir)
+        deepdisobind_performance = assess_deepdisobind(dataset_dir)
 
     output_name = f'../results/logs/performance_assessment_{assessment_name}.tsv' if not test else \
         f'../results/logs/performance_assessment_test_{assessment_name}.tsv'
@@ -970,11 +1078,18 @@ if __name__ == '__main__':
                 output.write("\n")
 
         if test:
-            output.write("bindEmbed21DL\t-\t")
-            for key in performances[0][0].keys():  # conf-matrix
-                output.write(str(bindEmbed_performance[0][key]) + "\t")
-            for key in performances[0][1].keys():  # metrics
-                output.write(str(bindEmbed_performance[1][key]) + "\t")
-            for key in performances[0][2].keys():  # SEs of metrics
-                output.write(str(bindEmbed_performance[2][key]) + "\t")
-            output.write("\n")
+            def write_other_models(name, performance):
+                output.write(name + "\t-\t")
+                for key in performances[0][0].keys():  # conf-matrix
+                    output.write(str(performance[0][key]) + "\t")
+                for key in performances[0][1].keys():  # metrics
+                    output.write(str(performance[1][key]) + "\t")
+                for key in performances[0][2].keys():  # SEs of metrics
+                    output.write(str(performance[2][key]) + "\t")
+                output.write("\n")
+
+            # write_other_models("bindEmbed", bindEmbed_performance)
+            write_other_models("ANCHOR2", anchor2_performance)
+            write_other_models("DeepDISOBind", deepdisobind_performance)
+
+
