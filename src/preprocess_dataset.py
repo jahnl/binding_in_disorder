@@ -25,10 +25,10 @@ def sort_dataset(file):
                 ls.append([id, seq])
                 seq = ''
             id = line[1:-1]
-        elif line == '':
-            ls.append([id, seq])
         else:
             seq += line[:-1]
+    ls.append([id, seq])    # last entry
+    print("sorting: ID in there? ", ls[-1])
     return sorted(ls, key=lambda x: x[0])
 
 

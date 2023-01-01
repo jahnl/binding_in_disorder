@@ -19,7 +19,7 @@ from os.path import exists
 
 def read_labels(fold, oversampling, dataset_dir):
     if fold is None:   # --> test set
-        file_name = f'../dataset/test_set_input.txt'
+        file_name = f'{dataset_dir}test_set_input.txt'
     else:
         if oversampling is None:  # no oversampling on validation set! (or mode with no oversampling)
             file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels.txt'
@@ -708,14 +708,19 @@ def assess_bindEmbed():
 
 
 def submit_prediction(prediction, device, dataset_dir):
-    all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+    all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
+                         "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
     val_labels = read_labels(None, None, dataset_dir)
-
     target = []
     disorder = []
     for id in prediction.keys():
         # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region
-        binding = str(val_labels[id][2])
+        try:
+            binding = str(val_labels[id][2])
+        except KeyError:    # due to ID conversion of DeepDISOBind
+            # try to remove the last part of the ID
+            id = '|'.join(id.split('|')[:-1])
+            binding = str(val_labels[id][2])
         binding = re.sub(r'-|_', '0', binding)
         binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
@@ -725,11 +730,12 @@ def submit_prediction(prediction, device, dataset_dir):
 
     # save confusion matrix values for each protein
     batch_wise_loss = []
-    batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": []}
+    batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
+                  "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
 
-    for i, label in enumerate(target):
-        pr = prediction[i].to(device)
-        label = torch.tensor(label).to(device)
+    for i, id in enumerate(prediction.keys()):
+        pr = torch.tensor(prediction[id]).to(device)
+        label = torch.tensor(target[i]).to(device)
         batch_wise_loss, batch_wise = conf_matrix(pr, label, disorder, batch_wise_loss, batch_wise, None, False)
 
     for k in batch_wise.keys():
@@ -768,7 +774,7 @@ def assess_anchor2(dataset_dir):
         for line in file.readlines():
             if line[0] == '>':
                 # new protein
-                name = line.split(' ')[0]
+                name = line.split(' ')[0][1:]
                 prediction = list()
             elif line == '\n' and prediction != []:
                 # protein finished
@@ -797,7 +803,9 @@ def assess_deepdisobind(dataset_dir):
             for line in f.readlines():
                 if line.startswith('>'):    # new entry
                     parts = line.split('_')
-                    name = '|'.join(parts[:3])
+                    name = '|'.join(parts[:3])[1:]
+                    if name == 'G0SCY6|sequence|HYPK':  # special case: this ID includes '_'
+                        name += '_UBA'
                     prediction = None
                 elif 'binary' in line:
                     this_p = np.array(line.split(':')[1].split(' '), dtype=float)
@@ -1048,6 +1056,7 @@ if __name__ == '__main__':
 
     with open(output_name, "w") as output:
         output.write("model\tclass\t")
+        """ # works only when variant not empty 
         for key in performances[0][0].keys():  # conf-matrix
             output.write(str(key) + "\t")
         for key in performances[0][1].keys():  # metrics
@@ -1055,6 +1064,7 @@ if __name__ == '__main__':
         for key in performances[0][2].keys():  # SEs of metrics
             output.write("SE_" + str(key) + "\t")
         output.write("\n")
+        """
 
         for i, v in enumerate(variants):
             if 'MobiDB' not in dataset_dir and (v % 10) >= 4.0:  # multiclass
@@ -1080,13 +1090,16 @@ if __name__ == '__main__':
         if test:
             def write_other_models(name, performance):
                 output.write(name + "\t-\t")
-                for key in performances[0][0].keys():  # conf-matrix
+                for key in performance[0].keys():  # conf-matrix
                     output.write(str(performance[0][key]) + "\t")
-                for key in performances[0][1].keys():  # metrics
+                for key in performance[1].keys():  # metrics
                     output.write(str(performance[1][key]) + "\t")
-                for key in performances[0][2].keys():  # SEs of metrics
+                for key in performance[2].keys():  # SEs of metrics
                     output.write(str(performance[2][key]) + "\t")
                 output.write("\n")
+
+            print(anchor2_performance)
+            print(deepdisobind_performance)
 
             # write_other_models("bindEmbed", bindEmbed_performance)
             write_other_models("ANCHOR2", anchor2_performance)
