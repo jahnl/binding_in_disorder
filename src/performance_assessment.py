@@ -43,7 +43,6 @@ def read_labels(fold, oversampling, dataset_dir):
 def get_ML_data(labels, embeddings, architecture, mode, multilabel):
     input = list()
     target = list()
-    datapoint_counter = 0
     disorder = []
     for id in labels.keys():
         if mode == 'all' or multilabel:
@@ -481,7 +480,6 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
         # and add the confounding feature of disorder to the embeddings
         this_fold_val_input, this_fold_val_target, this_fold_disorder = \
             get_ML_data(val_labels, input_emb, architecture, mode, multilabel)
-
         # instantiate the dataset
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder, architecture)
 
@@ -726,7 +724,7 @@ def submit_prediction(prediction, device, dataset_dir):
         binding = np.array(binding, dtype=float)
         target.append(binding)
         diso = str(val_labels[id][1]).replace('-', '0').replace('D', '1')
-        disorder.append(np.array(diso, dtype=float))
+        disorder.append(np.array(list(diso), dtype=float))
 
     # save confusion matrix values for each protein
     batch_wise_loss = []
@@ -736,7 +734,8 @@ def submit_prediction(prediction, device, dataset_dir):
     for i, id in enumerate(prediction.keys()):
         pr = torch.tensor(prediction[id]).to(device)
         label = torch.tensor(target[i]).to(device)
-        batch_wise_loss, batch_wise = conf_matrix(pr, label, disorder, batch_wise_loss, batch_wise, None, False)
+        diso = torch.tensor(disorder[i]).to(device)
+        batch_wise_loss, batch_wise = conf_matrix(pr, label, diso, batch_wise_loss, batch_wise, None, False)
 
     for k in batch_wise.keys():
         all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -835,9 +834,12 @@ if __name__ == '__main__':
 
     # load pre-computed datapoint representations from AAindex1
     aaindex_rep = dict()
-    for f in range(5):
-        fold_rep = np.load(f'../dataset/MobiDB_dataset/folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
-        aaindex_rep.update(fold_rep)
+    if test:
+        aaindex_rep.update(np.load(f'../dataset/MobiDB_dataset/AAindex_representation_test.npy', allow_pickle=True).item())
+    else:
+        for f in range(5):
+            fold_rep = np.load(f'../dataset/MobiDB_dataset/folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
+            aaindex_rep.update(fold_rep)
 
     """ disprot code
     variants = [0.0, 1.0, 2.0, 2.1, 2.20, 2.21, 2.213, 12.0, 3.0, 13.0, 4.0, 4.1, 14.0]
@@ -895,8 +897,8 @@ if __name__ == '__main__':
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
     # variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 22.0]
-    variants = []
-    assessment_name = "test_other_tools"      # "mobidb" / "2.21_only" / ""
+    variants = [12.0, 22.0, 0.1, 3.2, 2.0]
+    assessment_name = "mobidb_test"      # "mobidb" / "2.21_only" / ""
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
                0.1: [0.2, 0.2, 0.3, 0.3, 0.4],
@@ -927,7 +929,7 @@ if __name__ == '__main__':
                22.0: [0.25, 0.2, 0.25, 0.25, 0.25]
                }
     names = {0.0: "mobidb_CNN_0",
-             0.1: "mobidb_CNN_1",
+             0.1: "mobidb_CNN_1",   # best model trained on all residues
              0.2: "mobidb_CNN_2",
              1.0: "mobidb_FNN_0",
              1.1: "mobidb_FNN_1",
@@ -935,7 +937,7 @@ if __name__ == '__main__':
              1.3: "mobidb_FNN_3",
              1.4: "mobidb_FNN_4",
              1.5: "mobidb_FNN_5",
-             2.0: "mobidb_D_CNN_0",
+             2.0: "mobidb_D_CNN_0",     # currently best model
              2.0005: "mobidb_D_CNN_0_lr0005",
              2.001: "mobidb_D_CNN_0_lr001",
              2.02: "mobidb_D_CNN_0_d2",
@@ -947,7 +949,7 @@ if __name__ == '__main__':
              2.2: "mobidb_D_CNN_2",
              3.0: "mobidb_D_FNN_0",
              3.1: "mobidb_D_FNN_1",
-             3.2: "mobidb_D_FNN_2",
+             3.2: "mobidb_D_FNN_2",     # best FNN
              3.3: "mobidb_D_FNN_3",
              3.4: "mobidb_D_FNN_4",
              10.0: "random_binary",
@@ -1056,15 +1058,15 @@ if __name__ == '__main__':
 
     with open(output_name, "w") as output:
         output.write("model\tclass\t")
-        """ # works only when variant not empty 
-        for key in performances[0][0].keys():  # conf-matrix
-            output.write(str(key) + "\t")
-        for key in performances[0][1].keys():  # metrics
-            output.write(str(key) + "\t")
-        for key in performances[0][2].keys():  # SEs of metrics
-            output.write("SE_" + str(key) + "\t")
-        output.write("\n")
-        """
+        if variant:
+             # works only when variant not empty
+            for key in performances[0][0].keys():  # conf-matrix
+                output.write(str(key) + "\t")
+            for key in performances[0][1].keys():  # metrics
+                output.write(str(key) + "\t")
+            for key in performances[0][2].keys():  # SEs of metrics
+                output.write("SE_" + str(key) + "\t")
+            output.write("\n")
 
         for i, v in enumerate(variants):
             if 'MobiDB' not in dataset_dir and (v % 10) >= 4.0:  # multiclass
@@ -1097,9 +1099,6 @@ if __name__ == '__main__':
                 for key in performance[2].keys():  # SEs of metrics
                     output.write(str(performance[2][key]) + "\t")
                 output.write("\n")
-
-            print(anchor2_performance)
-            print(deepdisobind_performance)
 
             # write_other_models("bindEmbed", bindEmbed_performance)
             write_other_models("ANCHOR2", anchor2_performance)

@@ -32,7 +32,8 @@ def read_labels(fold, oversampling, dataset_dir):
 
 
 def read_all_labels(fold, oversampling, dataset_dir):
-    with open(f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt', 'r') as handle:
+    file = f'{dataset_dir}test_set_input.txt' if fold is None else f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt'
+    with open(file, 'r') as handle:
         records = SeqIO.parse(handle, "fasta")
         labels = dict()
         for record in records:
@@ -113,16 +114,21 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, ov
 
     # special case: creation of protein representation from AAindex1
     if train_embeddings == '':
+        aaindex = pd.read_csv("../dataset/AAindex1/aaindex1.csv")
         for fold in range(n_splits):
             print("Fold: " + str(fold))
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
             labels = read_all_labels(fold, oversampling, dataset_dir)
-            aaindex = pd.read_csv("../dataset/AAindex1/aaindex1.csv")
             # create the input and target data exactly how it's fed into the ML model
             # and save new representations to file
             representation = AAindex_rep(labels, aaindex)
             np.save(file=f'{dataset_dir}folds/AAindex_representation_fold_{fold}.npy', arr=representation)
+
+        print("Test set")
+        labels = read_all_labels(None, oversampling, dataset_dir)
+        representation = AAindex_rep(labels, aaindex)
+        np.save(file=f'{dataset_dir}AAindex_representation_test.npy', arr=representation)
         return
 
 
