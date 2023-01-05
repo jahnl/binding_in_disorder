@@ -287,6 +287,45 @@ def criterion(loss_func, prediction, label):  # sum over all classification head
     return losses
 
 
+def batch_formation(prediction, label, disorder, prediction_batches, label_batches, disorder_batches,
+                    test_batch_size, current_length):
+    if test_batch_size is not None:     # use test_batch_size AAs
+        prediction = torch.squeeze(prediction)[:, None]
+        label = torch.squeeze(label)[:, None]
+        disorder = torch.squeeze(disorder)[:, None]
+        done = False
+        while not done:
+            if current_length % test_batch_size == 0:
+                prediction_batches.append(prediction)
+                label_batches.append(label)
+                disorder_batches.append(disorder)
+            elif current_length > test_batch_size:
+                prediction = prediction_batches[-1][test_batch_size:]
+                prediction_batches[-1] = prediction_batches[-1][:test_batch_size]
+                prediction_batches.append(prediction)
+                label = label_batches[-1][test_batch_size:]
+                label_batches[-1] = label_batches[-1][:test_batch_size]
+                label_batches.append(label)
+                disorder = disorder_batches[-1][test_batch_size:]
+                disorder_batches[-1] = disorder_batches[-1][:test_batch_size]
+                disorder_batches.append(disorder)
+            else:
+                prediction_batches[-1] = torch.row_stack((prediction_batches[-1], prediction))
+                label_batches[-1] = torch.row_stack((label_batches[-1], label))
+                disorder_batches[-1] = torch.row_stack((disorder_batches[-1], disorder))
+
+            current_length = len(prediction_batches[-1])
+            if current_length <= test_batch_size:
+                done = True
+
+    else:   # protein-wise batches
+        prediction_batches.append(prediction)
+        label_batches.append(label)
+        disorder_batches.append(disorder)
+
+    return prediction_batches, label_batches, disorder_batches, current_length
+
+
 def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random):
     if fold is not None:
         batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
@@ -452,7 +491,8 @@ def post_process(prediction: torch.tensor):
     return torch.tensor(prediction_pp)[:, None]
 
 
-def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size, loss_function, post_processing, test, best_fold, dataset_dir, input_emb):
+def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size, loss_function,
+           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -568,6 +608,11 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
                 batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
                               "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
 
+                prediction_batches = []
+                label_batches = []
+                disorder_batches = []
+                current_length = 0
+
                 for input, label, disorder in test_loader:
                     input, label, disorder = input.to(device), label[:, None].to(device), disorder[:, None].to(device)
                     if name.startswith("random"):
@@ -578,6 +623,12 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
                         random = False
                         if post_processing:
                             prediction = post_process(prediction).to(device)
+
+                    prediction_batches, label_batches, disorder_batches, current_length = \
+                        batch_formation(prediction, label, disorder, prediction_batches, label_batches,
+                                        disorder_batches, test_batch_size, current_length)
+
+                for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
                     batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random)
 
                 for k in batch_wise.keys():
@@ -705,7 +756,7 @@ def assess_bindEmbed():
     return sum_matrix, avg_metrics, all_sd_errors
 
 
-def submit_prediction(prediction, device, dataset_dir):
+def submit_prediction(prediction, device, dataset_dir, test_batch_size):
     all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
                          "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
     val_labels = read_labels(None, None, dataset_dir)
@@ -731,11 +782,22 @@ def submit_prediction(prediction, device, dataset_dir):
     batch_wise = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
                   "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
 
+    prediction_batches = []
+    label_batches = []
+    disorder_batches = []
+    current_length = 0
+
     for i, id in enumerate(prediction.keys()):
         pr = torch.tensor(prediction[id]).to(device)
         label = torch.tensor(target[i]).to(device)
         diso = torch.tensor(disorder[i]).to(device)
-        batch_wise_loss, batch_wise = conf_matrix(pr, label, diso, batch_wise_loss, batch_wise, None, False)
+
+        prediction_batches, label_batches, disorder_batches, current_length = \
+            batch_formation(pr, label, diso, prediction_batches, label_batches,
+                            disorder_batches, test_batch_size, current_length)
+
+    for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
+        batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, None, False)
 
     for k in batch_wise.keys():
         all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -763,7 +825,7 @@ def submit_prediction(prediction, device, dataset_dir):
     return sum_matrix, avg_metrics, all_sd_errors
 
 
-def assess_anchor2(dataset_dir):
+def assess_anchor2(dataset_dir, test_batch_size):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     in_folder = "../results/IUPred2"
 
@@ -786,12 +848,12 @@ def assess_anchor2(dataset_dir):
                 pass
 
     # evaluate prediction
-    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir)
+    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size)
 
     return sum_matrix, avg_metrics, all_sd_errors
 
 
-def assess_deepdisobind(dataset_dir):
+def assess_deepdisobind(dataset_dir, test_batch_size):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     in_folder = "../results/DeepDISOBind"
 
@@ -816,7 +878,7 @@ def assess_deepdisobind(dataset_dir):
                         predictions_binary[name] = prediction
                 # else: ignore
     # evaluate prediction
-    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir)
+    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size)
 
     return sum_matrix, avg_metrics, all_sd_errors
 
@@ -898,7 +960,8 @@ if __name__ == '__main__':
     dataset_dir = '../dataset/MobiDB_dataset/'
     # variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 22.0]
     variants = [12.0, 22.0, 0.1, 3.2, 2.0]
-    assessment_name = "mobidb_test"      # "mobidb" / "2.21_only" / ""
+    assessment_name = "mobidb_test_smaller_batches"      # "mobidb" / "2.21_only" / ""
+    test_batch_size = 100    # n AAs, or None --> 1 protein
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
                0.1: [0.2, 0.2, 0.3, 0.3, 0.4],
@@ -1035,7 +1098,7 @@ if __name__ == '__main__':
         best_fold = best_folds[variant]
 
         assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size,
-                            loss_function, post_processing, test, best_fold, dataset_dir, input_emb)
+                            loss_function, post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size)
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
 
@@ -1050,8 +1113,10 @@ if __name__ == '__main__':
 
     if test:
         # bindEmbed_performance = assess_bindEmbed()
-        anchor2_performance = assess_anchor2(dataset_dir)
-        deepdisobind_performance = assess_deepdisobind(dataset_dir)
+        print("ANCHOR2")
+        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size)
+        print("DeepDISOBind")
+        deepdisobind_performance = assess_deepdisobind(dataset_dir, test_batch_size)
 
     output_name = f'../results/logs/performance_assessment_{assessment_name}.tsv' if not test else \
         f'../results/logs/performance_assessment_test_{assessment_name}.tsv'

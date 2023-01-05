@@ -213,6 +213,11 @@ performance <- cbind(performance, model_name = c("00 mobidb_CNN_0", "01 mobidb_C
                                                  "09 mobidib_D_CNN_0", "10 mobidb_D_CNN_1", "11 mobidb_D_CNN_2",
                                                  "12 mobidib_D_FNN_0", "13 mobidib_D_FNN_1", "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
                                                  "random baseline", 'aaindex1 baseline', "random baseline disorder"))
+performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_test.tsv", header = TRUE, sep = "\t"))
+performance_test <- cbind(performance_test, model_name = c("00 mobidb_CNN_1", "01 mobidb_D_FNN_2", "02 mobidib_D_CNN_0",
+                                                           "03 ANCHOR2", "04 DeepDISOBind",
+                                                           'AAindex1 baseline', "random baseline D"))
+
 # whole protein prediction
 ggplot(data = rbind(performance[1:9], performance[18]))+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -297,7 +302,53 @@ ggplot(data = rbind(performance[2], performance[10], performance[13:17], perform
   geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
   ylab("Value")+
   xlab("")+
-  ggtitle("Performance of MobiDB Predictors in disordered regions only, Part 4")+
+  ggtitle("Performance of MobiDB Predictors in Disordered Regions Only")+
   scale_fill_colorblind10()+
   theme_bw()
+
+# disorder only prediction TEST
+ggplot(data = performance_test)+
+  geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Recall", ymin = D.Recall - SE_D.Recall, ymax = D.Recall + SE_D.Recall), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = D.Balanced.Acc. - SE_D.Balanced.Acc., ymax = D.Balanced.Acc. + SE_D.Balanced.Acc.), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "F1", y = D.F1, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "F1", ymin = D.F1 - SE_D.F1, ymax = D.F1 + SE_D.F1), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Neg_Precision", y = D.Neg_Precision, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Neg_Precision", ymin = D.Neg_Precision - SE_D.Neg_Precision, ymax = D.Neg_Precision + SE_D.Neg_Precision), position = position_dodge2())+
+  geom_bar(mapping = aes(x = "Neg_Recall", y = D.Neg_Recall, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Neg_Recall", ymin = D.Neg_Recall - SE_D.Neg_Recall, ymax = D.Neg_Recall + SE_D.Neg_Recall), position = position_dodge2())+
+  ylab("Value")+
+  xlab("")+
+  ggtitle("Performance of Different Predictors in Disordered Regions On the Test Set")+
+  scale_fill_colorblind10()+
+  theme_bw()
+
+# disorder only prediction TEST, selection
+ggplot(data = performance_test)+
+  geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
+  geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Recall", ymin = D.Recall - SE_D.Recall, ymax = D.Recall + SE_D.Recall), position = position_dodge2())+
+  geom_text(aes(x = "Recall", y = -0.02, label = round(D.Recall*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = D.Balanced.Acc. - SE_D.Balanced.Acc., ymax = D.Balanced.Acc. + SE_D.Balanced.Acc.), position = position_dodge2())+
+  geom_text(aes(x = "Balanced.Acc.", y = -0.02, label = round(D.Balanced.Acc.*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  geom_bar(mapping = aes(x = "F1", y = D.F1, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "F1", ymin = D.F1 - SE_D.F1, ymax = D.F1 + SE_D.F1), position = position_dodge2())+
+  geom_text(aes(x = "F1", y = -0.02, label = round(D.F1*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
+  geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  ylab("Value")+
+  xlab("")+
+  ggtitle("Performance of Different Predictors in Disordered Regions On the Test Set")+
+  scale_fill_colorblind10()+
+  theme_bw()
+
 
