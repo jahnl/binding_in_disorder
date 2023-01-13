@@ -497,7 +497,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                              cutoff_percent_min, cutoff_percent_max, step_percent)
 
 
-def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers, kernel_size, dropout, mode, test):
+def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers, kernel_size, dropout, mode, test, aaindex):
     output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
         f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
     with open(output_name, "w") as output_file:
@@ -521,7 +521,7 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'CNN')
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = CNN(n_layers, kernel_size, dropout, mode).to(device)
+        model = CNN(n_layers, kernel_size, dropout, 'aaindex' if aaindex else mode).to(device)
         model.load_state_dict(
             torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
         # test performance again, should be the same
@@ -644,7 +644,7 @@ def post_process(prediction: torch.tensor):
 
 
 def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name, batch_size,
-               dropout):
+               dropout, aaindex):
     output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
         f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
 
@@ -796,17 +796,27 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
     # read input embeddings
     embeddings_in = test_embeddings if test else train_embeddings
     embeddings = dict()
-    with h5py.File(embeddings_in, 'r') as f:
-        for key, embedding in f.items():
-            original_id = embedding.attrs['original_id']
-            embeddings[original_id] = np.array(embedding)
-    # now {IDs: embeddings} are written in the embeddings dictionary
+    if train_embeddings != "":
+        aaindex = False
+        with h5py.File(embeddings_in, 'r') as f:
+            for key, embedding in f.items():
+                original_id = embedding.attrs['original_id']
+                embeddings[original_id] = np.array(embedding)
+        # now {IDs: embeddings} are written in the embeddings dictionary
+    else:
+        # load pre-computed datapoint representations from AAindex1
+        aaindex = True
+        if test:
+            fold_rep = np.load(f'{dataset_dir}AAindex_representation_test.npy', allow_pickle=True).item()
+        else:
+            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{fold}.npy', allow_pickle=True).item()
+        embeddings.update(fold_rep)
 
     # get predictions for chosen cutoff, fold
     if architecture == 'CNN':
-        predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, kernel_size, dropout, mode, test)
+        predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, kernel_size, dropout, mode, test, aaindex)
     elif architecture == 'FNN':
         predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name,
-                   batch_size, dropout)
+                   batch_size, dropout, aaindex)
     else:
         raise ValueError("architecture must be 'CNN' or 'FNN'")

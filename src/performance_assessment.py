@@ -492,7 +492,7 @@ def post_process(prediction: torch.tensor):
 
 
 def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size, loss_function,
-           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size):
+           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size, validation):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -623,6 +623,11 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
                         random = False
                         if post_processing:
                             prediction = post_process(prediction).to(device)
+
+                    if validation == "disorder_only":
+                        prediction = prediction[disorder == 1]
+                        label = label[disorder == 1]
+                        disorder = disorder[disorder == 1]
 
                     prediction_batches, label_batches, disorder_batches, current_length = \
                         batch_formation(prediction, label, disorder, prediction_batches, label_batches,
@@ -756,7 +761,7 @@ def assess_bindEmbed():
     return sum_matrix, avg_metrics, all_sd_errors
 
 
-def submit_prediction(prediction, device, dataset_dir, test_batch_size):
+def submit_prediction(prediction, device, dataset_dir, test_batch_size, validation):
     all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
                          "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
     val_labels = read_labels(None, None, dataset_dir)
@@ -792,6 +797,12 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size):
         label = torch.tensor(target[i]).to(device)
         diso = torch.tensor(disorder[i]).to(device)
 
+        if validation == "disorder_only":
+            # test: remove structured regions from predictions first (they interfere with batch-wise processing)
+            pr = pr[diso == 1]
+            label = label[diso == 1]
+            diso = diso[diso == 1]
+
         prediction_batches, label_batches, disorder_batches, current_length = \
             batch_formation(pr, label, diso, prediction_batches, label_batches,
                             disorder_batches, test_batch_size, current_length)
@@ -825,7 +836,7 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size):
     return sum_matrix, avg_metrics, all_sd_errors
 
 
-def assess_anchor2(dataset_dir, test_batch_size):
+def assess_anchor2(dataset_dir, test_batch_size, validation):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     in_folder = "../results/IUPred2"
 
@@ -848,12 +859,13 @@ def assess_anchor2(dataset_dir, test_batch_size):
                 pass
 
     # evaluate prediction
-    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size)
+    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size,
+                                                               validation)
 
     return sum_matrix, avg_metrics, all_sd_errors
 
 
-def assess_deepdisobind(dataset_dir, test_batch_size):
+def assess_deepdisobind(dataset_dir, test_batch_size, validation):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     in_folder = "../results/DeepDISOBind"
 
@@ -878,7 +890,8 @@ def assess_deepdisobind(dataset_dir, test_batch_size):
                         predictions_binary[name] = prediction
                 # else: ignore
     # evaluate prediction
-    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size)
+    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size,
+                                                               validation)
 
     return sum_matrix, avg_metrics, all_sd_errors
 
@@ -886,6 +899,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size):
 if __name__ == '__main__':
     # read input embeddings
     test = True
+    validation = "disorder_only"    # if disorder_only, the batches are formed after excluding structured regions
     embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
@@ -1098,7 +1112,8 @@ if __name__ == '__main__':
         best_fold = best_folds[variant]
 
         assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size,
-                            loss_function, post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size)
+                            loss_function, post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size,
+                            validation)
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
 
@@ -1114,9 +1129,9 @@ if __name__ == '__main__':
     if test:
         # bindEmbed_performance = assess_bindEmbed()
         print("ANCHOR2")
-        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size)
+        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size, validation)
         print("DeepDISOBind")
-        deepdisobind_performance = assess_deepdisobind(dataset_dir, test_batch_size)
+        deepdisobind_performance = assess_deepdisobind(dataset_dir, test_batch_size, validation)
 
     output_name = f'../results/logs/performance_assessment_{assessment_name}.tsv' if not test else \
         f'../results/logs/performance_assessment_test_{assessment_name}.tsv'
