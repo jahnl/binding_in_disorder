@@ -339,9 +339,9 @@ ggplot(data = performance_test)+
   geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = D.Balanced.Acc. - SE_D.Balanced.Acc., ymax = D.Balanced.Acc. + SE_D.Balanced.Acc.), position = position_dodge2())+
   geom_text(aes(x = "Balanced.Acc.", y = -0.02, label = round(D.Balanced.Acc.*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
-  geom_bar(mapping = aes(x = "F1", y = D.F1, fill = model_name), stat = "identity", position = position_dodge2())+
-  geom_errorbar(mapping = aes(x = "F1", ymin = D.F1 - SE_D.F1, ymax = D.F1 + SE_D.F1), position = position_dodge2())+
-  geom_text(aes(x = "F1", y = -0.02, label = round(D.F1*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  #geom_bar(mapping = aes(x = "F1", y = D.F1, fill = model_name), stat = "identity", position = position_dodge2())+
+  #geom_errorbar(mapping = aes(x = "F1", ymin = D.F1 - SE_D.F1, ymax = D.F1 + SE_D.F1), position = position_dodge2())+
+  #geom_text(aes(x = "F1", y = -0.02, label = round(D.F1*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
   geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
   geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+

@@ -53,25 +53,19 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                         if oversampling in ['binary', 'binary_D', 'binary_U', 'binary_D_U']:
                             chance = (random.randint(1, 100))
                             disprot_cut = {'binary': 98}    # oversample 98% of binding proteins
-                            mobidb_cut = {'binary': 62,     # oversample 62% of non-binding proteins
+                            mobidb_cut = {'binary': 61,     # oversample 61% of binding proteins
                                           'binary_D': 69,   # oversample 69% of binding proteins (based on distr. in disorder)
-                                          'binary_U': 38,    # undersample 38% of binding proteins
+                                          'binary_U': 38,    # undersample 38% of non-binding proteins
                                           'binary_D_U': 31}  # undersample 31% of non-binding proteins (based on disorder)
                             cut_dir = mobidb_cut if database == 'mobidb' else disprot_cut
                             # is there a binding disordered residue in sequence?
                             if re.match(r'.*(B|P|N|O|X|Y|Z|A).*', j.split('\n')[3]) is not None:
-                                if (database == 'disprot' or oversampling == 'binary_D') and chance <= cut_dir[oversampling]:
-                                    # 98% (/69%) of binding proteins are duplicated
+                                if oversampling in ['binary', 'binary_D'] and chance <= cut_dir[oversampling]:
+                                    # 98% (61%/69%) of binding proteins are duplicated
                                     repeat = 2
-                                elif oversampling == 'binary_U' and chance <= cut_dir[oversampling]:
-                                    repeat = 0
                             # non-binding sequence
-                            elif database == 'mobidb' and oversampling == 'binary' and chance <= cut_dir[oversampling]:
-                                # 62% of non-binding proteins are duplicated
-                                repeat = 2
-                            elif database == 'mobidb' and oversampling == 'binary_D_U' and chance <= cut_dir[oversampling]:
+                            elif oversampling in ['binary_U', 'binary_D_U'] and chance <= cut_dir[oversampling]:
                                 repeat = 0
-
 
                         # oversample only binding residues, 'binary_residues(_disorder)'
                         # then 'create' new protein with */$-ID from only these residues * 9.2
