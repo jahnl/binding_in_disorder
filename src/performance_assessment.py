@@ -1011,16 +1011,16 @@ if __name__ == '__main__':
                12.0: [0.63, 0.63, 0.63, 0.63, 0.63],
                22.0: [0.25, 0.2, 0.25, 0.25, 0.25]
                }
-    names = {0.0: "mobidb_CNN_0",
-             0.1: "mobidb_CNN_1",   # best model trained on all residues?? -> retrained
+    names = {0.0: "mobidb_CNN_0",   # 1: currently best model
+             0.1: "mobidb_CNN_1",
              0.2: "mobidb_CNN_2",
              1.0: "mobidb_FNN_0",
              1.1: "mobidb_FNN_1",
-             1.2: "mobidb_FNN_2",
+             1.2: "mobidb_FNN_2",   # 2: best FNN
              1.3: "mobidb_FNN_3",
              1.4: "mobidb_FNN_4",
              1.5: "mobidb_FNN_5",
-             2.0: "mobidb_D_CNN_0",     # currently best model
+             2.0: "mobidb_D_CNN_0",     # 3: best model trained on disorder_only
              2.0005: "mobidb_D_CNN_0_lr0005",
              2.001: "mobidb_D_CNN_0_lr001",
              2.02: "mobidb_D_CNN_0_d2",
@@ -1032,7 +1032,7 @@ if __name__ == '__main__':
              2.2: "mobidb_D_CNN_2",
              3.0: "mobidb_D_FNN_0",
              3.1: "mobidb_D_FNN_1",
-             3.2: "mobidb_D_FNN_2",     # best FNN
+             3.2: "mobidb_D_FNN_2",     # 4: best FNN on disorder only
              3.3: "mobidb_D_FNN_3",
              3.4: "mobidb_D_FNN_4",
              10.0: "random_binary",
