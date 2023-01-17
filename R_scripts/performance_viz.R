@@ -207,7 +207,7 @@ ggplot(data = rbind(performance_t[7], performance_t[20], performance_t[8]))+
 
 ######### mobidb models ##############
 
-performance <- data.table(read.table("../results/logs/performance_assessment_mobidb.tsv", header = TRUE, sep = "\t"))
+performance <- data.table(read.table("../results/logs/performance_assessment_mobidb_new_balancing.tsv", header = TRUE, sep = "\t"))
 performance <- cbind(performance, model_name = c("00 mobidb_CNN_0", "01 mobidb_CNN_1", "02 mobidb_CNN_2", 
                                                  "03 mobidb_FNN_0", "04 mobidb_FNN_1", "05 mobidb_FNN_2", "06 mobidb_FNN_3", "07 mobidb_FNN_4", "08 mobidb_FNN_5", 
                                                  "09 mobidib_D_CNN_0", "10 mobidb_D_CNN_1", "11 mobidb_D_CNN_2",

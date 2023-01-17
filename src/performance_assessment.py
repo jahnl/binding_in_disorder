@@ -290,9 +290,15 @@ def criterion(loss_func, prediction, label):  # sum over all classification head
 def batch_formation(prediction, label, disorder, prediction_batches, label_batches, disorder_batches,
                     test_batch_size, current_length):
     if test_batch_size is not None:     # use test_batch_size AAs
-        prediction = torch.squeeze(prediction)[:, None]
-        label = torch.squeeze(label)[:, None]
-        disorder = torch.squeeze(disorder)[:, None]
+        try:
+            prediction = torch.squeeze(prediction)[:, None]
+            label = torch.squeeze(label)[:, None]
+            disorder = torch.squeeze(disorder)[:, None]
+        except IndexError:
+            prediction = prediction[:, None]
+            label = label[:, None]
+            disorder = disorder[:, None]
+
         done = False
         while not done:
             if current_length % test_batch_size == 0:
@@ -898,7 +904,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 
 if __name__ == '__main__':
     # read input embeddings
-    test = True
+    test = False
     validation = "disorder_only"    # if disorder_only, the batches are formed after excluding structured regions
     embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
@@ -972,19 +978,19 @@ if __name__ == '__main__':
 
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
-    # variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 22.0]
-    variants = [12.0, 22.0, 0.1, 3.2, 2.0]
-    assessment_name = "mobidb_test_smaller_batches"      # "mobidb" / "2.21_only" / ""
+    variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 22.0]
+    #variants = [1.0]
+    assessment_name = "mobidb_new_balancing"      # "mobidb" / "2.21_only" / ""
     test_batch_size = 100    # n AAs, or None --> 1 protein
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
-               0.1: [0.2, 0.2, 0.3, 0.3, 0.4],
-               0.2: [0.1, 0.15, 0.25, 0.15, 0.05],
-               1.0: [0.4, 0.25, 0.4, 0.3, 0.45],
+               0.1: [0.1, 0.4, 0.35, 0.5, 0.55],
+               0.2: [0.15, 0.3, 0.35, 0.55, 0.45],
+               1.0: [0.35, 0.35, 0.4, 0.45, 0.35],
                1.1: [0.9, 0.9, 0.9, 0.9, 0.85],
                1.2: [0.55, 0.55, 0.6, 0.6, 0.65],
                1.3: [0.4, 0.5, 0.45, 0.2, 0.4],
-               1.4: [0.25, 0.3, 0.3, 0.35, 0.25],
+               1.4: [0.4, 0.4, 0.45, 0.45, 0.5],
                1.5: [0.65, 0.55, 0.45, 0.5, 0.55],
                2.0: [0.4, 0.35, 0.45, 0.35, 0.35],
                2.0005: [0.45, 0.45, 0.5, 0.45, 0.2],
@@ -994,19 +1000,19 @@ if __name__ == '__main__':
                2.06: [0.45, 0.4, 0.5, 0.5, 0.3],
                2.07: [0.2, 0.2, 0.45, 0.35, 0.5],
                2.08: [0.25, 0.25, 0.25, 0.5, 0.25],
-               2.1: [0.2, 0.4, 0.45, 0.55, 0.2],
-               2.2: [0.5, 0.6, 0.5, 0.45, 0.35],
-               3.0: [0.4, 0.45, 0.45, 0.45, 0.4],
+               2.1: [0.25, 0.2, 0.25, 0.25, 0.45],
+               2.2: [0.35, 0.25, 0.4, 0.25, 0.25],
+               3.0: [0.4, 0.35, 0.4, 0.35, 0.4],
                3.1: [0.5, 0.5, 0.55, 0.5, 0.5],
                3.2: [0.4, 0.4, 0.4, 0.45, 0.4],
-               3.3: [0.5, 0.5, 0.45, 0.5, 0.45],
+               3.3: [0.45, 0.45, 0.4, 0.45, 0.5],
                3.4: [0.6, 0.55, 0.55, 0.5, 0.5],
                10.0: [0.94, 0.94, 0.94, 0.94, 0.94],
                12.0: [0.63, 0.63, 0.63, 0.63, 0.63],
                22.0: [0.25, 0.2, 0.25, 0.25, 0.25]
                }
     names = {0.0: "mobidb_CNN_0",
-             0.1: "mobidb_CNN_1",   # best model trained on all residues
+             0.1: "mobidb_CNN_1",   # best model trained on all residues?? -> retrained
              0.2: "mobidb_CNN_2",
              1.0: "mobidb_FNN_0",
              1.1: "mobidb_FNN_1",
@@ -1035,13 +1041,13 @@ if __name__ == '__main__':
              }
 
     best_folds = {0.0: 2,
-                  0.1: 2,
-                  0.2: 0,
-                  1.0: 2,
+                  0.1: 1,
+                  0.2: 1,
+                  1.0: 1,
                   1.1: 3,
                   1.2: 2,
                   1.3: 2,
-                  1.4: 0,
+                  1.4: 2,
                   1.5: 2,
                   2.0: 2,
                   2.0005: 2,
@@ -1052,11 +1058,11 @@ if __name__ == '__main__':
                   2.07: 2,
                   2.08: 3,
                   2.1: 2,
-                  2.2: 3,
-                  3.0: 4,
+                  2.2: 2,
+                  3.0: 1,
                   3.1: 2,
                   3.2: 4,
-                  3.3: 1,
+                  3.3: 2,
                   3.4: 0,
                   10.0: 2,
                   12.0: 2,
