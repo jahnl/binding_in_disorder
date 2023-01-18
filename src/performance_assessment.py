@@ -166,7 +166,8 @@ class CNN(nn.Module):
         padding = int((kernel_size - 1) / 2)
         in_c_dict = {'all': 1025,
                      'disorder_only': 1024,
-                     'aaindex': 566}
+                     'aaindex': 567,
+                     'aaindex_D': 566}
         in_c = in_c_dict[mode]
         if self.n_layers == 2:
             # version 0: 2 C layers
@@ -909,7 +910,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 
 if __name__ == '__main__':
     # read input embeddings
-    test = False
+    test = True
     validation = "disorder_only"    # if disorder_only, the batches are formed after excluding structured regions
     embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
@@ -983,9 +984,9 @@ if __name__ == '__main__':
 
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
-    variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 22.0]
-    #variants = [1.0]
-    assessment_name = "mobidb_new_balancing"      # "mobidb" / "2.21_only" / ""
+    variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
+    #variants = [20.0, 22.0]
+    assessment_name = "mobidb_all_new"      # "mobidb" / "2.21_only" / ""
     test_batch_size = 100    # n AAs, or None --> 1 protein
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
@@ -1014,8 +1015,8 @@ if __name__ == '__main__':
                3.4: [0.6, 0.55, 0.55, 0.5, 0.5],
                10.0: [0.94, 0.94, 0.94, 0.94, 0.94],
                12.0: [0.63, 0.63, 0.63, 0.63, 0.63],
-               22.0: [0.25, 0.2, 0.25, 0.25, 0.25],
-               23.0: [0.1, 0.1, 0.15, 0.1, 0.1]
+               20.0: [0.1, 0.1, 0.15, 0.1, 0.1],
+               22.0: [0.25, 0.2, 0.25, 0.25, 0.25]
                }
     names = {0.0: "mobidb_CNN_0",   # 1: currently best model
              0.1: "mobidb_CNN_1",
@@ -1043,8 +1044,8 @@ if __name__ == '__main__':
              3.4: "mobidb_D_FNN_4",
              10.0: "random_binary",
              12.0: "random_D_only",
-             22.0: "AAindex_D_baseline",    # based on mobidb_D_CNN_0
-             23.0: "AAindex_baseline"   # based on mobidb_CNN_0
+             20.0: "AAindex_baseline",  # based on mobidb_CNN_0
+             22.0: "AAindex_D_baseline"    # based on mobidb_D_CNN_0
              }
 
     best_folds = {0.0: 2,
@@ -1073,8 +1074,8 @@ if __name__ == '__main__':
                   3.4: 0,
                   10.0: 2,
                   12.0: 2,
-                  22.0: 1,
-                  23.0: 4
+                  20.0: 4,
+                  22.0: 1
                   }
 
 

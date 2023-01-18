@@ -213,11 +213,15 @@ performance <- cbind(performance, model_name = c("00 mobidb_CNN_0", "01 mobidb_C
                                                  "09 mobidib_D_CNN_0", "09.1 mobidib_D_CNN_0_lr0005", "09.2 mobidib_D_CNN_0_lr001", "09.3 mobidib_D_CNN_0_d2", "09.4 mobidib_D_CNN_0_d3", "09.5 mobidib_D_CNN_0_k3", "09.6 mobidib_D_CNN_0_k7", "09.7 mobidib_D_CNN_0_l8", 
                                                  "10 mobidb_D_CNN_1", "11 mobidb_D_CNN_2",
                                                  "12 mobidib_D_FNN_0", "13 mobidib_D_FNN_1", "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
-                                                 "AAindex_D_baseline", "random_baseline", 'random_D_baseline'))
-performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_test_smaller_batches.tsv", header = TRUE, sep = "\t"))
-performance_test <- cbind(performance_test, model_name = c("00 mobidb_CNN_1", "01 mobidb_D_FNN_2", "02 mobidib_D_CNN_0",
-                                                           "03 ANCHOR2", "04 DeepDISOBind",
-                                                           'AAindex1 baseline', "random baseline D"))
+                                                 "AAindex_baseline", "AAindex_D_baseline", "random_baseline", 'random_D_baseline'))
+performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_all_new.tsv", header = TRUE, sep = "\t"))
+performance_test <- cbind(performance_test, model_name = c("00 mobidb_CNN_0", "01 mobidb_CNN_1", "02 mobidb_CNN_2", 
+                                                           "03 mobidb_FNN_0", "04 mobidb_FNN_1", "05 mobidb_FNN_2", "06 mobidb_FNN_3", "07 mobidb_FNN_4", "08 mobidb_FNN_5", 
+                                                           "09 mobidib_D_CNN_0", "09.1 mobidib_D_CNN_0_lr0005", "09.2 mobidib_D_CNN_0_lr001", "09.3 mobidib_D_CNN_0_d2", "09.4 mobidib_D_CNN_0_d3", "09.5 mobidib_D_CNN_0_k3", "09.6 mobidib_D_CNN_0_k7", "09.7 mobidib_D_CNN_0_l8", 
+                                                           "10 mobidb_D_CNN_1", "11 mobidb_D_CNN_2",
+                                                           "12 mobidib_D_FNN_0", "13 mobidib_D_FNN_1", "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
+                                                           "17 ANCHOR2", "18 DeepDISOBind",
+                                                           "AAindex_baseline", "AAindex_D_baseline", "random_baseline", 'random_D_baseline'))
 
 # whole protein prediction
 ggplot(data = rbind(performance[1:9], performance[18]))+
@@ -263,7 +267,7 @@ ggplot(data = rbind(performance[1:9], performance[18]))+
 
 
 # disorder only prediction, part X
-ggplot(data = rbind(performance[1], performance[6], performance[10], performance[22], performance[25:27]))+
+ggplot(data = rbind(performance[1], performance[6], performance[10], performance[22], performance[25:26], performance[28]))+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -285,7 +289,7 @@ ggplot(data = rbind(performance[1], performance[6], performance[10], performance
   theme_bw()
 
 # disorder only prediction, part X, selection + text
-ggplot(data = rbind(performance[2], performance[10], performance[13:17], performance[19:20]))+
+ggplot(data = rbind(performance[1], performance[6], performance[10], performance[22], performance[25:26], performance[28]))+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
@@ -295,20 +299,17 @@ ggplot(data = rbind(performance[2], performance[10], performance[13:17], perform
   geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = D.Balanced.Acc. - SE_D.Balanced.Acc., ymax = D.Balanced.Acc. + SE_D.Balanced.Acc.), position = position_dodge2())+
   geom_text(aes(x = "Balanced.Acc.", y = -0.02, label = round(D.Balanced.Acc.*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
-  geom_bar(mapping = aes(x = "F1", y = D.F1, fill = model_name), stat = "identity", position = position_dodge2())+
-  geom_errorbar(mapping = aes(x = "F1", ymin = D.F1 - SE_D.F1, ymax = D.F1 + SE_D.F1), position = position_dodge2())+
-  geom_text(aes(x = "F1", y = -0.02, label = round(D.F1*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
   geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
   geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
   ylab("Value")+
   xlab("")+
-  ggtitle("Performance of MobiDB Predictors in Disordered Regions Only")+
+  ggtitle("Performance of MobiDB Predictors in Disordered Regions Only, Best of")+
   scale_fill_colorblind10()+
   theme_bw()
 
 # disorder only prediction TEST
-ggplot(data = performance_test)+
+ggplot(data = rbind(performance_test[1], performance_test[6], performance_test[10], performance_test[22], performance_test[25:28], performance_test[30]))+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -330,7 +331,7 @@ ggplot(data = performance_test)+
   theme_bw()
 
 # disorder only prediction TEST, selection
-ggplot(data = performance_test)+
+ggplot(data = rbind(performance_test[1], performance_test[6], performance_test[10], performance_test[22], performance_test[25:27], performance_test[30]))+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
@@ -340,9 +341,6 @@ ggplot(data = performance_test)+
   geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = D.Balanced.Acc. - SE_D.Balanced.Acc., ymax = D.Balanced.Acc. + SE_D.Balanced.Acc.), position = position_dodge2())+
   geom_text(aes(x = "Balanced.Acc.", y = -0.02, label = round(D.Balanced.Acc.*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
-  #geom_bar(mapping = aes(x = "F1", y = D.F1, fill = model_name), stat = "identity", position = position_dodge2())+
-  #geom_errorbar(mapping = aes(x = "F1", ymin = D.F1 - SE_D.F1, ymax = D.F1 + SE_D.F1), position = position_dodge2())+
-  #geom_text(aes(x = "F1", y = -0.02, label = round(D.F1*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
   geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
   geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
