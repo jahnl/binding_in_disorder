@@ -174,7 +174,8 @@ class CNN(nn.Module):
         padding = int((kernel_size - 1) / 2)
         in_c_dict = {'all': 1025,
                      'disorder_only': 1024,
-                     'aaindex': 566}
+                     'aaindex_D': 566,
+                     'aaindex': 567}
         in_c = in_c_dict[mode]
         if self.n_layers == 2:
             # version 0: 2 C layers
@@ -262,6 +263,7 @@ class FNN(nn.Module):
         self.multilabel = multilabel
 
     def forward(self, input):
+        input = torch.nan_to_num(input)  # sanitize input
         x = F.relu(self.input_layer(input))
         x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
@@ -480,14 +482,18 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
             """
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            input_size = 1024 if mode == 'disorder_only' else 1025
+            if mode == 'disorder_only':
+                input_size = 566 if aaindex else 1024
+            else:
+                input_size = 567 if aaindex else 1025
             output_size = 3 if multilabel else 1
             if architecture == 'FNN':
                 model = FNN(input_size=input_size, output_size=output_size, dropout=dropout, multilabel=multilabel) \
                     .to(device)
             else:
+                aa_mode = 'aaindex' if mode == 'all' else 'aaindex_D'
                 model = CNN(n_layers=n_layers, kernel_size=kernel_size, dropout=dropout,
-                            mode='aaindex' if aaindex else mode).to(device)
+                            mode=aa_mode if aaindex else mode).to(device)
                 batch_size = 1  # batch size is always 1 (protein) if the model is a CNN
             model.load_state_dict(
                 torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
@@ -521,7 +527,8 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'CNN')
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = CNN(n_layers, kernel_size, dropout, 'aaindex' if aaindex else mode).to(device)
+        aa_mode = 'aaindex' if mode == 'all' else 'aaindex_D'
+        model = CNN(n_layers, kernel_size, dropout, aa_mode if aaindex else mode).to(device)
         model.load_state_dict(
             torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
         # test performance again, should be the same
@@ -535,9 +542,14 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
                 # apply activation function to prediction to enable classification
                 prediction_act = torch.sigmoid(prediction)
                 prediction_max = prediction_act > cutoff
-
-                output_file.write(
-                    f'{region_ids[i]}\nlabels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
+                if region_ids == []:
+                    output_file.write(
+                        f'{list(val_labels.keys())[i]}\n'
+                        f'labels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
+                else:
+                    output_file.write(
+                        f'{region_ids[i]}\n'
+                        f'labels:\t{label}\nprediction_0:\t{prediction_act}\nprediction_1:\t{prediction_max}\n')
 
 
 class Zone:

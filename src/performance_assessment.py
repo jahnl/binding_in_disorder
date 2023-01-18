@@ -254,6 +254,7 @@ class FNN(nn.Module):
         self.multilabel = multilabel
 
     def forward(self, input):
+        input = torch.nan_to_num(input)  # sanitize input
         x = F.relu(self.input_layer(input))
         x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
@@ -530,13 +531,17 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder, architecture)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        input_size = 1025 if mode == 'all' else 1024
+        if mode == 'disorder_only':
+            input_size = 566 if 'AAindex' in name else 1024
+        else:
+            input_size = 567 if 'AAindex' in name else 1025
         output_size = 3 if multilabel else 1
 
         if architecture == "FNN":
             model = FNN(input_size, output_size, dropout, multilabel).to(device)
         else:
-            model = CNN(n_layers, kernel_size, dropout, 'aaindex' if 'AAindex' in name else mode).to(device)
+            aa_mode = 'aaindex' if mode == 'all' else 'aaindex_D'
+            model = CNN(n_layers, kernel_size, dropout, aa_mode if 'AAindex' in name else mode).to(device)
 
         if name.startswith("random"):
             model = None
@@ -1009,7 +1014,8 @@ if __name__ == '__main__':
                3.4: [0.6, 0.55, 0.55, 0.5, 0.5],
                10.0: [0.94, 0.94, 0.94, 0.94, 0.94],
                12.0: [0.63, 0.63, 0.63, 0.63, 0.63],
-               22.0: [0.25, 0.2, 0.25, 0.25, 0.25]
+               22.0: [0.25, 0.2, 0.25, 0.25, 0.25],
+               23.0: [0.1, 0.1, 0.15, 0.1, 0.1]
                }
     names = {0.0: "mobidb_CNN_0",   # 1: currently best model
              0.1: "mobidb_CNN_1",
@@ -1037,7 +1043,8 @@ if __name__ == '__main__':
              3.4: "mobidb_D_FNN_4",
              10.0: "random_binary",
              12.0: "random_D_only",
-             22.0: "AAindex_D_baseline"
+             22.0: "AAindex_D_baseline",    # based on mobidb_D_CNN_0
+             23.0: "AAindex_baseline"   # based on mobidb_CNN_0
              }
 
     best_folds = {0.0: 2,
@@ -1066,7 +1073,8 @@ if __name__ == '__main__':
                   3.4: 0,
                   10.0: 2,
                   12.0: 2,
-                  22.0: 1
+                  22.0: 1,
+                  23.0: 4
                   }
 
 

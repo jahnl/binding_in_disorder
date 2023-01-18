@@ -54,7 +54,10 @@ def get_ML_data(labels, embeddings, mode, new_datapoints):
                 emb_with_conf = np.column_stack((embeddings[id], conf_feature))
             else:  # data points created by residue-oversampling
                 # use pre-computed embedding
-                emb_with_conf = new_datapoints[datapoint_counter]
+                if type(new_datapoints) == list:
+                    emb_with_conf = new_datapoints[datapoint_counter]
+                else:
+                    emb_with_conf = np.column_stack((new_datapoints[id], conf_feature))
                 datapoint_counter += 1
                 if emb_with_conf.shape[0] != len(labels[id][1]):    # sanity check
                     raise ValueError(f'Wrong match between label and embedding. Label of {id} has length '
@@ -122,6 +125,7 @@ class FNN(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, input):
+        input = torch.nan_to_num(input)  # sanitize input
         x = F.relu(self.input_layer(input))
         x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
@@ -233,11 +237,17 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
 
     # read input embeddings
     embeddings = dict()
-    with h5py.File(train_embeddings, 'r') as f:
-        for key, embedding in f.items():
-            original_id = embedding.attrs['original_id']
-            embeddings[original_id] = np.array(embedding)
-    # now {IDs: embeddings} are written in the embeddings dictionary
+    if train_embeddings != '':
+        with h5py.File(train_embeddings, 'r') as f:
+            for key, embedding in f.items():
+                original_id = embedding.attrs['original_id']
+                embeddings[original_id] = np.array(embedding)
+        # now {IDs: embeddings} are written in the embeddings dictionary
+    else:
+        # load pre-computed datapoint representations from AAindex1
+        for f in range(n_splits):
+            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
+            embeddings.update(fold_rep)
 
     # iterate over folds
     for fold in range(n_splits):
@@ -252,15 +262,21 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
         for train_fold in range(n_splits):
             if train_fold != fold:
                 train_labels.update(read_labels(train_fold, oversampling, dataset_dir))
-        print(len(val_labels), len(train_labels))
 
         # load pre-computed datapoint embeddings
         t_datapoints = list()
+        t_dict = {}
         if oversampling is not None and 'binary_residues' in oversampling:
             for f in range(n_splits):
                 if f != fold:
-                    t_datapoints.extend(
-                        np.load(f'{dataset_dir}folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
+                    if train_embeddings != '':
+                        t_datapoints.extend(
+                            np.load(f'{dataset_dir}folds/new_datapoints_{oversampling}_fold_{f}.npy', allow_pickle=True))
+                    else:
+                        rep = np.load(f'{dataset_dir}folds/AAindex_representation_{oversampling}_fold_{f}.npy',
+                                    allow_pickle=True).item()
+                        t_dict.update(rep)
+                        t_datapoints = t_dict
 
 
         # create the input and target data exactly how it's fed into the ML model
@@ -281,7 +297,10 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
-        input_size = 1024 if mode == 'disorder_only' else 1025
+        if mode == 'disorder_only':
+            input_size = 566 if train_embeddings == '' else 1024
+        else:
+            input_size = 567 if train_embeddings == '' else 1025
         model = FNN(input_size=input_size, output_size=1, dropout=dropout).to(device)
         criterion = nn.BCEWithLogitsLoss()  # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)

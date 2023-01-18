@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import h5py
 from Bio import SeqIO
+from os.path import exists
 
 
 def read_labels(fold, oversampling, dataset_dir):
@@ -69,7 +70,8 @@ def get_ML_data(labels, embeddings, mode, database):
             input.append(emb_with_conf)
 
         elif mode == 'disorder_only':
-            # not implemented yet! TODO
+            # this only filters for disordered residues,
+            # picking the correct residues from the index list not implemented yet! TODO
             bool_list = [False if x == '-' else True for x in list(labels[id][2])]
             input.append(embeddings[id][bool_list])
 
@@ -123,12 +125,13 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, ov
             # create the input and target data exactly how it's fed into the ML model
             # and save new representations to file
             representation = AAindex_rep(labels, aaindex)
-            np.save(file=f'{dataset_dir}folds/AAindex_representation_fold_{fold}.npy', arr=representation)
+            np.save(file=f'{dataset_dir}folds/AAindex_representation_{oversampling}_fold_{fold}.npy', arr=representation)
 
-        print("Test set")
-        labels = read_all_labels(None, oversampling, dataset_dir)
-        representation = AAindex_rep(labels, aaindex)
-        np.save(file=f'{dataset_dir}AAindex_representation_test.npy', arr=representation)
+        if not exists(f'{dataset_dir}AAindex_representation_test.npy'):
+            print("Test set")
+            labels = read_all_labels(None, oversampling, dataset_dir)
+            representation = AAindex_rep(labels, aaindex)
+            np.save(file=f'{dataset_dir}AAindex_representation_test.npy', arr=representation)
         return
 
 

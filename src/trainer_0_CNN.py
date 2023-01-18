@@ -118,7 +118,8 @@ class CNN(nn.Module):
         padding = int((kernel_size - 1) / 2)
         in_c_dict = {'all': 1025,
                      'disorder_only': 1024,
-                     'aaindex': 566}
+                     'aaindex_D': 566,
+                     'aaindex': 567}
         in_c = in_c_dict[mode]
         if self.n_layers == 2:
             # version 0: 2 C layers
@@ -347,7 +348,8 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
-        model = CNN(n_layers, kernel_size, dropout, 'aaindex' if train_embeddings == '' else mode).to(device)
+        aa_mode = 'aaindex' if mode == 'all' else 'aaindex_D'
+        model = CNN(n_layers, kernel_size, dropout, aa_mode if train_embeddings == '' else mode).to(device)
         criterion = nn.BCEWithLogitsLoss()  # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
