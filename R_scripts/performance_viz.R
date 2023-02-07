@@ -353,10 +353,13 @@ ggplot(data = rbind(performance_test[1], performance_test[6], performance_test[1
 
 
 # prediction: selection,  val and Test difference
-val_perf <- data.table(rbind(performance[1], performance[6], performance[10], performance[22], performance[25:26], performance[28], use.names=FALSE))
+val_perf <- data.table(rbind(performance[1], performance[6], performance[10], performance[22], performance[25:26], performance[28], performance[100:101], use.names=FALSE))
 val_perf[] <- lapply(val_perf, function(x) as.numeric(x) )
-val_perf$model_name <- c("00 mobidb_CNN_0", "05 mobidb_FNN_2", "09 mobidb_D_CNN_0", "14 mobidb_D_FNN_2", "AAindex_baseline", "AAindex_D_baseline", "random_D_baseline")
-ggplot(data = rbind(performance_test[1], performance_test[6], performance_test[10], performance_test[22], performance_test[27:28], performance_test[30]))+
+val_perf$model_name <- c("00 mobidb_CNN_0", "05 mobidb_FNN_2", "09 mobidb_D_CNN_0", "14 mobidb_D_FNN_2", "AAindex_baseline", "AAindex_D_baseline", "random_D_baseline", "ref: ANCHOR2", "ref: DeepDISOBind")
+test_perf <- data.table(rbind(performance_test[1], performance_test[6], performance_test[10], performance_test[22], performance_test[27:28], performance_test[30], performance_test[25:26]))
+test_perf$model_name[8:9] <- c("ref: ANCHOR2", "ref: DeepDISOBind")
+
+ggplot(data = test_perf)+
   geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2(), alpha = 0.7)+
   geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = D.Balanced.Acc. - SE_D.Balanced.Acc., ymax = D.Balanced.Acc. + SE_D.Balanced.Acc.), position = position_dodge2())+
   geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2(), alpha = 0.7)+
