@@ -8,7 +8,8 @@ input: ../dataset/disprot_annotations.txt, ../dataset/test_set.fasta, ../dataset
 output: ../dataset/test_set_annotation.tsv, ../dataset/train_set_annotation.tsv, ../dataset/test_set_input.txt,
 ../dataset/train_set_input.txt
 """
-
+from math import ceil
+import random
 from os.path import exists
 from Bio import SeqIO
 
@@ -28,7 +29,7 @@ def sort_dataset(file):
         else:
             seq += line[:-1]
     ls.append([id, seq])    # last entry
-    print("sorting: ID in there? ", ls[-1])
+    # print("sorting: ID in there? ", ls[-1])
     return sorted(ls, key=lambda x: x[0])
 
 
@@ -203,6 +204,7 @@ def disprot_preprocessing(test_list, train_list, annotations: str, dataset_dir: 
 
 
 def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: str, overwrite: bool):
+    random.seed(303)
     # rather use a dict for the sequences than a sorted list
     test_dict = {}
     for entry in test_list:
@@ -258,6 +260,11 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                 lip_seq = ''
 
     for set in [test_dict, train_dict]:
+        per_protein_counts = {'length': [], 'n_disordered': [], 'n_structured': [],
+                              'n_D_binding': [], 'n_D_nonbinding': [],
+                              'binding_positioning_distr': [0, 0, 0, 0, 0]}
+        # last entry: distribution of position of binding residues within the disordered regions, in 5ths; a.k.a. positional bias
+
         bind_count = 0
         nbind_count = 0
         diso_nbind_count = 0
@@ -273,18 +280,34 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                     set[entry_id].append('-'*len(set[entry_id][0]))  # add labels for 'no LIP'
                 else:
                     set[entry_id][2] = set[entry_id][2].replace('1', 'B').replace('0', '-')     # adapt annotation
+
+                disordered_regions = []
+                last_in_D = False
                 for i, residue in enumerate(set[entry_id][1]):
-                    if residue == 'D' and set[entry_id][2][i] == '-':
-                        set[entry_id][2] = set[entry_id][2][:i] + '_' + set[entry_id][2][i+1:]
-                    elif residue == '-' and set[entry_id][2][i] == 'B':
+                    if residue == 'D':
+                        # report disordered region
+                        if not last_in_D:
+                            disordered_regions.append("")
+                            last_in_D = True
+                        disordered_regions[-1] += set[entry_id][2][i]
+                        # change annotation of non-binding in disorder
+                        if set[entry_id][2][i] == '-':
+                            set[entry_id][2] = set[entry_id][2][:i] + '_' + set[entry_id][2][i+1:]
+
+                    elif residue == '-':
+                        # change to structured region
+                        last_in_D = False
                         # exclude binding regions outside of disordered regions
-                        set[entry_id][2] = set[entry_id][2][:i] + '-' + set[entry_id][2][i + 1:]
+                        if set[entry_id][2][i] == 'B':
+                            set[entry_id][2] = set[entry_id][2][:i] + '-' + set[entry_id][2][i + 1:]
+
                 # statistics
                 b_c = set[entry_id][2].count('B')
                 length = len(set[entry_id][2])
                 bind_count += b_c
                 nbind_count += length - b_c
-                diso_nbind_count += set[entry_id][2].count('_')
+                diso_nb_c = set[entry_id][2].count('_')
+                diso_nbind_count += diso_nb_c
                 if b_c > 0:
                     positive_proteins += 1
                     pos_prot_res += length
@@ -292,12 +315,34 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                     negative_proteins += 1
                     neg_prot_res += length
 
+                # counts for distribution:
+                per_protein_counts['length'].append(length)
+                per_protein_counts['n_disordered'].append(b_c + diso_nb_c)
+                per_protein_counts['n_structured'].append(length - (b_c + diso_nb_c))
+                per_protein_counts['n_D_binding'].append(b_c)
+                per_protein_counts['n_D_nonbinding'].append(diso_nb_c)
+                for region in disordered_regions:
+                    chunk_size = ceil(len(region) / 5)
+                    double_residues = (5 - (len(region) - (chunk_size - 1) * 5)) % 5
+                    insert_positions = random.sample(population=range(len(region)), k=double_residues)
+                    insert_positions.sort(reverse=True)
+                    for p in insert_positions:
+                        region = region[:p] + region[p]*2 + region[p+1:]
+                    chunks = [region[i:i + chunk_size] for i in range(0, len(region), chunk_size)]
+                    for i, c in enumerate(chunks):
+                        per_protein_counts['binding_positioning_distr'][i] += c.count('B')
+
                 # write ML input file
                 out.write('>' + entry_id + '\n' + set[entry_id][0] + '\n' + set[entry_id][1] + '\n' + set[entry_id][2]
                           + '\n')
         print(f'{name} set:\nbinding residues: {bind_count}\nnon-binding residues: {nbind_count}\n'
               f'non-binding residues in disorder: {diso_nbind_count}\npositive proteins: {positive_proteins} with '
               f'{pos_prot_res} residues\nnegative proteins: {negative_proteins} with {neg_prot_res} residues\n')
+        print(per_protein_counts)
+
+        with open(dataset_dir + name + '_set_stats.txt', 'w') as out:
+            for key in per_protein_counts.keys():
+                out.write(key + "\n" + str(per_protein_counts[key]) + "\n")
 
 
 def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str,

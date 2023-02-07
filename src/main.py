@@ -176,7 +176,9 @@ if __name__ == '__main__':
         print('step 1: preprocess dataset')
         if not wf_overwrite and \
                 exists(config['input_files']['dataset_directory'] + 'test_set_input.txt') and \
-                exists(config['input_files']['dataset_directory'] + 'train_set_input.txt'):
+                exists(config['input_files']['dataset_directory'] + 'train_set_input.txt') and \
+                exists(config['input_files']['dataset_directory'] + 'test_set_stats.txt') and \
+                exists(config['input_files']['dataset_directory'] + 'train_set_stats.txt'):
             print('Step 1 is skipped, all output files are already present')
         else:
             src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
