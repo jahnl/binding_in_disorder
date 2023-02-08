@@ -262,7 +262,8 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
     for set in [test_dict, train_dict]:
         per_protein_counts = {'length': [], 'n_disordered': [], 'n_structured': [],
                               'n_D_binding': [], 'n_D_nonbinding': [],
-                              'binding_positioning_distr': [0, 0, 0, 0, 0]}
+                              'binding_positioning_distr': [0, 0, 0, 0, 0],
+                              'D_region_length': []}
         # last entry: distribution of position of binding residues within the disordered regions, in 5ths; a.k.a. positional bias
 
         bind_count = 0
@@ -322,6 +323,7 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                 per_protein_counts['n_D_binding'].append(b_c)
                 per_protein_counts['n_D_nonbinding'].append(diso_nb_c)
                 for region in disordered_regions:
+                    per_protein_counts['D_region_length'].append(len(region))
                     chunk_size = ceil(len(region) / 5)
                     double_residues = (5 - (len(region) - (chunk_size - 1) * 5)) % 5
                     insert_positions = random.sample(population=range(len(region)), k=double_residues)
