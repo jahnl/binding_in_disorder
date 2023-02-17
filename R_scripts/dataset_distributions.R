@@ -149,3 +149,16 @@ ggplot()+
   labs(fill="set")+
   ggtitle("Occurence of binding residues in the disordered regions in test vs train set")
 
+
+
+###############score distribution###########
+train_distr <- read.table("../dataset/MobiDB_dataset/train_set_score_distribution.tsv", header = TRUE)
+test_distr <- read.table("../dataset/MobiDB_dataset/test_set_score_distribution.tsv", header = TRUE)
+ggplot()+
+  geom_histogram(data = train_distr, mapping = aes(y = stat(count / sum(count)), x = score, fill = "train"), alpha = 0.5)+
+  geom_histogram(data = test_distr, mapping = aes(y = stat(count / sum(count)), x = score, fill = "test"), alpha = 0.5)+
+  scale_x_log10()+
+  annotation_logticks()+
+  ggtitle("Score distribution of the datasets\nScore = protein_length + 5 * %_non_binding_in_disorder")
+  
+  
