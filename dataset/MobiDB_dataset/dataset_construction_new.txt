@@ -26,3 +26,6 @@ To ensure large enough data set size, the training set is less strictly redundan
  1. Redundancy reduce training set against test set using mmseqs-uniqueprot at H-val=0. (python -m rostclust uniqueprot2d <train_set> <test_set> <output_file>)
  2. **Final training set: 1815 proteins (1082 negatives, 733 positives)**
 
+## Fine-Tuning
+1. Remove Titin from train set, since it's too big for embedding creation
+2. Remove 39 proteins from test set to correct for out-of-distribution sampling

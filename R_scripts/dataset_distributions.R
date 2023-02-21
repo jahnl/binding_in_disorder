@@ -159,6 +159,60 @@ ggplot()+
   geom_histogram(data = test_distr, mapping = aes(y = stat(count / sum(count)), x = score, fill = "test"), alpha = 0.5)+
   scale_x_log10()+
   annotation_logticks()+
+  ylim(0, 0.12)+
   ggtitle("Score distribution of the datasets\nScore = protein_length + 5 * %_non_binding_in_disorder")
   
+
+# remove some 
+test_distr_2 <- subset(test_distr, !(protein %in% c("P81455",
+                                                    "O34800",
+                                                      "P15340",
+                                                    "O14140",
+                                                      "P22531",
+                                                    "Q9KJ82",
+                                                      "P80220",
+                                                    "P0C079",
+                                                      "Q9I322",
+                                                    "Q9XES8",
+                                                    "P12520",
+                                                      
+                                                    "O60829",
+                                                    "Q8GT36",	
+                                                    "Q9KMA5",
+                                                      "P05318",
+                                                    "P17096",
+                                                    "P22943",
+                                                    "A4ZNR2",
+                                                      "Q9Y3M2",
+                                                    "P0C0S5",
+                                                    "A0A220GHA5",
+                                                    "Q9V452",
+                                                      "Q64364",
+                                                      "G0SCY6",
+                                                      "Q9BXW4",
+                                                      
+                                                      "P40019",
+                                                    "Q88MI5",
+                                                    "Q84MC7",
+                                                      "P62696",
+                                                      "O75817",
+                                                    "Q9UKK9",
+                                                      
+                                                    "P55212",
+                                                      "Q7B2Z6",
+                                                    "P0AFC3",
+                                                    "P07355",
+                                                      "P0ACN7",
+                                                      "P04183",
+                                                      "P51946",
+                                                      "O66858"))) 
+ggplot()+
+  geom_histogram(data = train_distr, mapping = aes(y = stat(count / sum(count)), x = score, fill = "train"), alpha = 0.5, bins = 30)+
+  geom_histogram(data = test_distr_2, mapping = aes(y = stat(count / sum(count)), x = score, fill = "test"), alpha = 0.5, bins = 30)+
+  scale_x_log10()+
+  annotation_logticks()+
+  ylim(0, 0.12)+
+  ggtitle("Score distribution of the secondary datasets\nScore = protein_length + 5 * %_non_binding_in_disorder")
+
+
   

@@ -214,7 +214,7 @@ performance <- cbind(performance, model_name = c("00 mobidb_CNN_0", "01 mobidb_C
                                                  "10 mobidb_D_CNN_1", "11 mobidb_D_CNN_2",
                                                  "12 mobidib_D_FNN_0", "13 mobidib_D_FNN_1", "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
                                                  "AAindex_baseline", "AAindex_D_baseline", "random_baseline", 'random_D_baseline'))
-performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_all_new.tsv", header = TRUE, sep = "\t"))
+performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_new_test.tsv", header = TRUE, sep = "\t"))
 performance_test <- cbind(performance_test, model_name = c("00 mobidb_CNN_0", "01 mobidb_CNN_1", "02 mobidb_CNN_2", 
                                                            "03 mobidb_FNN_0", "04 mobidb_FNN_1", "05 mobidb_FNN_2", "06 mobidb_FNN_3", "07 mobidb_FNN_4", "08 mobidb_FNN_5", 
                                                            "09 mobidb_D_CNN_0", "09.1 mobidib_D_CNN_0_lr0005", "09.2 mobidib_D_CNN_0_lr001", "09.3 mobidib_D_CNN_0_d2", "09.4 mobidib_D_CNN_0_d3", "09.5 mobidib_D_CNN_0_k3", "09.6 mobidib_D_CNN_0_k7", "09.7 mobidib_D_CNN_0_l8", 

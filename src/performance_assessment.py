@@ -779,20 +779,35 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
     val_labels = read_labels(None, None, dataset_dir)
     target = []
     disorder = []
+    pr_rm = []      # predictions to be removed
     for id in prediction.keys():
         # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region
         try:
             binding = str(val_labels[id][2])
         except KeyError:    # due to ID conversion of DeepDISOBind
             # try to remove the last part of the ID
-            id = '|'.join(id.split('|')[:-1])
-            binding = str(val_labels[id][2])
+            id2 = '|'.join(id.split('|')[:-1])
+            try:
+                binding = str(val_labels[id2][2])
+            except KeyError:    # due to removal of some proteins from the test set
+                pr_rm.append(id)
+                continue
+            id = id2
         binding = re.sub(r'-|_', '0', binding)
         binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
         binding = np.array(binding, dtype=float)
         target.append(binding)
         diso = str(val_labels[id][1]).replace('-', '0').replace('D', '1')
         disorder.append(np.array(list(diso), dtype=float))
+
+    # remove proteins that are not in the test set anymore
+    for id in pr_rm:
+        try:
+            prediction.pop(id)
+        except KeyError:    # due to ID conversion of DeepDISOBind
+            # try to remove the last part of the ID
+            id = '|'.join(id.split('|')[:-1])
+            prediction.pop(id)
 
     # save confusion matrix values for each protein
     batch_wise_loss = []
@@ -984,9 +999,9 @@ if __name__ == '__main__':
 
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
+    #variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
     variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
-    #variants = [20.0, 22.0]
-    assessment_name = "mobidb_all_new"      # "mobidb" / "2.21_only" / ""
+    assessment_name = "mobidb_new_test"      # "mobidb" / "2.21_only" / ""
     test_batch_size = 100    # n AAs, or None --> 1 protein
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
