@@ -205,14 +205,52 @@ test_distr_2 <- subset(test_distr, !(protein %in% c("P81455",
                                                       "P0ACN7",
                                                       "P04183",
                                                       "P51946",
-                                                      "O66858"))) 
+                                                      "O66858",
+                                                    
+                                                    # length only
+                                                    "P0C8E0"	,
+                                                    "Q8IVG9"	,
+                                                    "P68005"	,
+                                                    "P0C0Y1"	,
+                                                    "Q9UUB7",
+                                                    "Q7YUB9",
+                                                    
+                                                    "Q9Y6H6"	,
+                                                    "A1B602",
+                                                    "Q9Y3B4"	,
+                                                    "Q9JLC3"	,
+                                                    "O14352",
+                                                    "Q9DBG9"	,
+                                                    "Q96E14"	,
+                                                    "E6PBU9",
+                                                    
+                                                    "P05452"	,
+                                                    "P0ABJ3"	,
+                                                    "P52565",
+                                                    "Q9UI95",
+                                                    "P77072",
+                                                    "P08008"	,
+                                                    "P53927",
+                                                    "Q12483",
+                                                    "Q71FK2",
+                                                    "O00299"	,
+                                                    "P0A2N1",
+                                                    "P17931",
+                                                    "P03259",
+                                                    "Q9ZKK2"	,
+                                                    "P46670",
+                                                    "Q9VAN6"	,
+                                                    "Q9UIV1"	,
+                                                    "P06748",	
+                                                    "P24005",
+                                                    "Q9RFD6"))) 
 ggplot()+
   geom_histogram(data = train_distr, mapping = aes(y = stat(count / sum(count)), x = score, fill = "train"), alpha = 0.5, bins = 30)+
   geom_histogram(data = test_distr_2, mapping = aes(y = stat(count / sum(count)), x = score, fill = "test"), alpha = 0.5, bins = 30)+
   scale_x_log10()+
   annotation_logticks()+
   ylim(0, 0.12)+
-  ggtitle("Score distribution of the secondary datasets\nScore = protein_length + 5 * %_non_binding_in_disorder")
+  ggtitle("Length distribution of the secondary datasets")
 
 
   

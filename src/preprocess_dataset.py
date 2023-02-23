@@ -265,6 +265,7 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                               'binding_positioning_distr': [0, 0, 0, 0, 0],
                               'D_region_length': []}
         per_protein_score = []
+        per_protein_score_2 = []
         # last entry: distribution of position of binding residues within the disordered regions, in 5ths; a.k.a. positional bias
 
         bind_count = 0
@@ -337,6 +338,7 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
 
                 score = round(length + (500 * (diso_nb_c/length)), 2)
                 per_protein_score.append((entry_id.split('|')[0], score))
+                per_protein_score_2.append((entry_id.split('|')[0], round(length, 2)))
                 # write ML input file
                 out.write('>' + entry_id + '\n' + set[entry_id][0] + '\n' + set[entry_id][1] + '\n' + set[entry_id][2]
                           + '\n')
@@ -351,6 +353,10 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
         with open(dataset_dir + name + '_set_score_distribution.tsv', 'w') as out:
             out.write("protein\tscore\n")
             for element in per_protein_score:
+                out.write(element[0] + "\t" + str(element[1]) + "\n")
+        with open(dataset_dir + name + '_set_score_2_distribution.tsv', 'w') as out:
+            out.write("protein\tscore\n")
+            for element in per_protein_score_2:
                 out.write(element[0] + "\t" + str(element[1]) + "\n")
 
 
