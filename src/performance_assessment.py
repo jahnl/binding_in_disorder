@@ -12,13 +12,13 @@ import torch.tensor
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch import nn
-from scipy import stats
+from scipy.stats import bootstrap
 from pathlib import Path
 from os.path import exists
 
 
 def read_labels(fold, oversampling, dataset_dir):
-    if fold is None:   # --> test set
+    if fold is None:  # --> test set
         file_name = f'{dataset_dir}test_set_input.txt'
     else:
         if oversampling is None:  # no oversampling on validation set! (or mode with no oversampling)
@@ -156,7 +156,7 @@ class BindingDataset(Dataset):
                 k += 1
                 protein_length = len(self.labels[k])
             return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index]), \
-                torch.tensor(self.disorder[k][index])
+                   torch.tensor(self.disorder[k][index])
 
 
 class CNN(nn.Module):
@@ -200,7 +200,6 @@ class CNN(nn.Module):
             self.dropout = nn.Dropout(p=dropout)
             # --> out: (1, protein_length)
 
-
     def forward(self, input):
         input = torch.nan_to_num(input).transpose(1, 2).contiguous()  # sanitize and transpose input
         if self.n_layers == 2:
@@ -209,7 +208,7 @@ class CNN(nn.Module):
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
-            x = x+2
+            x = x + 2
         elif self.n_layers == 5:
             # version 1: 5 C layers
             x = self.conv1(input)
@@ -291,7 +290,7 @@ def criterion(loss_func, prediction, label):  # sum over all classification head
 
 def batch_formation(prediction, label, disorder, prediction_batches, label_batches, disorder_batches,
                     test_batch_size, current_length):
-    if test_batch_size is not None:     # use test_batch_size AAs
+    if test_batch_size is not None:  # use test_batch_size AAs
         try:
             prediction = torch.squeeze(prediction)[:, None]
             label = torch.squeeze(label)[:, None]
@@ -326,7 +325,7 @@ def batch_formation(prediction, label, disorder, prediction_batches, label_batch
             if current_length <= test_batch_size:
                 done = True
 
-    else:   # protein-wise batches
+    else:  # protein-wise batches
         prediction_batches.append(prediction)
         label_batches.append(label)
         disorder_batches.append(disorder)
@@ -339,7 +338,7 @@ def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, 
         batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
     # apply activation function to prediction to enable classification and transpose matrices
     if random:
-        prediction_act = prediction     # no sigmoid needed for these values
+        prediction_act = prediction  # no sigmoid needed for these values
     else:
         prediction_act = torch.sigmoid(prediction)
     if fold is not None:
@@ -390,12 +389,16 @@ def metrics(confusion_dict):
     specificity_D = confusion_dict["diso_TN"] / (confusion_dict["diso_TN"] + confusion_dict["diso_FP"])
     balanced_acc_D = (recall_D + specificity_D) / 2
     f1_D = 2 * ((precision_D * recall_D) / (precision_D + recall_D))
-    mcc_D = (confusion_dict["diso_TN"] * confusion_dict["diso_TP"] - confusion_dict["diso_FP"] * confusion_dict["diso_FN"]) / \
-          np.sqrt((confusion_dict["diso_TN"] + confusion_dict["diso_FN"]) * (confusion_dict["diso_FP"] + confusion_dict["diso_TP"]) *
-                  (confusion_dict["diso_TN"] + confusion_dict["diso_FP"]) * (confusion_dict["diso_FN"] + confusion_dict["diso_TP"]))
+    mcc_D = (confusion_dict["diso_TN"] * confusion_dict["diso_TP"] - confusion_dict["diso_FP"] * confusion_dict[
+        "diso_FN"]) / \
+            np.sqrt((confusion_dict["diso_TN"] + confusion_dict["diso_FN"]) * (
+                        confusion_dict["diso_FP"] + confusion_dict["diso_TP"]) *
+                    (confusion_dict["diso_TN"] + confusion_dict["diso_FP"]) * (
+                                confusion_dict["diso_FN"] + confusion_dict["diso_TP"]))
     return {"Precision": precision, "Recall": recall, "Neg_Precision": neg_precision, "Neg_Recall": neg_recall,
             "Balanced Acc.": balanced_acc, "F1": f1, "MCC": mcc,
-            "D Precision": precision_D, "D Recall": recall_D, "D Neg_Precision": neg_precision_D, "D Neg_Recall": neg_recall_D,
+            "D Precision": precision_D, "D Recall": recall_D, "D Neg_Precision": neg_precision_D,
+            "D Neg_Recall": neg_recall_D,
             "D Balanced Acc.": balanced_acc_D, "D F1": f1_D, "D MCC": mcc_D}
 
 
@@ -426,15 +429,18 @@ class Zone:
                 self.type = "pos_long"
             else:
                 self.type = "pos_valid"
+
     def get_value(self):
         return self.value
+
     def set_value(self, value: float):
         self.value = value
+
     def get_length(self):
         return self.length
+
     def get_type(self):
         return self.type
-
 
 
 def post_process(prediction: torch.tensor):
@@ -449,7 +455,7 @@ def post_process(prediction: torch.tensor):
     zones = []
     start, value = 0, prediction[0]
     for i, residue in enumerate(prediction):
-        if residue != value:    # save new zone
+        if residue != value:  # save new zone
             zones.append(Zone(start=start, end=i, value=value, last=False))
             start = i
             value = residue
@@ -465,28 +471,29 @@ def post_process(prediction: torch.tensor):
     # 7. pos_medium/pos_long, neg_short, pos_short --> 0s, (0s), (0s)
     for i, zone in enumerate(zones):
         try:
-            if zone.get_type() == "pos_medium" and zones[i+1].get_type() == "neg_short":
+            if zone.get_type() == "pos_medium" and zones[i + 1].get_type() == "neg_short":
                 # case 2
-                if zones[i+2].get_type() == "pos_medium":
+                if zones[i + 2].get_type() == "pos_medium":
                     zone.set_value(0.0)
-                    zones[i+2].set_value(0.0)
+                    zones[i + 2].set_value(0.0)
                 # cases 3 or (7)
-                elif zones[i+2].get_type() == "pos_long" or zones[i+2].get_type() == "pos_valid" or \
-                        zones[i+2].get_type() == "pos_short":
+                elif zones[i + 2].get_type() == "pos_long" or zones[i + 2].get_type() == "pos_valid" or \
+                        zones[i + 2].get_type() == "pos_short":
                     zone.set_value(0.0)
-            elif (zone.get_type() == "pos_long" or zone.get_type() == "pos_valid") and zones[i+1].get_type() == "neg_short":
+            elif (zone.get_type() == "pos_long" or zone.get_type() == "pos_valid") and zones[
+                i + 1].get_type() == "neg_short":
                 # case 4
-                if zones[i+2].get_type() == "pos_medium":
-                    zones[i+2].set_value(0.0)
+                if zones[i + 2].get_type() == "pos_medium":
+                    zones[i + 2].set_value(0.0)
                 # case 5
-                elif zones[i+2].get_type() == "pos_long" or zones[i+2].get_type() == "pos_valid":
-                    zones[i+1].set_value(1.0)
+                elif zones[i + 2].get_type() == "pos_long" or zones[i + 2].get_type() == "pos_valid":
+                    zones[i + 1].set_value(1.0)
                 # case (7)
-                elif zones[i+2].get_type() == "pos_short":
+                elif zones[i + 2].get_type() == "pos_short":
                     zone.set_value(0.0)
             # case 6
-            elif zone.get_type() == "pos_short" and zones[i+1].get_type() == "neg_short" and \
-                    (zones[i+2].get_type() == "pos_medium" or zones[i+2].get_type() == "pos_long"):
+            elif zone.get_type() == "pos_short" and zones[i + 1].get_type() == "neg_short" and \
+                    (zones[i + 2].get_type() == "pos_medium" or zones[i + 2].get_type() == "pos_long"):
                 zone.set_value(0.0)
 
         except IndexError:
@@ -646,7 +653,8 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
                                         disorder_batches, test_batch_size, current_length)
 
                 for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
-                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random)
+                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise,
+                                                              fold, random)
 
                 for k in batch_wise.keys():
                     all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -655,19 +663,25 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
     if multilabel:
         # batch-wise metrics
         all_metrics = [metrics(all_conf_matrices[0]), metrics(all_conf_matrices[1]), metrics(all_conf_matrices[2])]
+        all_CIs = [{}, {}, {}]
 
-        # exclude nan values
-        for k in all_metrics[0].keys():
+        for k in all_metrics.keys():
+            # exclude nan values
             all_metrics[0][k] = all_metrics[0][k][np.logical_not(np.isnan(all_metrics[0][k]))]
             all_metrics[1][k] = all_metrics[1][k][np.logical_not(np.isnan(all_metrics[1][k]))]
             all_metrics[2][k] = all_metrics[2][k][np.logical_not(np.isnan(all_metrics[2][k]))]
 
-        # standard error calculation
-        all_sd_errors = [{}, {}, {}]
-        for k in all_metrics[0].keys():
-            all_sd_errors[0][k] = np.std(all_metrics[0][k], ddof=1) / np.sqrt(len(all_metrics[0][k]))
-            all_sd_errors[1][k] = np.std(all_metrics[1][k], ddof=1) / np.sqrt(len(all_metrics[1][k]))
-            all_sd_errors[2][k] = np.std(all_metrics[2][k], ddof=1) / np.sqrt(len(all_metrics[2][k]))
+            # bootstrapping
+            # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
+            data = [(all_metrics[i][k],) for i in all_metrics]  # convert array to sequence
+            # calculate 95% bootstrapped confidence interval for standard error (not deviation)
+            bootstrap_ci = [bootstrap(data[i], np.std, confidence_level=0.95,
+                                      random_state=303, method='percentile',
+                                      n_resamples=1000) for i in data]
+            # metric +- CI
+            all_CIs[0][k] = (bootstrap_ci[0].confidence_interval[1] - bootstrap_ci[0].confidence_interval[0]) / 2
+            all_CIs[1][k] = (bootstrap_ci[1].confidence_interval[1] - bootstrap_ci[1].confidence_interval[0]) / 2
+            all_CIs[2][k] = (bootstrap_ci[2].confidence_interval[1] - bootstrap_ci[2].confidence_interval[0]) / 2
 
         # calculate sum and absolute (avg) metrics
         sum_matrix = [{}, {}, {}]
@@ -682,15 +696,21 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
     else:  # no multilabel
         # protein-wise metrics
         all_metrics = metrics(all_conf_matrices)
+        all_CIs = {}
 
-        # exclude nan values
         for k in all_metrics.keys():
+            # exclude nan values
             all_metrics[k] = all_metrics[k][np.logical_not(np.isnan(all_metrics[k]))]
 
-        # standard error calculation
-        all_sd_errors = {}
-        for k in all_metrics.keys():
-            all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
+            # bootstrapping
+            # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
+            data = (all_metrics[k],)  # convert array to sequence
+            # calculate 95% bootstrapped confidence interval for standard error (not deviation)
+            bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
+                                     random_state=303, method='percentile',
+                                     n_resamples=1000)
+            # metric +- CI
+            all_CIs[k] = (bootstrap_ci.confidence_interval[1] - bootstrap_ci.confidence_interval[0]) / 2
 
         # calculate sum and absolute (avg) metrics
         sum_matrix = {}
@@ -699,8 +719,7 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
 
         avg_metrics = metrics(sum_matrix)
 
-
-    return sum_matrix, avg_metrics, all_sd_errors, all_metrics
+    return sum_matrix, avg_metrics, all_CIs, all_metrics
 
 
 def assess_bindEmbed():
@@ -753,15 +772,21 @@ def assess_bindEmbed():
     # metrics and sd over all folds/proteins
     # protein-wise metrics
     all_metrics = metrics(all_conf_matrices)
+    all_CIs = {}
 
-    # exclude nan values
     for k in all_metrics.keys():
+        # exclude nan values
         all_metrics[k] = all_metrics[k][np.logical_not(np.isnan(all_metrics[k]))]
 
-    # standard error calculation
-    all_sd_errors = {}
-    for k in all_metrics.keys():
-        all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
+        # bootstrapping
+        # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
+        data = (all_metrics[k],)  # convert array to sequence
+        # calculate 95% bootstrapped confidence interval for standard error (not deviation)
+        bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
+                                 random_state=303, method='percentile',
+                                 n_resamples=1000)
+        # metric +- CI
+        all_CIs[k] = (bootstrap_ci.confidence_interval[1] - bootstrap_ci.confidence_interval[0]) / 2
 
     # calculate sum and absolute (avg) metrics
     sum_matrix = {}
@@ -770,7 +795,7 @@ def assess_bindEmbed():
 
     avg_metrics = metrics(sum_matrix)
 
-    return sum_matrix, avg_metrics, all_sd_errors
+    return sum_matrix, avg_metrics, all_CIs
 
 
 def submit_prediction(prediction, device, dataset_dir, test_batch_size, validation):
@@ -779,17 +804,17 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
     val_labels = read_labels(None, None, dataset_dir)
     target = []
     disorder = []
-    pr_rm = []      # predictions to be removed
+    pr_rm = []  # predictions to be removed
     for id in prediction.keys():
         # for target: 0 = non-binding, 1 = binding, 0 = not in disordered region
         try:
             binding = str(val_labels[id][2])
-        except KeyError:    # due to ID conversion of DeepDISOBind
+        except KeyError:  # due to ID conversion of DeepDISOBind
             # try to remove the last part of the ID
             id2 = '|'.join(id.split('|')[:-1])
             try:
                 binding = str(val_labels[id2][2])
-            except KeyError:    # due to removal of some proteins from the test set
+            except KeyError:  # due to removal of some proteins from the test set
                 pr_rm.append(id)
                 continue
             id = id2
@@ -804,7 +829,7 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
     for id in pr_rm:
         try:
             prediction.pop(id)
-        except KeyError:    # due to ID conversion of DeepDISOBind
+        except KeyError:  # due to ID conversion of DeepDISOBind
             # try to remove the last part of the ID
             id = '|'.join(id.split('|')[:-1])
             prediction.pop(id)
@@ -843,15 +868,24 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
     # metrics and sd over all folds/proteins
     # protein-wise metrics
     all_metrics = metrics(all_conf_matrices)
+    all_CIs = {}
 
-    # exclude nan values
     for k in all_metrics.keys():
+        # exclude nan values
         all_metrics[k] = all_metrics[k][np.logical_not(np.isnan(all_metrics[k]))]
 
-    # standard error calculation
-    all_sd_errors = {}
-    for k in all_metrics.keys():
-        all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
+        # bootstrapping
+        # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
+        data = (all_metrics[k],)  # convert array to sequence
+        # calculate 95% bootstrapped confidence interval for standard error (not deviation)
+        bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
+                                 random_state=303, method='percentile',
+                                 n_resamples=1000)
+        # metric +- CI
+        all_CIs[k] = (bootstrap_ci.confidence_interval[1] - bootstrap_ci.confidence_interval[0]) / 2
+
+        # standard error calculation    --> obsolete, this is included in the bootstrap function now
+        # all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
 
     # calculate sum and absolute (avg) metrics
     sum_matrix = {}
@@ -860,7 +894,7 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
 
     avg_metrics = metrics(sum_matrix)
 
-    return sum_matrix, avg_metrics, all_sd_errors
+    return sum_matrix, avg_metrics, all_CIs
 
 
 def assess_anchor2(dataset_dir, test_batch_size, validation):
@@ -882,7 +916,7 @@ def assess_anchor2(dataset_dir, test_batch_size, validation):
             elif line[0] != '#' and line != '\n':
                 # continue
                 prediction.append(round(float(line.split('\t')[3])))
-            else:   # comment line
+            else:  # comment line
                 pass
 
     # evaluate prediction
@@ -901,7 +935,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
     for p in Path(in_folder).glob('*.txt'):
         with p.open() as f:
             for line in f.readlines():
-                if line.startswith('>'):    # new entry
+                if line.startswith('>'):  # new entry
                     parts = line.split('_')
                     name = '|'.join(parts[:3])[1:]
                     if name == 'G0SCY6|sequence|HYPK':  # special case: this ID includes '_'
@@ -911,9 +945,9 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
                     this_p = np.array(line.split(':')[1].split(' '), dtype=float)
                     if prediction is None:
                         prediction = this_p
-                    else:   # unite all binding categories to binding in general
+                    else:  # unite all binding categories to binding in general
                         prediction = np.logical_or(prediction, this_p)
-                    if 'RNA_binary' in line:   # the last prediction for this entry
+                    if 'RNA_binary' in line:  # the last prediction for this entry
                         predictions_binary[name] = prediction
                 # else: ignore
     # evaluate prediction
@@ -925,8 +959,8 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 
 if __name__ == '__main__':
     # read input embeddings
-    test = True
-    validation = "disorder_only"    # if disorder_only, the batches are formed after excluding structured regions
+    test = False
+    validation = "disorder_only"  # if disorder_only, the batches are formed after excluding structured regions
     embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
@@ -938,10 +972,12 @@ if __name__ == '__main__':
     # load pre-computed datapoint representations from AAindex1
     aaindex_rep = dict()
     if test:
-        aaindex_rep.update(np.load(f'../dataset/MobiDB_dataset/AAindex_representation_test.npy', allow_pickle=True).item())
+        aaindex_rep.update(
+            np.load(f'../dataset/MobiDB_dataset/AAindex_representation_test.npy', allow_pickle=True).item())
     else:
         for f in range(5):
-            fold_rep = np.load(f'../dataset/MobiDB_dataset/folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
+            fold_rep = np.load(f'../dataset/MobiDB_dataset/folds/AAindex_representation_fold_{f}.npy',
+                               allow_pickle=True).item()
             aaindex_rep.update(fold_rep)
 
     """ disprot code
@@ -1000,9 +1036,9 @@ if __name__ == '__main__':
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
     #variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
-    variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
-    assessment_name = "mobidb_new_test"      # "mobidb" / "2.21_only" / ""
-    test_batch_size = 100    # n AAs, or None --> 1 protein
+    variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
+    assessment_name = "mobidb_new_bootstrap"  # "mobidb" / "2.21_only" / ""
+    test_batch_size = 100  # n AAs, or None --> 1 protein
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
                0.1: [0.1, 0.4, 0.35, 0.5, 0.55],
@@ -1033,16 +1069,16 @@ if __name__ == '__main__':
                20.0: [0.1, 0.1, 0.15, 0.1, 0.1],
                22.0: [0.25, 0.2, 0.25, 0.25, 0.25]
                }
-    names = {0.0: "mobidb_CNN_0",   # 1: currently best model
+    names = {0.0: "mobidb_CNN_0",  # 1: currently best model
              0.1: "mobidb_CNN_1",
              0.2: "mobidb_CNN_2",
              1.0: "mobidb_FNN_0",
              1.1: "mobidb_FNN_1",
-             1.2: "mobidb_FNN_2",   # 2: best FNN
+             1.2: "mobidb_FNN_2",  # 2: best FNN
              1.3: "mobidb_FNN_3",
              1.4: "mobidb_FNN_4",
              1.5: "mobidb_FNN_5",
-             2.0: "mobidb_D_CNN_0",     # 3: best model trained on disorder_only
+             2.0: "mobidb_D_CNN_0",  # 3: best model trained on disorder_only
              2.0005: "mobidb_D_CNN_0_lr0005",
              2.001: "mobidb_D_CNN_0_lr001",
              2.02: "mobidb_D_CNN_0_d2",
@@ -1054,13 +1090,13 @@ if __name__ == '__main__':
              2.2: "mobidb_D_CNN_2",
              3.0: "mobidb_D_FNN_0",
              3.1: "mobidb_D_FNN_1",
-             3.2: "mobidb_D_FNN_2",     # 4: best FNN on disorder only
+             3.2: "mobidb_D_FNN_2",  # 4: best FNN on disorder only
              3.3: "mobidb_D_FNN_3",
              3.4: "mobidb_D_FNN_4",
              10.0: "random_binary",
              12.0: "random_D_only",
              20.0: "AAindex_baseline",  # based on mobidb_CNN_0
-             22.0: "AAindex_D_baseline"    # based on mobidb_D_CNN_0
+             22.0: "AAindex_D_baseline"  # based on mobidb_D_CNN_0
              }
 
     best_folds = {0.0: 2,
@@ -1092,8 +1128,6 @@ if __name__ == '__main__':
                   20.0: 4,
                   22.0: 1
                   }
-
-
 
     performances = []
     per_model_metrics = []
@@ -1135,7 +1169,6 @@ if __name__ == '__main__':
         post_processing = False
         batch_size = 512
 
-
         loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
         cutoff = cutoffs[variant]
         name = names[variant]
@@ -1146,7 +1179,6 @@ if __name__ == '__main__':
                             validation)
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
-
 
     # Welch test for some specific models
     """
@@ -1169,14 +1201,14 @@ if __name__ == '__main__':
     with open(output_name, "w") as output:
         output.write("model\tclass\t")
         if variant:
-             # works only when variant not empty
+            # works only when variant not empty
             for key in performances[0][0].keys():  # conf-matrix
                 output.write(str(key) + "\t")
             for key in performances[0][1].keys():  # metrics
                 output.write(str(key) + "\t")
             for key in performances[0][2].keys():  # SEs of metrics
                 output.write("SE_" + str(key) + "\t")
-            output.write("\n")
+        output.write("\n")
 
         for i, v in enumerate(variants):
             if 'MobiDB' not in dataset_dir and (v % 10) >= 4.0:  # multiclass
@@ -1210,8 +1242,7 @@ if __name__ == '__main__':
                     output.write(str(performance[2][key]) + "\t")
                 output.write("\n")
 
+
             # write_other_models("bindEmbed", bindEmbed_performance)
             write_other_models("ANCHOR2", anchor2_performance)
             write_other_models("DeepDISOBind", deepdisobind_performance)
-
-

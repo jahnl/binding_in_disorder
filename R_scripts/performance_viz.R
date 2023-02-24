@@ -207,19 +207,23 @@ ggplot(data = rbind(performance_t[7], performance_t[20], performance_t[8]))+
 
 ######### mobidb models ##############
 
-performance <- data.table(read.table("../results/logs/performance_assessment_mobidb_new_balancing.tsv", header = TRUE, sep = "\t"))
+performance <- data.table(read.table("../results/logs/performance_assessment_mobidb_new_bootstrap.tsv", header = TRUE, sep = "\t"))
 performance <- cbind(performance, model_name = c("00 mobidb_CNN_0", "01 mobidb_CNN_1", "02 mobidb_CNN_2", 
                                                  "03 mobidb_FNN_0", "04 mobidb_FNN_1", "05 mobidb_FNN_2", "06 mobidb_FNN_3", "07 mobidb_FNN_4", "08 mobidb_FNN_5", 
-                                                 "09 mobidb_D_CNN_0", "09.1 mobidib_D_CNN_0_lr0005", "09.2 mobidib_D_CNN_0_lr001", "09.3 mobidib_D_CNN_0_d2", "09.4 mobidib_D_CNN_0_d3", "09.5 mobidib_D_CNN_0_k3", "09.6 mobidib_D_CNN_0_k7", "09.7 mobidib_D_CNN_0_l8", 
+                                                 "09 mobidb_D_CNN_0", "09.1 mobidib_D_CNN_0_lr0005", "09.2 mobidib_D_CNN_0_lr001", #"09.3 mobidib_D_CNN_0_d2", 
+                                                    "09.4 mobidib_D_CNN_0_d3", "09.5 mobidib_D_CNN_0_k3", "09.6 mobidib_D_CNN_0_k7", "09.7 mobidib_D_CNN_0_l8", 
                                                  "10 mobidb_D_CNN_1", "11 mobidb_D_CNN_2",
-                                                 "12 mobidib_D_FNN_0", "13 mobidib_D_FNN_1", "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
+                                                 "12 mobidib_D_FNN_0", #"13 mobidib_D_FNN_1", 
+                                                    "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
                                                  "AAindex_baseline", "AAindex_D_baseline", "random_baseline", 'random_D_baseline'))
-performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_new_test.tsv", header = TRUE, sep = "\t"))
+performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_new_test_new_bootstrap.tsv", header = TRUE, sep = "\t"))
 performance_test <- cbind(performance_test, model_name = c("00 mobidb_CNN_0", "01 mobidb_CNN_1", "02 mobidb_CNN_2", 
                                                            "03 mobidb_FNN_0", "04 mobidb_FNN_1", "05 mobidb_FNN_2", "06 mobidb_FNN_3", "07 mobidb_FNN_4", "08 mobidb_FNN_5", 
-                                                           "09 mobidb_D_CNN_0", "09.1 mobidib_D_CNN_0_lr0005", "09.2 mobidib_D_CNN_0_lr001", "09.3 mobidib_D_CNN_0_d2", "09.4 mobidib_D_CNN_0_d3", "09.5 mobidib_D_CNN_0_k3", "09.6 mobidib_D_CNN_0_k7", "09.7 mobidib_D_CNN_0_l8", 
+                                                           "09 mobidb_D_CNN_0", "09.1 mobidib_D_CNN_0_lr0005", "09.2 mobidib_D_CNN_0_lr001", #"09.3 mobidib_D_CNN_0_d2", 
+                                                              "09.4 mobidib_D_CNN_0_d3", "09.5 mobidib_D_CNN_0_k3", "09.6 mobidib_D_CNN_0_k7", "09.7 mobidib_D_CNN_0_l8", 
                                                            "10 mobidb_D_CNN_1", "11 mobidb_D_CNN_2",
-                                                           "12 mobidib_D_FNN_0", "13 mobidib_D_FNN_1", "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
+                                                           "12 mobidib_D_FNN_0", #"13 mobidib_D_FNN_1", 
+                                                              "14 mobidb_D_FNN_2", "15 mobidb_D_FNN_3", "16 mobidb_D_FNN_4",
                                                            "17 ANCHOR2", "18 DeepDISOBind",
                                                            "AAindex_baseline", "AAindex_D_baseline", "random_baseline", 'random_D_baseline'))
 
@@ -353,10 +357,10 @@ ggplot(data = rbind(performance_test[1], performance_test[6], performance_test[1
 
 
 # prediction: selection,  val and Test difference
-val_perf <- data.table(rbind(performance[1], performance[6], performance[10], performance[22], performance[25:26], performance[28], performance[100:101], use.names=FALSE))
+val_perf <- data.table(rbind(performance[1], performance[6], performance[10], performance[20], performance[23:24], performance[26], performance[100:101], use.names=FALSE))
 val_perf[] <- lapply(val_perf, function(x) as.numeric(x) )
 val_perf$model_name <- c("00 mobidb_CNN_0", "05 mobidb_FNN_2", "09 mobidb_D_CNN_0", "14 mobidb_D_FNN_2", "AAindex_baseline", "AAindex_D_baseline", "random_D_baseline", "ref: ANCHOR2", "ref: DeepDISOBind")
-test_perf <- data.table(rbind(performance_test[1], performance_test[6], performance_test[10], performance_test[22], performance_test[27:28], performance_test[30], performance_test[25:26]))
+test_perf <- data.table(rbind(performance_test[1], performance_test[6], performance_test[10], performance_test[20], performance_test[25:26], performance_test[28], performance_test[23:24]))
 test_perf$model_name[8:9] <- c("ref: ANCHOR2", "ref: DeepDISOBind")
 
 ggplot(data = test_perf)+
@@ -374,3 +378,4 @@ ggplot(data = test_perf)+
   ggtitle("Difference of the Performance Between Validation and Test Set")+
   scale_fill_colorblind10()+
   theme_bw()
+
