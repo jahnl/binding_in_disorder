@@ -359,6 +359,85 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
             for element in per_protein_score_2:
                 out.write(element[0] + "\t" + str(element[1]) + "\n")
 
+        """
+        # statistics for CV-folds (only possible if they already exist)
+        for fold in range(5):
+            per_protein_counts = {'length': [], 'n_disordered': [], 'n_structured': [],
+                                  'n_D_binding': [], 'n_D_nonbinding': [],
+                                  'binding_positioning_distr': [0, 0, 0, 0, 0],
+                                  'D_region_length': []}
+            per_protein_score = []
+
+            bind_count = 0
+            nbind_count = 0
+            diso_nbind_count = 0
+            positive_proteins = 0
+            negative_proteins = 0
+            pos_prot_res = 0
+            neg_prot_res = 0
+            with open(dataset_dir + 'folds/CV_fold_' + str(fold) +'_labels_None.txt', 'r') as fold_in:
+                triple_pos = -1
+                for line in fold_in.readlines():
+                    triple_pos = (triple_pos + 1) % 4
+                    if triple_pos == 3:     # look only at the line with binding annotation, one protein
+                        disordered_regions = []
+                        last_in_D = False
+                        for residue in line:
+                            if residue in ['_', 'B']:
+                                # report disordered region
+                                if not last_in_D:
+                                    disordered_regions.append("")
+                                    last_in_D = True
+                                disordered_regions[-1] += residue
+
+                            elif residue == '-':
+                                # change to structured region
+                                last_in_D = False
+
+                        # statistics
+                        b_c = line.count('B')
+                        length = len(line) - 1
+                        bind_count += b_c
+                        nbind_count += length - b_c
+                        diso_nb_c = line.count('_')
+                        diso_nbind_count += diso_nb_c
+                        if b_c > 0:
+                            positive_proteins += 1
+                            pos_prot_res += length
+                        else:
+                            negative_proteins += 1
+                            neg_prot_res += length
+
+                        # counts for distribution:
+                        per_protein_counts['length'].append(length)
+                        per_protein_counts['n_disordered'].append(b_c + diso_nb_c)
+                        per_protein_counts['n_structured'].append(length - (b_c + diso_nb_c))
+                        per_protein_counts['n_D_binding'].append(b_c)
+                        per_protein_counts['n_D_nonbinding'].append(diso_nb_c)
+                        for region in disordered_regions:
+                            per_protein_counts['D_region_length'].append(len(region))
+                            chunk_size = ceil(len(region) / 5)
+                            double_residues = (5 - (len(region) - (chunk_size - 1) * 5)) % 5
+                            insert_positions = random.sample(population=range(len(region)), k=double_residues)
+                            insert_positions.sort(reverse=True)
+                            for p in insert_positions:
+                                region = region[:p] + region[p] * 2 + region[p + 1:]
+                            chunks = [region[i:i + chunk_size] for i in range(0, len(region), chunk_size)]
+                            for i, c in enumerate(chunks):
+                                per_protein_counts['binding_positioning_distr'][i] += c.count('B')
+
+                        score = round(length + (500 * (diso_nb_c / length)), 2)
+                        per_protein_score.append((entry_id.split('|')[0], score))
+                        #per_protein_score_2.append((entry_id.split('|')[0], round(length, 2)))
+
+            with open(dataset_dir + 'val_fold_' + str(fold) + '_stats.txt', 'w') as out:
+                for key in per_protein_counts.keys():
+                    out.write(key + "\n" + str(per_protein_counts[key]) + "\n")
+            with open(dataset_dir + 'val_fold_' + str(fold) + '_score_distribution.tsv', 'w') as out:
+                out.write("protein\tscore\n")
+                for element in per_protein_score:
+                    out.write(element[0] + "\t" + str(element[1]) + "\n")
+        """
 
 def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str,
                overwrite: bool):

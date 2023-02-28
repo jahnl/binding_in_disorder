@@ -960,6 +960,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 if __name__ == '__main__':
     # read input embeddings
     test = False
+    all_folds = True    # True if all fold-models are tried out on their specific val set or the test set
     validation = "disorder_only"  # if disorder_only, the batches are formed after excluding structured regions
     embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
@@ -1099,16 +1100,16 @@ if __name__ == '__main__':
              22.0: "AAindex_D_baseline"  # based on mobidb_D_CNN_0
              }
 
-    best_folds = {0.0: 2,
+    best_folds = {0.0: 2,   #
                   0.1: 1,
                   0.2: 1,
                   1.0: 1,
                   1.1: 3,
-                  1.2: 2,
+                  1.2: 2,   #
                   1.3: 2,
                   1.4: 2,
                   1.5: 2,
-                  2.0: 2,
+                  2.0: 2,   #
                   2.0005: 2,
                   2.001: 2,
                   2.02: 4,
@@ -1120,7 +1121,7 @@ if __name__ == '__main__':
                   2.2: 2,
                   3.0: 1,
                   3.1: 2,
-                  3.2: 4,
+                  3.2: 4,   #
                   3.3: 2,
                   3.4: 0,
                   10.0: 2,
