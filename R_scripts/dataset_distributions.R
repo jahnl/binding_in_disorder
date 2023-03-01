@@ -3,6 +3,7 @@ library(stringr)
 library(scales)
 
 test <- readLines("../dataset/MobiDB_dataset/test_set_stats.txt")
+test_new <- readLines("../dataset/MobiDB_dataset/test_set_stats.txt")
 train <- readLines("../dataset/MobiDB_dataset/train_set_stats.txt")
 val_0 <- readLines("../dataset/MobiDB_dataset/val_fold_0_stats.txt")
 val_1 <- readLines("../dataset/MobiDB_dataset/val_fold_1_stats.txt")
@@ -21,6 +22,7 @@ extract_numerics <- function(x){
 
 #length
 test_length <- extract_numerics(test[2])
+test_new_length <- extract_numerics(test_new[2])
 train_length <- extract_numerics(train[2])
 val_0_length <- extract_numerics(val_0[2])
 val_1_length <- extract_numerics(val_1[2])
@@ -41,10 +43,12 @@ ggplot()+
   geom_density(data = val_2_length, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "fold 2"), size = 1)+
   geom_density(data = val_3_length, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "fold 3"), size = 1)+
   geom_density(data = val_4_length, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "fold 4"), size = 1)+
+  geom_density(data = test_length, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "original test"), size = 1)+
+  geom_density(data = test_new_length, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "modified test"), size = 1)+
   scale_x_log10()+
   xlab("protein length")+
   labs(fill="set")+
-  ggtitle("Distribution of protein length in different validation sets")
+  ggtitle("Distribution of protein length in different sets")
 
 
 #disordered region length
@@ -148,6 +152,7 @@ ggplot()+
 
 # n binding residues in disorder
 test_b <- extract_numerics(test[8])
+test_new_b <- extract_numerics(test_new[8])
 train_b <- extract_numerics(train[8])
 val_0_b <- extract_numerics(val_0[8])
 val_1_b <- extract_numerics(val_1[8])
@@ -198,10 +203,12 @@ ggplot()+
   geom_density(data = val_2_b/val_2_length*100, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "fold 2"), size = 1)+
   geom_density(data = val_3_b/val_3_length*100, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "fold 3"), size = 1)+
   geom_density(data = val_4_b/val_4_length*100, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "fold 4"), size = 1)+
+  geom_density(data = test_b/test_length*100, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "original test"), size = 1)+
+  geom_density(data = test_new_b/test_new_length*100, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "modified test"), size = 1)+
   scale_y_sqrt()+
   xlab("binding residues per protein [%]")+
   labs(fill="set")+
-  ggtitle("Distribution of the percentage of binding residues per protein in different validation sets")
+  ggtitle("Distribution of the percentage of binding residues per protein in different sets")
 
 ggplot()+
   geom_density(data = val_0_b/val_0_d*100, mapping = aes(y = stat(count / sum(count)), x = numerics, color = "fold 0"), size = 1)+

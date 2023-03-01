@@ -507,7 +507,7 @@ def post_process(prediction: torch.tensor):
 
 
 def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size, loss_function,
-           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size, validation):
+           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size, validation, folds_separate):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -960,7 +960,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 if __name__ == '__main__':
     # read input embeddings
     test = False
-    all_folds = True    # True if all fold-models are tried out on their specific val set or the test set
+    folds_separate = True
     validation = "disorder_only"  # if disorder_only, the batches are formed after excluding structured regions
     embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
     embeddings = dict()
@@ -1037,8 +1037,8 @@ if __name__ == '__main__':
     # mobidb code
     dataset_dir = '../dataset/MobiDB_dataset/'
     #variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
-    variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
-    assessment_name = "mobidb_new_bootstrap"  # "mobidb" / "2.21_only" / ""
+    variants = [0.0]    # , 1.2, 2.0, 3.2, 10.0, 12.0, 20.0, 22.0
+    assessment_name = "mobidb_all_folds"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
@@ -1177,7 +1177,8 @@ if __name__ == '__main__':
 
         assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size,
                             loss_function, post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size,
-                            validation)
+                            validation, folds_separate)
+
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
 
