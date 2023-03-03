@@ -2,14 +2,13 @@ library(ggplot2)
 library(stringr)
 library(scales)
 
-test <- readLines("../dataset/MobiDB_dataset/test_set_stats.txt")
-test_new <- readLines("../dataset/MobiDB_dataset/test_set_stats.txt")
-train <- readLines("../dataset/MobiDB_dataset/train_set_stats.txt")
-val_0 <- readLines("../dataset/MobiDB_dataset/val_fold_0_stats.txt")
-val_1 <- readLines("../dataset/MobiDB_dataset/val_fold_1_stats.txt")
-val_2 <- readLines("../dataset/MobiDB_dataset/val_fold_2_stats.txt")
-val_3 <- readLines("../dataset/MobiDB_dataset/val_fold_3_stats.txt")
-val_4 <- readLines("../dataset/MobiDB_dataset/val_fold_4_stats.txt")
+test <- readLines("../dataset/MobiDB_dataset_2/test_set_stats.txt")
+train <- readLines("../dataset/MobiDB_dataset_2/train_set_stats.txt")
+#val_0 <- readLines("../dataset/MobiDB_dataset/val_fold_0_stats.txt")
+#val_1 <- readLines("../dataset/MobiDB_dataset/val_fold_1_stats.txt")
+#val_2 <- readLines("../dataset/MobiDB_dataset/val_fold_2_stats.txt")
+#val_3 <- readLines("../dataset/MobiDB_dataset/val_fold_3_stats.txt")
+#val_4 <- readLines("../dataset/MobiDB_dataset/val_fold_4_stats.txt")
 # parameters in lines: length-2, n_disordered-4, n_structured-6, n_D_binding-8, 
 #                      n_D_nonbinding-10, binding_positioning_distr-12,
 #                      D_region_length-14
@@ -22,13 +21,13 @@ extract_numerics <- function(x){
 
 #length
 test_length <- extract_numerics(test[2])
-test_new_length <- extract_numerics(test_new[2])
+#test_new_length <- extract_numerics(test_new[2])
 train_length <- extract_numerics(train[2])
-val_0_length <- extract_numerics(val_0[2])
-val_1_length <- extract_numerics(val_1[2])
-val_2_length <- extract_numerics(val_2[2])
-val_3_length <- extract_numerics(val_3[2])
-val_4_length <- extract_numerics(val_4[2])
+#val_0_length <- extract_numerics(val_0[2])
+#val_1_length <- extract_numerics(val_1[2])
+#val_2_length <- extract_numerics(val_2[2])
+#val_3_length <- extract_numerics(val_3[2])
+#val_4_length <- extract_numerics(val_4[2])
 ggplot()+
   geom_histogram(data = test_length, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "test"), alpha = 0.5)+
   geom_histogram(data = train_length, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "train"), alpha = 0.5)+
@@ -54,11 +53,11 @@ ggplot()+
 #disordered region length
 test_D_length <- extract_numerics(test[14])
 train_D_length <- extract_numerics(train[14])
-val_0_D_length <- extract_numerics(val_0[14])
-val_1_D_length <- extract_numerics(val_1[14])
-val_2_D_length <- extract_numerics(val_2[14])
-val_3_D_length <- extract_numerics(val_3[14])
-val_4_D_length <- extract_numerics(val_4[14])
+#val_0_D_length <- extract_numerics(val_0[14])
+#val_1_D_length <- extract_numerics(val_1[14])
+#val_2_D_length <- extract_numerics(val_2[14])
+#val_3_D_length <- extract_numerics(val_3[14])
+#val_4_D_length <- extract_numerics(val_4[14])
 ggplot()+
   geom_histogram(data = test_D_length, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "test"), alpha = 0.5)+
   geom_histogram(data = train_D_length, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "train"), alpha = 0.5)+
@@ -81,11 +80,11 @@ ggplot()+
 # n disordered residues
 test_d <- extract_numerics(test[4])
 train_d <- extract_numerics(train[4])
-val_0_d <- extract_numerics(val_0[4])
-val_1_d <- extract_numerics(val_1[4])
-val_2_d <- extract_numerics(val_2[4])
-val_3_d <- extract_numerics(val_3[4])
-val_4_d <- extract_numerics(val_4[4])
+#val_0_d <- extract_numerics(val_0[4])
+#val_1_d <- extract_numerics(val_1[4])
+#val_2_d <- extract_numerics(val_2[4])
+#val_3_d <- extract_numerics(val_3[4])
+#val_4_d <- extract_numerics(val_4[4])
 ggplot()+
   geom_histogram(data = test_d, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "test"), alpha = 0.5)+
   geom_histogram(data = train_d, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "train"), alpha = 0.5)+
@@ -126,15 +125,15 @@ ggplot()+
 # n structured residues
 test_s <- extract_numerics(test[6])
 train_s <- extract_numerics(train[6])
-val_0_s <- extract_numerics(val_0[6])
-val_1_s <- extract_numerics(val_1[6])
-val_2_s <- extract_numerics(val_2[6])
-val_3_s <- extract_numerics(val_3[6])
-val_4_s <- extract_numerics(val_4[6])
+#val_0_s <- extract_numerics(val_0[6])
+#val_1_s <- extract_numerics(val_1[6])
+#val_2_s <- extract_numerics(val_2[6])
+#val_3_s <- extract_numerics(val_3[6])
+#val_4_s <- extract_numerics(val_4[6])
 ggplot()+
   geom_histogram(data = test_s, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "test"), alpha = 0.5)+
   geom_histogram(data = train_s, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "train"), alpha = 0.5)+
-  scale_x_log10()+
+  scale_x_sqrt()+
   xlab("# structured residues per protein")+
   labs(fill="set")+
   ggtitle("Distribution of the number of structured residues per protein in test vs train set")
@@ -152,13 +151,13 @@ ggplot()+
 
 # n binding residues in disorder
 test_b <- extract_numerics(test[8])
-test_new_b <- extract_numerics(test_new[8])
+#test_new_b <- extract_numerics(test_new[8])
 train_b <- extract_numerics(train[8])
-val_0_b <- extract_numerics(val_0[8])
-val_1_b <- extract_numerics(val_1[8])
-val_2_b <- extract_numerics(val_2[8])
-val_3_b <- extract_numerics(val_3[8])
-val_4_b <- extract_numerics(val_4[8])
+#val_0_b <- extract_numerics(val_0[8])
+#val_1_b <- extract_numerics(val_1[8])
+#val_2_b <- extract_numerics(val_2[8])
+#val_3_b <- extract_numerics(val_3[8])
+#val_4_b <- extract_numerics(val_4[8])
 ggplot()+
   geom_histogram(data = test_b, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "test"), alpha = 0.5)+
   geom_histogram(data = train_b, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "train"), alpha = 0.5)+
@@ -225,11 +224,11 @@ ggplot()+
 # n non-binding residues in disorder
 test_nb <- extract_numerics(test[10])
 train_nb <- extract_numerics(train[10])
-val_0_nb <- extract_numerics(val_0[10])
-val_1_nb <- extract_numerics(val_1[10])
-val_2_nb <- extract_numerics(val_2[10])
-val_3_nb <- extract_numerics(val_3[10])
-val_4_nb <- extract_numerics(val_4[10])
+#val_0_nb <- extract_numerics(val_0[10])
+#val_1_nb <- extract_numerics(val_1[10])
+#val_2_nb <- extract_numerics(val_2[10])
+#val_3_nb <- extract_numerics(val_3[10])
+#val_4_nb <- extract_numerics(val_4[10])
 ggplot()+
   geom_histogram(data = test_nb, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "test"), alpha = 0.5)+
   geom_histogram(data = train_nb, mapping = aes(y = stat(count / sum(count)), x = numerics, fill = "train"), alpha = 0.5)+
@@ -292,11 +291,11 @@ ggplot()+
 # binding positioning
 test_p <- extract_numerics(test[12])
 train_p <- extract_numerics(train[12])
-val_0_p <- extract_numerics(val_0[12])
-val_1_p <- extract_numerics(val_1[12])
-val_2_p <- extract_numerics(val_2[12])
-val_3_p <- extract_numerics(val_3[12])
-val_4_p <- extract_numerics(val_4[12])
+#val_0_p <- extract_numerics(val_0[12])
+#val_1_p <- extract_numerics(val_1[12])
+#val_2_p <- extract_numerics(val_2[12])
+#val_3_p <- extract_numerics(val_3[12])
+#val_4_p <- extract_numerics(val_4[12])
 ggplot()+
   geom_bar(data = test_p, mapping = aes(x = c(1,2,3,4,5), y = numerics/sum(numerics), fill = "test"), stat = "identity", alpha = 0.5)+
   geom_bar(data = train_p, mapping = aes(x = c(1,2,3,4,5), y = numerics/sum(numerics), fill = "train"), stat = "identity", alpha = 0.5)+
