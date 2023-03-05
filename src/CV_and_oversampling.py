@@ -57,7 +57,15 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                                           'binary_D': 69,   # oversample 69% of binding proteins (based on distr. in disorder)
                                           'binary_U': 38,    # undersample 38% of non-binding proteins
                                           'binary_D_U': 31}  # undersample 31% of non-binding proteins (based on disorder)
-                            cut_dir = mobidb_cut if database == 'mobidb' else disprot_cut
+                            mobidb_2_cut = {'binary': 55,
+                                            'binary_D': 58,
+                                            'binary_U': 36,
+                                            'binary_D_U': 37}
+                            if database == "mobidb":
+                                cut_dir = mobidb_2_cut if "/MobiDB_dataset_2" in dataset_dir else mobidb_cut
+                            else:
+                                cut_dir = disprot_cut
+
                             # is there a binding disordered residue in sequence?
                             if re.match(r'.*(B|P|N|O|X|Y|Z|A).*', j.split('\n')[3]) is not None:
                                 if oversampling in ['binary', 'binary_D'] and chance <= cut_dir[oversampling]:
@@ -94,6 +102,22 @@ def split(dataset_dir: str, database: str, n_splits: int = 5, oversampling: str 
                                 else:   # disprot, 'binary_residues_disorder'
                                     # TODO, what's this ratio in disprot dataset?
                                     pass
+                            elif 'MobiDB_dataset_2' in dataset_dir:     # mobidb dataset 2
+                                if 'D' not in oversampling:  # binary_residues: times 13.0
+                                  repeat = 13
+                                elif 'U' not in oversampling:   # 'binary_residues_D', positives times 1.58,
+                                    # negatives outside of disorder: times 0.13
+                                    if (random.randint(1, 100)) > 42:
+                                        repeat = 0  # not 1, because original positives are always written down once
+                                    if (random.randint(1, 100)) > 13:
+                                        repeat_neg = 0
+                                else:   # 'binary_residues_D_U', negatives in disorder: times 0.63,
+                                        # negatives outside of disorder: times 0.08
+                                    if (random.randint(1, 100)) > 8:
+                                            repeat_neg = 0      # --> disorder only
+                                            if (random.randint(1, 100)) > (63-8):   # --> positives only
+                                                repeat = 0 # special case: this will be used for undersampling
+                                    # else: whole protein
                             else:   # mobidb
                                 if 'D' not in oversampling:  # times 14.2
                                     if (random.randint(1, 100)) <= 20:
