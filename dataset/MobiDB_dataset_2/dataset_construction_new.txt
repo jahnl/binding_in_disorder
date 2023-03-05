@@ -27,10 +27,5 @@
 
 ## Finalize train set	
  1. Redundancy reduce training set against test set using mmseqs-uniqueprot at H-val=0. (python -m rostclust uniqueprot2d <train_set> <test_set> <output_file>)
- 2. **Final training set: 1780 proteins (X negatives, Y positives)**
+ 2. **Final training set: 1780 proteins (1083 negatives, 697 positives)**
 
-[TODO from here] 
-
-## Fine-Tuning
-
- (2. Remove X proteins from test set to correct for out-of-distribution sampling)

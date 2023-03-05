@@ -1040,6 +1040,38 @@ if __name__ == '__main__':
     variants = [0.0]    # , 1.2, 2.0, 3.2, 10.0, 12.0, 20.0, 22.0
     assessment_name = "mobidb_all_folds"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
+
+    names = {0.0: "mobidb_CNN_0",  # 1: currently best model
+             0.1: "mobidb_CNN_1",
+             0.2: "mobidb_CNN_2",
+             1.0: "mobidb_FNN_0",
+             1.1: "mobidb_FNN_1",
+             1.2: "mobidb_FNN_2",  # 2: best FNN
+             1.3: "mobidb_FNN_3",
+             1.4: "mobidb_FNN_4",
+             1.5: "mobidb_FNN_5",
+             2.0: "mobidb_D_CNN_0",  # 3: best model trained on disorder_only
+             2.0005: "mobidb_D_CNN_0_lr0005",
+             2.001: "mobidb_D_CNN_0_lr001",
+             2.02: "mobidb_D_CNN_0_d2",
+             2.03: "mobidb_D_CNN_0_d3",
+             2.06: "mobidb_D_CNN_0_k3",
+             2.07: "mobidb_D_CNN_0_k7",
+             2.08: "mobidb_D_CNN_0_l8",
+             2.1: "mobidb_D_CNN_1",
+             2.2: "mobidb_D_CNN_2",
+             3.0: "mobidb_D_FNN_0",
+             3.1: "mobidb_D_FNN_1",
+             3.2: "mobidb_D_FNN_2",  # 4: best FNN on disorder only
+             3.3: "mobidb_D_FNN_3",
+             3.4: "mobidb_D_FNN_4",
+             10.0: "mobidb_2_CNN_0",
+             20.0: "random_binary",
+             22.0: "random_D_only",
+             30.0: "AAindex_baseline",  # based on mobidb_CNN_0
+             32.0: "AAindex_D_baseline"  # based on mobidb_D_CNN_0
+             }
+
     # cutoffs are different for each fold and variant
     cutoffs = {0.0: [0.35, 0.3, 0.3, 0.15, 0.4],
                0.1: [0.1, 0.4, 0.35, 0.5, 0.55],
@@ -1065,40 +1097,12 @@ if __name__ == '__main__':
                3.2: [0.4, 0.4, 0.4, 0.45, 0.4],
                3.3: [0.45, 0.45, 0.4, 0.45, 0.5],
                3.4: [0.6, 0.55, 0.55, 0.5, 0.5],
-               10.0: [0.94, 0.94, 0.94, 0.94, 0.94],
-               12.0: [0.63, 0.63, 0.63, 0.63, 0.63],
-               20.0: [0.1, 0.1, 0.15, 0.1, 0.1],
-               22.0: [0.25, 0.2, 0.25, 0.25, 0.25]
+               10.0: [0.15, 0.55, 0.5, 0.5, 0.15],
+               20.0: [0.94, 0.94, 0.94, 0.94, 0.94],
+               22.0: [0.63, 0.63, 0.63, 0.63, 0.63],
+               30.0: [0.1, 0.1, 0.15, 0.1, 0.1],
+               32.0: [0.25, 0.2, 0.25, 0.25, 0.25]
                }
-    names = {0.0: "mobidb_CNN_0",  # 1: currently best model
-             0.1: "mobidb_CNN_1",
-             0.2: "mobidb_CNN_2",
-             1.0: "mobidb_FNN_0",
-             1.1: "mobidb_FNN_1",
-             1.2: "mobidb_FNN_2",  # 2: best FNN
-             1.3: "mobidb_FNN_3",
-             1.4: "mobidb_FNN_4",
-             1.5: "mobidb_FNN_5",
-             2.0: "mobidb_D_CNN_0",  # 3: best model trained on disorder_only
-             2.0005: "mobidb_D_CNN_0_lr0005",
-             2.001: "mobidb_D_CNN_0_lr001",
-             2.02: "mobidb_D_CNN_0_d2",
-             2.03: "mobidb_D_CNN_0_d3",
-             2.06: "mobidb_D_CNN_0_k3",
-             2.07: "mobidb_D_CNN_0_k7",
-             2.08: "mobidb_D_CNN_0_l8",
-             2.1: "mobidb_D_CNN_1",
-             2.2: "mobidb_D_CNN_2",
-             3.0: "mobidb_D_FNN_0",
-             3.1: "mobidb_D_FNN_1",
-             3.2: "mobidb_D_FNN_2",  # 4: best FNN on disorder only
-             3.3: "mobidb_D_FNN_3",
-             3.4: "mobidb_D_FNN_4",
-             10.0: "random_binary",
-             12.0: "random_D_only",
-             20.0: "AAindex_baseline",  # based on mobidb_CNN_0
-             22.0: "AAindex_D_baseline"  # based on mobidb_D_CNN_0
-             }
 
     best_folds = {0.0: 2,   #
                   0.1: 1,
@@ -1125,9 +1129,10 @@ if __name__ == '__main__':
                   3.3: 2,
                   3.4: 0,
                   10.0: 2,
-                  12.0: 2,
-                  20.0: 4,
-                  22.0: 1
+                  20.0: 2,
+                  22.0: 2,
+                  30.0: 4,
+                  32.0: 1
                   }
 
     performances = []
