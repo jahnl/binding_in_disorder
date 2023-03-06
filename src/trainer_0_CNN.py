@@ -312,7 +312,7 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
     else:
         # load pre-computed datapoint representations from AAindex1
         for f in range(n_splits):
-            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
+            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_None_fold_{f}.npy', allow_pickle=True).item()
             embeddings.update(fold_rep)
 
     # iterate over folds

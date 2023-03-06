@@ -28,7 +28,7 @@ print(data[data$Prec == max(data$Prec) ,])
 
 
 # ROC curve, binary prediction, including curve within disorder
-model_name <- 'mobidb_2_CNN_0'
+model_name <- 'AAindex_D_baseline_2'
 data_file <- paste(paste('../results/logs/validation_', model_name, sep = ''), '.txt', sep = '')
 data <- read.table(data_file, sep = '\t', header = TRUE)
 data['D_Rec'] <- data['D_TP']/(data['D_TP']+data['D_FN'])

@@ -775,7 +775,7 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
         # load pre-computed datapoint representations from AAindex1
         aaindex = True
         for f in range(n_splits):
-            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{f}.npy', allow_pickle=True).item()
+            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_None_fold_{f}.npy', allow_pickle=True).item()
             embeddings.update(fold_rep)
 
     try_cutoffs(model_name, dataset_dir, embeddings, mode, multilabel, n_splits, architecture, n_layers, kernel_size,

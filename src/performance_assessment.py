@@ -507,7 +507,7 @@ def post_process(prediction: torch.tensor):
 
 
 def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size, loss_function,
-           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size, validation, folds_separate):
+           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size, validation):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -959,10 +959,10 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 
 if __name__ == '__main__':
     # read input embeddings
-    test = False
-    folds_separate = True
+    test = True
     validation = "disorder_only"  # if disorder_only, the batches are formed after excluding structured regions
-    embeddings_in = '../dataset/MobiDB_dataset/test_set.h5' if test else '../dataset/MobiDB_dataset/train_set.h5'
+    dataset_dir = '../dataset/MobiDB_dataset_2/'
+    embeddings_in = dataset_dir + 'test_set.h5' if test else dataset_dir + 'train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
         for key, embedding in f.items():
@@ -974,10 +974,10 @@ if __name__ == '__main__':
     aaindex_rep = dict()
     if test:
         aaindex_rep.update(
-            np.load(f'../dataset/MobiDB_dataset/AAindex_representation_test.npy', allow_pickle=True).item())
+            np.load(f'{dataset_dir}AAindex_representation_test.npy', allow_pickle=True).item())
     else:
         for f in range(5):
-            fold_rep = np.load(f'../dataset/MobiDB_dataset/folds/AAindex_representation_fold_{f}.npy',
+            fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_None_fold_{f}.npy',
                                allow_pickle=True).item()
             aaindex_rep.update(fold_rep)
 
@@ -1035,10 +1035,9 @@ if __name__ == '__main__':
     """
 
     # mobidb code
-    dataset_dir = '../dataset/MobiDB_dataset/'
     #variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
-    variants = [0.0]    # , 1.2, 2.0, 3.2, 10.0, 12.0, 20.0, 22.0
-    assessment_name = "mobidb_all_folds"  # "mobidb" / "2.21_only" / ""
+    variants = [10.0, 11.2, 12.0, 13.2, 20.0, 22.0, 40.0, 42.0]
+    assessment_name = "mobidb_2"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1072,7 +1071,9 @@ if __name__ == '__main__':
              20.0: "random_binary",
              22.0: "random_D_only",
              30.0: "AAindex_baseline",  # based on mobidb_CNN_0
-             32.0: "AAindex_D_baseline"  # based on mobidb_D_CNN_0
+             32.0: "AAindex_D_baseline",  # based on mobidb_D_CNN_0
+             40.0: "AAindex_baseline_2",
+             42.0: "AAindex_D_baseline_2"
              }
 
     # cutoffs are different for each fold and variant
@@ -1107,7 +1108,9 @@ if __name__ == '__main__':
                20.0: [0.94, 0.94, 0.94, 0.94, 0.94],
                22.0: [0.63, 0.63, 0.63, 0.63, 0.63],
                30.0: [0.1, 0.1, 0.15, 0.1, 0.1],
-               32.0: [0.25, 0.2, 0.25, 0.25, 0.25]
+               32.0: [0.25, 0.2, 0.25, 0.25, 0.25],
+               40.0: [0.25, 0.4, 0.35, 0.1, 0.05],
+               42.0: [0.25, 0.25, 0.25, 0.25, 0.15]
                }
 
     best_folds = {0.0: 2,   #
@@ -1141,7 +1144,9 @@ if __name__ == '__main__':
                   20.0: 2,
                   22.0: 2,
                   30.0: 4,
-                  32.0: 1
+                  32.0: 1,
+                  40.0: 1,
+                  42.0: 3
                   }
 
     performances = []
@@ -1191,7 +1196,7 @@ if __name__ == '__main__':
 
         assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size,
                             loss_function, post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size,
-                            validation, folds_separate)
+                            validation)
 
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
