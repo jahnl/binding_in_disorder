@@ -208,20 +208,22 @@ ggplot(data = rbind(performance_t[7], performance_t[20], performance_t[8]))+
 ######### mobidb models ##############
 
 performance <- data.table(read.table("../results/logs/performance_assessment_mobidb_2.tsv", header = TRUE, sep = "\t"))
-performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "05 mobidb_2_FNN_2", 
-                                                 "09 mobidb_2_D_CNN_0", 
-                                                    "14 mobidb_2_D_FNN_2",
-                                                 "ref.: AAindex_baseline", "ref.: AAindex_D_baseline",
+performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "01 mobidb_2_CNN_1", "02 mobidb_2_CNN_2",
+                                                 "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "08 mobidb_2_FNN_5",
+                                                 "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "11 mobidb_2_D_CNN_2", 
+                                                 "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "16 mobidb_2_D_FNN_4",
+                                                 "AAindex_baseline", "AAindex_D_baseline",
                                                  "random_baseline", "random_D_baseline"))
 performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2.tsv", header = TRUE, sep = "\t"))
-performance_test <- cbind(performance_test, model_name = c("00 mobidb_2_CNN_0", "05 mobidb_2_FNN_2", 
-                                                           "09 mobidb_2_D_CNN_0", 
-                                                           "14 mobidb_2_D_FNN_2",
+performance_test <- cbind(performance_test, model_name = c("00 mobidb_2_CNN_0", "01 mobidb_2_CNN_1", "02 mobidb_2_CNN_2",
+                                                           "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "08 mobidb_2_FNN_5",
+                                                           "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "11 mobidb_2_D_CNN_2", 
+                                                           "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "16 mobidb_2_D_FNN_4",
                                                            "AAindex_baseline", "AAindex_D_baseline",
                                                            "random_baseline", "random_D_baseline",
-                                                           "ref.: ANCHOR2", "ref.: DeepDISOBind"))
+                                                           "ref: ANCHOR2", "ref: DeepDISOBind"))
 
-# whole protein prediction
+#### whole protein prediction ######
 ggplot(data = rbind(performance[1:9], performance[18]))+
   geom_bar(mapping = aes(x = "Precision", y = Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = Precision - SE_Precision, ymax = Precision + SE_Precision), position = position_dodge2())+
@@ -264,8 +266,9 @@ ggplot(data = rbind(performance[1:9], performance[18]))+
   theme_bw()
 
 
-# disorder only prediction, part X
-ggplot(data = performance)+
+##### disorder only prediction, part X ####
+best_of_val = rbind(performance[2], performance[9], performance[12], performance[17:19], performance[21])
+ggplot(data = best_of_val)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -282,12 +285,12 @@ ggplot(data = performance)+
   geom_errorbar(mapping = aes(x = "Neg_Recall", ymin = D.Neg_Recall - SE_D.Neg_Recall, ymax = D.Neg_Recall + SE_D.Neg_Recall), position = position_dodge2())+
   ylab("Value")+
   xlab("")+
-  ggtitle("Performance of MobiDB Predictors in Disordered Regions only, best of")+
+  ggtitle("Performance of MobiDB Predictors in Disordered Regions Only, Best Of")+
   scale_fill_colorblind10()+
   theme_bw()
 
 # disorder only prediction, part X, selection + text
-ggplot(data = performance)+
+ggplot(data = best_of_val)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
@@ -302,12 +305,13 @@ ggplot(data = performance)+
   geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
   ylab("Value")+
   xlab("")+
-  ggtitle("Performance of MobiDB Predictors in Disordered Regions Only")+
+  ggtitle("Performance of MobiDB Predictors in Disordered Regions Only, Best Of")+
   scale_fill_colorblind10()+
   theme_bw()
 
 # disorder only prediction TEST
-ggplot(data = performance_test)+
+best_of_test = rbind(performance_test[2], performance_test[9], performance_test[12], performance_test[17:19], performance_test[21:23])
+ggplot(data = best_of_test)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -329,7 +333,7 @@ ggplot(data = performance_test)+
   theme_bw()
 
 # disorder only prediction TEST, selection
-ggplot(data = performance_test)+
+ggplot(data = best_of_test)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
@@ -351,12 +355,12 @@ ggplot(data = performance_test)+
 
 
 # prediction: selection,  val and Test difference
-val_perf <- data.table(performance)
+val_perf <- data.table(best_of_val)
 val_perf[] <- lapply(val_perf, function(x) as.numeric(x) )
-val_perf$model_name <- c("00 mobidb_2_CNN_0", "05 mobidb_2_FNN_2", "09 mobidb_2_D_CNN_0", "14 mobidb_2_D_FNN_2", "AAindex_baseline", "AAindex_D_baseline", "random_baseline", "random_D_baseline")
+val_perf$model_name <- c("01 mobidb_2_CNN_1", "08 mobidb_2_FNN_5", "11 mobidb_2_D_CNN_2", "16 mobidb_2_D_FNN_4", "AAindex_baseline", "AAindex_D_baseline", "random_D_baseline")
 val_perf <- rbind(val_perf, NA, NA, fill=TRUE)
-test_perf <- data.table(performance_test)
-test_perf$model_name[9:10] <- c("ref: ANCHOR2", "ref: DeepDISOBind")
+test_perf <- data.table(best_of_test)
+test_perf$model_name[8:9] <- c("ref: ANCHOR2", "ref: DeepDISOBind")
 
 ggplot(data = test_perf)+
   geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2(), alpha = 0.7)+

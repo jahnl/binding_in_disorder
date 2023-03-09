@@ -706,9 +706,16 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
             # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
             data = (all_metrics[k],)  # convert array to sequence
             # calculate 95% bootstrapped confidence interval for standard error (not deviation)
-            bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
+            try:
+                bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
                                      random_state=303, method='percentile',
                                      n_resamples=1000)
+            except ValueError:      # only one value in data because of too much NAs
+                data = (np.append(all_metrics[k], 0.0),)
+                bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
+                                     random_state=303, method='percentile',
+                                     n_resamples=1000)
+
             # metric +- CI
             all_CIs[k] = (bootstrap_ci.confidence_interval[1] - bootstrap_ci.confidence_interval[0]) / 2
 
@@ -900,10 +907,10 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
 def assess_anchor2(dataset_dir, test_batch_size, validation):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     in_folder = "../results/IUPred2"
-
+    file_name = "test_set_2" if "MobiDB_dataset_2" in dataset_dir else "test_set_200_reduction4"
     # extract prediction
     predictions_binary = {}
-    with open(f"{in_folder}/test_set_200_reduction4.result", "r") as file:
+    with open(f"{in_folder}/{file_name}.result", "r") as file:
         for line in file.readlines():
             if line[0] == '>':
                 # new protein
@@ -928,7 +935,8 @@ def assess_anchor2(dataset_dir, test_batch_size, validation):
 
 def assess_deepdisobind(dataset_dir, test_batch_size, validation):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    in_folder = "../results/DeepDISOBind"
+    f = "_2" if "MobiDB_dataset_2" in dataset_dir else ""
+    in_folder = f"../results/DeepDISOBind/test_set{f}"
 
     # extract prediction
     predictions_binary = {}
@@ -1036,7 +1044,11 @@ if __name__ == '__main__':
 
     # mobidb code
     #variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
-    variants = [10.0, 11.2, 12.0, 13.2, 20.0, 22.0, 40.0, 42.0]
+    variants = [10.0, 10.1, 10.2,
+                11.0, 11.1, 11.2, 11.3, 11.4, 11.5,
+                12.0, 12.1, 12.2,
+                13.0, 13.1, 13.2, 13.3, 13.4,
+                20.0, 22.0, 40.0, 42.0]
     assessment_name = "mobidb_2"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
