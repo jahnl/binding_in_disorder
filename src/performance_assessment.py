@@ -17,8 +17,10 @@ from pathlib import Path
 from os.path import exists
 
 
-def read_labels(fold, oversampling, dataset_dir):
-    if fold is None:  # --> test set
+def read_labels(fold, oversampling, dataset_dir, anchor_special_case=False):
+    if anchor_special_case:
+        file_name = f'{dataset_dir}train_set_input.txt'
+    elif fold is None:  # --> test set
         file_name = f'{dataset_dir}test_set_input.txt'
     else:
         if oversampling is None:  # no oversampling on validation set! (or mode with no oversampling)
@@ -805,10 +807,10 @@ def assess_bindEmbed():
     return sum_matrix, avg_metrics, all_CIs
 
 
-def submit_prediction(prediction, device, dataset_dir, test_batch_size, validation):
+def submit_prediction(prediction, device, dataset_dir, test_batch_size, validation, anchor_special_case=False):
     all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
                          "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
-    val_labels = read_labels(None, None, dataset_dir)
+    val_labels = read_labels(None, None, dataset_dir, anchor_special_case)
     target = []
     disorder = []
     pr_rm = []  # predictions to be removed
@@ -904,10 +906,13 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
     return sum_matrix, avg_metrics, all_CIs
 
 
-def assess_anchor2(dataset_dir, test_batch_size, validation):
+def assess_anchor2(dataset_dir, test_batch_size, validation, test):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     in_folder = "../results/IUPred2"
-    file_name = "test_set_2" if "MobiDB_dataset_2" in dataset_dir else "test_set_200_reduction4"
+    if "MobiDB_dataset_2" in dataset_dir:
+        file_name = "test_set_2" if test else "train_set_2_minus_anchor" # TODO: repeat with train subset
+    else:
+        file_name = "test_set_200_reduction4"
     # extract prediction
     predictions_binary = {}
     with open(f"{in_folder}/{file_name}.result", "r") as file:
@@ -928,7 +933,7 @@ def assess_anchor2(dataset_dir, test_batch_size, validation):
 
     # evaluate prediction
     sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size,
-                                                               validation)
+                                                               validation, True if "train" in file_name else False)
 
     return sum_matrix, avg_metrics, all_sd_errors
 
@@ -967,7 +972,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 
 if __name__ == '__main__':
     # read input embeddings
-    test = True
+    test = False
     validation = "disorder_only"  # if disorder_only, the batches are formed after excluding structured regions
     dataset_dir = '../dataset/MobiDB_dataset_2/'
     embeddings_in = dataset_dir + 'test_set.h5' if test else dataset_dir + 'train_set.h5'
@@ -1043,13 +1048,15 @@ if __name__ == '__main__':
     """
 
     # mobidb code
-    #variants = [0.0, 0.1, 0.2, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 2.0, 2.0005, 2.001, 2.02, 2.03, 2.06, 2.07, 2.08, 2.1, 2.2, 3.0, 3.1, 3.2, 3.3, 3.4, 10.0, 12.0, 20.0, 22.0]
+    """
     variants = [10.0, 10.1, 10.2,
                 11.0, 11.1, 11.2, 11.3, 11.4, 11.5,
                 12.0, 12.1, 12.2,
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
-    assessment_name = "mobidb_2"  # "mobidb" / "2.21_only" / ""
+    """
+    variants = [10.0]
+    assessment_name = "ANCHOR_on_val_reduced"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1263,9 +1270,13 @@ if __name__ == '__main__':
     if test:
         # bindEmbed_performance = assess_bindEmbed()
         print("ANCHOR2")
-        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size, validation)
+        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size, validation, test)
         print("DeepDISOBind")
         deepdisobind_performance = assess_deepdisobind(dataset_dir, test_batch_size, validation)
+    else:
+        # special case: evaluate ANCHOR2 performance on validation sets
+        print("ANCHOR2")
+        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size, validation, test)
 
     output_name = f'../results/logs/performance_assessment_{assessment_name}.tsv' if not test else \
         f'../results/logs/performance_assessment_test_{assessment_name}.tsv'
@@ -1303,18 +1314,18 @@ if __name__ == '__main__':
                     output.write(str(performances[i][2][key]) + "\t")
                 output.write("\n")
 
+
+        def write_other_models(name, performance):
+            output.write(name + "\t-\t")
+            for key in performance[0].keys():  # conf-matrix
+                output.write(str(performance[0][key]) + "\t")
+            for key in performance[1].keys():  # metrics
+                output.write(str(performance[1][key]) + "\t")
+            for key in performance[2].keys():  # SEs of metrics
+                output.write(str(performance[2][key]) + "\t")
+            output.write("\n")
+
+        # write_other_models("bindEmbed", bindEmbed_performance)
+        write_other_models("ANCHOR2", anchor2_performance)
         if test:
-            def write_other_models(name, performance):
-                output.write(name + "\t-\t")
-                for key in performance[0].keys():  # conf-matrix
-                    output.write(str(performance[0][key]) + "\t")
-                for key in performance[1].keys():  # metrics
-                    output.write(str(performance[1][key]) + "\t")
-                for key in performance[2].keys():  # SEs of metrics
-                    output.write(str(performance[2][key]) + "\t")
-                output.write("\n")
-
-
-            # write_other_models("bindEmbed", bindEmbed_performance)
-            write_other_models("ANCHOR2", anchor2_performance)
             write_other_models("DeepDISOBind", deepdisobind_performance)
