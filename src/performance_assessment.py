@@ -707,13 +707,15 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
             # bootstrapping
             # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
             data = (all_metrics[k],)  # convert array to sequence
-            # calculate 95% bootstrapped confidence interval for standard error (not deviation)
+            # calculate standard error =
+            # "The bootstrap estimate of the standard error is the sample standard deviation of the bootstrap distribution"
+            # see https://github.com/scipy/scipy/issues/15160
             try:
                 bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
                                      random_state=303, method='percentile',
                                      n_resamples=1000)
             except ValueError:      # only one value in data because of too much NAs
-                data = (np.append(all_metrics[k], 0.0),)
+                data = (np.append(all_metrics[k], [0.0, 0.0]),)
                 bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
                                      random_state=303, method='percentile',
                                      n_resamples=1000)
@@ -790,7 +792,9 @@ def assess_bindEmbed():
         # bootstrapping
         # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
         data = (all_metrics[k],)  # convert array to sequence
-        # calculate 95% bootstrapped confidence interval for standard error (not deviation)
+        # calculate standard error =
+        # "The bootstrap estimate of the standard error is the sample standard deviation of the bootstrap distribution"
+        # see https://github.com/scipy/scipy/issues/15160
         bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
                                  random_state=303, method='percentile',
                                  n_resamples=1000)
@@ -886,15 +890,14 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
         # bootstrapping
         # über batches (1000 (- 10.000), nicht künstlich mehr erzeugen!)  # in test-> several 100 batches
         data = (all_metrics[k],)  # convert array to sequence
-        # calculate 95% bootstrapped confidence interval for standard error (not deviation)
+        # calculate standard error =
+        # "The bootstrap estimate of the standard error is the sample standard deviation of the bootstrap distribution"
+        # see https://github.com/scipy/scipy/issues/15160
         bootstrap_ci = bootstrap(data, np.std, confidence_level=0.95,
                                  random_state=303, method='percentile',
                                  n_resamples=1000)
         # metric +- CI
         all_CIs[k] = (bootstrap_ci.confidence_interval[1] - bootstrap_ci.confidence_interval[0]) / 2
-
-        # standard error calculation    --> obsolete, this is included in the bootstrap function now
-        # all_sd_errors[k] = np.std(all_metrics[k], ddof=1) / np.sqrt(len(all_metrics[k]))
 
     # calculate sum and absolute (avg) metrics
     sum_matrix = {}
@@ -972,7 +975,7 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
 
 if __name__ == '__main__':
     # read input embeddings
-    test = False
+    test = True
     validation = "disorder_only"  # if disorder_only, the batches are formed after excluding structured regions
     dataset_dir = '../dataset/MobiDB_dataset_2/'
     embeddings_in = dataset_dir + 'test_set.h5' if test else dataset_dir + 'train_set.h5'
@@ -1055,8 +1058,8 @@ if __name__ == '__main__':
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
     """
-    variants = [10.0]
-    assessment_name = "ANCHOR_on_val_reduced"  # "mobidb" / "2.21_only" / ""
+    variants = [40.0, 42.0]
+    assessment_name = "AAindex_2"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1154,8 +1157,8 @@ if __name__ == '__main__':
                22.0: [0.63, 0.63, 0.63, 0.63, 0.63],
                30.0: [0.1, 0.1, 0.15, 0.1, 0.1],
                32.0: [0.25, 0.2, 0.25, 0.25, 0.25],
-               40.0: [0.25, 0.4, 0.35, 0.1, 0.05],
-               42.0: [0.25, 0.25, 0.25, 0.25, 0.15]
+               40.0: [0.05, 0.2, 0.05, 0.15, 0.1],
+               42.0: [0.3, 0.3, 0.25, 0.25, 0.25]
                }
 
     best_folds = {0.0: 2,   #
