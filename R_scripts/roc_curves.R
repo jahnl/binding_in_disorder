@@ -1,5 +1,6 @@
 library(data.table)
 library(ggplot2)
+library(ggrepel)
 
 # binary classifier ROC curve
 data_file <- '../results/logs/validation_2-1_new_oversampling.txt'
@@ -86,6 +87,55 @@ for (fold in 0:4) {
 
 #print(data[data$Prec == max(data$Prec) ,])
 
+##### visualization in thesis
+model_name <- 'mobidb_2_FNN_5'
+printed_name <- 'FNN_all'
+cutoffs <- c(0.55, 0.40, 0.50, 0.35, 0.30)
+data_file <- paste(paste('../results/logs/validation_', model_name, sep = ''), '.txt', sep = '')
+data <- read.table(data_file, sep = '\t', header = TRUE)
+data['D_Rec'] <- data['D_TP']/(data['D_TP']+data['D_FN'])
+data['D_Prec'] <- data['D_TP']/(data['D_TP']+data['D_FP'])
+text_data <- rbind(data[data$Cutoff==cutoffs[data$Fold+1],], c(3
+                   ,0.196729
+                   ,0.35
+                   ,89.5
+                   ,43.6
+                   ,67.1
+                   ,12012
+                   ,15522
+                   ,170526
+                   ,5894
+                   ,59.8
+                   ,66.1
+                   ,53.7
+                   ,0
+                   ,12012
+                   ,9907
+                   ,11483
+                   ,5894
+                   ,0.6708365911
+                   ,0.5480177))
+ggplot(mapping = aes(x = D_FP/(D_FP+D_TN)*100, y = D_Rec*100, color = Fold))+ 
+  geom_point(data = data[data$Fold==0,], size = 2)+
+  geom_line(data = data[data$Fold==0,], size = 1)+
+  geom_point(data = data[data$Fold==1,], size = 2)+
+  geom_line(data = data[data$Fold==1,], size = 1)+
+  geom_point(data = data[data$Fold==2,], size = 2)+
+  geom_line(data = data[data$Fold==2,], size = 1)+
+  geom_point(data = data[data$Fold==3,], size = 2)+
+  geom_line(data = data[data$Fold==3,], size = 1)+
+  geom_point(data = data[data$Fold==4,], size = 2)+
+  geom_line(data = data[data$Fold==4,], size = 1)+
+  geom_text_repel(data = text_data, mapping = aes(label = Cutoff, fontface=2) , nudge_x = -10, nudge_y = 5, color = "black", size = 4)+
+  # aesthetics
+  scale_color_continuous(type = 'viridis')+
+  geom_abline(slope = 1, intercept = 0)+
+  xlim(0,100)+
+  ylim(0,100)+
+  ggtitle(paste('ROC Curves on Validation Set - Model', printed_name))+
+  theme_bw()+
+  xlab('FPR')+
+  ylab('TPR')
 
 
 

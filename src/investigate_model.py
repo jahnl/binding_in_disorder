@@ -672,7 +672,8 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_val_input, this_fold_val_target, disorder_labels = get_ML_data(val_labels, embeddings, 'FNN', mode, multilabel, None)
+        this_fold_val_input, this_fold_val_target, disorder_labels, _ = \
+            get_ML_data(val_labels, embeddings, 'FNN', mode, multilabel, None)
 
         # instantiate the dataset
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'FNN')

@@ -208,20 +208,23 @@ ggplot(data = rbind(performance_t[7], performance_t[20], performance_t[8]))+
 ######### mobidb models ##############
 
 performance <- data.table(read.table("../results/logs/performance_assessment_mobidb_2.tsv", header = TRUE, sep = "\t"))
-performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "01 mobidb_2_CNN_1", "02 mobidb_2_CNN_2",
-                                                 "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "08 mobidb_2_FNN_5",
-                                                 "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "11 mobidb_2_D_CNN_2", 
-                                                 "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "16 mobidb_2_D_FNN_4",
-                                                 "AAindex_baseline", "AAindex_D_baseline",
-                                                 "random_baseline", "random_D_baseline"))
+performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "1. CNN_all", "02 mobidb_2_CNN_2",
+                                                 "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "3. FNN_all",
+                                                 "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "2. CNN_disorder", 
+                                                 "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "4. FNN_disorder",
+                                                 "17 AAindex_baseline", "5. AAindex_disorder",
+                                                 "random_baseline", "random_disorder"))
+performance <- performance[c(1:8, 12, 10:11, 9, 13:21)] # make CNN_disorder (12) and FNN_all (9) switch places due to plotting problems with error-bars
+
 performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2.tsv", header = TRUE, sep = "\t"))
-performance_test <- cbind(performance_test, model_name = c("00 mobidb_2_CNN_0", "01 mobidb_2_CNN_1", "02 mobidb_2_CNN_2",
-                                                           "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "08 mobidb_2_FNN_5",
-                                                           "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "11 mobidb_2_D_CNN_2", 
-                                                           "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "16 mobidb_2_D_FNN_4",
-                                                           "AAindex_baseline", "AAindex_D_baseline",
-                                                           "random_baseline", "random_D_baseline",
+performance_test <- cbind(performance_test, model_name = c("00 mobidb_2_CNN_0", "1. CNN_all", "02 mobidb_2_CNN_2",
+                                                           "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "3. FNN_all",
+                                                           "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "2. CNN_disorder", 
+                                                           "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "4. FNN_disorder",
+                                                           "17 AAindex_baseline", "5. AAindex_disorder",
+                                                           "random_baseline", "random_disorder",
                                                            "ref: ANCHOR2", "ref: DeepDISOBind"))
+performance_test <- performance_test[c(1:8, 12, 10:11, 9, 13:23)]
 
 #### whole protein prediction ######
 ggplot(data = rbind(performance[1:9], performance[18]))+
@@ -267,7 +270,7 @@ ggplot(data = rbind(performance[1:9], performance[18]))+
 
 
 ##### disorder only prediction, part X ####
-best_of_val = rbind(performance[2], performance[9], performance[12], performance[17:19], performance[21])
+best_of_val = rbind(performance[2], performance[9], performance[12], performance[17], performance[19], performance[21])
 ggplot(data = best_of_val)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
@@ -303,14 +306,15 @@ ggplot(data = best_of_val)+
   geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
   geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
-  ylab("Value")+
   xlab("")+
-  ggtitle("Performance of MobiDB Predictors in Disordered Regions Only, Best Of")+
+  labs(fill='Model name')+
+  scale_y_continuous("Performance", sec.axis = sec_axis(~ .))+
+  ggtitle("Performance on the Validation Set")+
   scale_fill_colorblind10()+
   theme_bw()
 
 # disorder only prediction TEST
-best_of_test = rbind(performance_test[2], performance_test[9], performance_test[12], performance_test[17:19], performance_test[21:23])
+best_of_test = rbind(performance_test[2], performance_test[9], performance_test[12], performance_test[17], performance_test[19], performance_test[21:23])
 ggplot(data = best_of_test)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
@@ -346,9 +350,10 @@ ggplot(data = best_of_test)+
   geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
   geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
-  ylab("Value")+
+  scale_y_continuous("Performance", sec.axis = sec_axis(~ .))+
   xlab("")+
-  ggtitle("Performance of Different Predictors in Disordered Regions On the Test Set")+
+  labs(fill='Model name')+
+  ggtitle("Performance on the Test Set")+
   scale_fill_colorblind10()+
   theme_bw()
 
@@ -357,10 +362,10 @@ ggplot(data = best_of_test)+
 # prediction: selection,  val and Test difference
 val_perf <- data.table(best_of_val)
 val_perf[] <- lapply(val_perf, function(x) as.numeric(x) )
-val_perf$model_name <- c("01 mobidb_2_CNN_1", "08 mobidb_2_FNN_5", "11 mobidb_2_D_CNN_2", "16 mobidb_2_D_FNN_4", "AAindex_baseline", "AAindex_D_baseline", "random_D_baseline")
+val_perf$model_name <- c("1. CNN_all", "2. CNN_disorder", "3. FNN_all", "4. FNN_disorder", "5. AAindex_disorder", "random_disorder")
 val_perf <- rbind(val_perf, NA, NA, fill=TRUE)
 test_perf <- data.table(best_of_test)
-test_perf$model_name[8:9] <- c("ref: ANCHOR2", "ref: DeepDISOBind")
+test_perf$model_name[7:8] <- c("ref: ANCHOR2", "ref: DeepDISOBind")
 
 ggplot(data = test_perf)+
   geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2(), alpha = 0.7)+
