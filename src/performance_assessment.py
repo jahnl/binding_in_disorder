@@ -12,7 +12,7 @@ import torch.tensor
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch import nn
-from scipy.stats import bootstrap
+from scipy.stats import bootstrap, stats
 from pathlib import Path
 from os.path import exists
 
@@ -335,7 +335,7 @@ def batch_formation(prediction, label, disorder, prediction_batches, label_batch
     return prediction_batches, label_batches, disorder_batches, current_length
 
 
-def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random):
+def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random, cutoff):
     if fold is not None:
         batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
     # apply activation function to prediction to enable classification and transpose matrices
@@ -344,7 +344,7 @@ def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, 
     else:
         prediction_act = torch.sigmoid(prediction)
     if fold is not None:
-        prediction_max = prediction_act > cutoff[fold]
+        prediction_max = prediction_act > cutoff
     else:
         prediction_max = prediction
 
@@ -518,52 +518,71 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
     else:
         all_conf_matrices = {"correct": [], "TP": [], "FP": [], "TN": [], "FN": [],
                              "diso_correct": [], "diso_TP": [], "diso_FP": [], "diso_TN": [], "diso_FN": []}
-    if test:
-        cutoff = [cutoff[best_fold]]
-    for fold, _ in enumerate(cutoff):
+    if type(name) == list:
+        consensus = True
+    else:       # put every model-specific param. in lists, so that consensus and not-c. can be processed alike.
+        consensus = False
+        name = [name]
+        cutoff = [cutoff]
+        mode = [mode]
+        architecture = [architecture]
+        n_layers = [n_layers]
+        kernel_size = [kernel_size]
+        batch_size = [batch_size]
+        loss_function = [loss_function]
+        best_fold = [best_fold]
+        input_emb = [input_emb]
+    if test:    # assess best fold(s) only
+        cutoff = [cutoff[i][best_fold[i]] for i, _ in enumerate(name)]
+        consensus_predictions = list()  # here, the predictions of all consensus models will be stored
+    for f_m, _ in enumerate(cutoff):   # for each fold (val) / for each model (consensus + test)
         if test:
-            print(f"{name} Fold {best_fold}")
+            print(f"{name[f_m]} Fold {best_fold[f_m]}")
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val_labels{}
             val_labels = read_labels(None, None, dataset_dir)
         else:
-            print(f"{name} Fold {fold}")
+            print(f"{name} Fold {f_m}")
             # for validation use the training IDs in the current fold
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-            val_labels = read_labels(fold, None, dataset_dir)
+            val_labels = read_labels(f_m, None, dataset_dir)
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
         this_fold_val_input, this_fold_val_target, this_fold_disorder = \
-            get_ML_data(val_labels, input_emb, architecture, mode, multilabel)
+            get_ML_data(val_labels, input_emb[f_m], architecture[f_m], mode[f_m], multilabel)
         # instantiate the dataset
-        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder, architecture)
+        validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder,
+                                            architecture[f_m])
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        if mode == 'disorder_only':
-            input_size = 566 if 'AAindex' in name else 1024
+        if mode[f_m] == 'disorder_only':
+            input_size = 566 if 'AAindex' in name[f_m] else 1024
         else:
-            input_size = 567 if 'AAindex' in name else 1025
+            input_size = 567 if 'AAindex' in name[f_m] else 1025
         output_size = 3 if multilabel else 1
 
-        if architecture == "FNN":
+        if architecture[f_m] == "FNN":
             model = FNN(input_size, output_size, dropout, multilabel).to(device)
         else:
-            aa_mode = 'aaindex' if mode == 'all' else 'aaindex_D'
-            model = CNN(n_layers, kernel_size, dropout, aa_mode if 'AAindex' in name else mode).to(device)
+            aa_mode = 'aaindex' if mode[f_m] == 'all' else 'aaindex_D'
+            model = CNN(n_layers[f_m], kernel_size[f_m], dropout, aa_mode if 'AAindex' in name[f_m] else mode[f_m])\
+                .to(device)
 
-        if name.startswith("random"):
+        if name[f_m].startswith("random"):
             model = None
         else:
-            model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_{name}_fold_{fold}.pth"))
+            f = best_fold[f_m] if test else f_m
+            print(f"Load model {name[f_m]}, fold {f}...")
+            model.load_state_dict(torch.load(f"../results/models/binding_regions_model_{name[f_m]}_fold_{f}.pth"))
 
-        if architecture == "CNN":
-            batch_size = 1
-        test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
+        if architecture[f_m] == "CNN":
+            batch_size[f_m] = 1
+        test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size[f_m], shuffle=False)
         if model is not None:
             model.eval()
+
         with torch.no_grad():
             if multilabel:
                 # save confusion matrix values for each batch
@@ -581,9 +600,9 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
                     label = label.T
                     batch_wise_loss.append(criterion(loss_function, prediction, label.to(torch.float32)))
                     # apply activation function to prediction to enable classification and transpose matrices
-                    prediction_max_p = prediction[0] > cutoff[fold][0]
-                    prediction_max_n = prediction[1] > cutoff[fold][1]
-                    prediction_max_o = prediction[2] > cutoff[fold][2]
+                    prediction_max_p = prediction[0] > cutoff[f_m][0]
+                    prediction_max_n = prediction[1] > cutoff[f_m][1]
+                    prediction_max_o = prediction[2] > cutoff[f_m][2]
                     prediction_max = [prediction_max_p, prediction_max_n, prediction_max_o]
 
                     # confusion matrix values
@@ -636,7 +655,7 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
 
                 for input, label, disorder in test_loader:
                     input, label, disorder = input.to(device), label[:, None].to(device), disorder[:, None].to(device)
-                    if name.startswith("random"):
+                    if name[f_m].startswith("random"):
                         prediction = torch.rand(len(label), 1).to(device)
                         random = True
                     else:
@@ -654,12 +673,30 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
                         batch_formation(prediction, label, disorder, prediction_batches, label_batches,
                                         disorder_batches, test_batch_size, current_length)
 
-                for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
-                    batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise,
-                                                              fold, random)
+                if consensus:
+                    consensus_predictions.append(prediction_batches)
+                    # if final model, merge and evaluate
+                    if f_m == len(cutoff) - 1:
+                        prediction_batches = list()
+                        for b, batch in enumerate(consensus_predictions[0]):
+                            prediction = torch.zeros(len(batch), 1).to(device)
+                            for model in consensus_predictions:
+                                prediction.add(model[b])
+                                print(model[b])
+                            print(prediction)       # TODO: bugfix: this is only zeros
+                            prediction_batches.append(prediction / len(consensus_predictions))
+                            print(prediction_batches)
+                            print("\n\n\n")
 
-                for k in batch_wise.keys():
-                    all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
+                if not consensus or f_m == len(cutoff) - 1:    # evaluate consensus only if predictions have been merged
+                    this_cutoff = cutoff[f_m] if not consensus else sum(cutoff)/len(cutoff)     # TODO: is this optimal?
+                    print("set cutoff:", this_cutoff)
+                    for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
+                        batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss,
+                                                                  batch_wise, f_m, random, this_cutoff)
+
+                    for k in batch_wise.keys():
+                        all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
 
     # metrics and sd over all folds/proteins
     if multilabel:
@@ -873,7 +910,8 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
                             disorder_batches, test_batch_size, current_length)
 
     for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
-        batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, None, False)
+        batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, None,
+                                                  False, 0.5)
 
     for k in batch_wise.keys():
         all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -906,7 +944,7 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
 
     avg_metrics = metrics(sum_matrix)
 
-    return sum_matrix, avg_metrics, all_CIs
+    return sum_matrix, avg_metrics, all_CIs, all_metrics
 
 
 def assess_anchor2(dataset_dir, test_batch_size, validation, test):
@@ -935,10 +973,10 @@ def assess_anchor2(dataset_dir, test_batch_size, validation, test):
                 pass
 
     # evaluate prediction
-    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size,
+    sum_matrix, avg_metrics, all_sd_errors, all_metrics = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size,
                                                                validation, True if "train" in file_name else False)
 
-    return sum_matrix, avg_metrics, all_sd_errors
+    return sum_matrix, avg_metrics, all_sd_errors, all_metrics
 
 
 def assess_deepdisobind(dataset_dir, test_batch_size, validation):
@@ -967,10 +1005,10 @@ def assess_deepdisobind(dataset_dir, test_batch_size, validation):
                         predictions_binary[name] = prediction
                 # else: ignore
     # evaluate prediction
-    sum_matrix, avg_metrics, all_sd_errors = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size,
+    sum_matrix, avg_metrics, all_sd_errors, all_metrics = submit_prediction(predictions_binary, device, dataset_dir, test_batch_size,
                                                                validation)
 
-    return sum_matrix, avg_metrics, all_sd_errors
+    return sum_matrix, avg_metrics, all_sd_errors, all_metrics
 
 
 if __name__ == '__main__':
@@ -1058,8 +1096,8 @@ if __name__ == '__main__':
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
     """
-    variants = [40.0, 42.0]
-    assessment_name = "AAindex_2"  # "mobidb" / "2.21_only" / ""
+    variants = [12.2, 11.5, [12.2, 11.5]]
+    assessment_name = "mobidb_2_consensus"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1215,45 +1253,69 @@ if __name__ == '__main__':
     for variant in variants:
         # set parameters
         print(f"variant {variant}:")
-
         """ disprot implementation
-        mode = 'disorder_only' if (variant % 10) == 3.0 else 'all'
-        multilabel = True if (variant % 10) >= 4.0 else False
-        network = 'CNN' if (variant % 10) < 2.0 else 'FNN'
-        if variant == 2.20:
-            dropout = 0.2
-        elif 2.21 <= variant < 3.0:
-            dropout = 0.3
-        else:
-            dropout = 0.0
-        if variant == 2.213:
-            post_processing = True
-        else:
-            post_processing = False
-        """
+                   mode = 'disorder_only' if (variant % 10) == 3.0 else 'all'
+                   multilabel = True if (variant % 10) >= 4.0 else False
+                   network = 'CNN' if (variant % 10) < 2.0 else 'FNN'
+                   if variant == 2.20:
+                       dropout = 0.2
+                   elif 2.21 <= variant < 3.0:
+                       dropout = 0.3
+                   else:
+                       dropout = 0.0
+                   if variant == 2.213:
+                       post_processing = True
+                   else:
+                       post_processing = False
+                   """
         # mobidb implementation
-        mode = 'disorder_only' if (variant % 10) >= 2.0 else 'all'
         multilabel = False
-        architecture = 'CNN' if 'CNN' in names[variant] or 'AAindex' in names[variant] else 'FNN'  # 0, 1, 5, 6
-        input_emb = aaindex_rep if 'AAindex' in names[variant] else embeddings
-        if 'k7' in names[variant]:
-            kernel_size = 7
-        elif 'k3' in names[variant]:
-            kernel_size = 3
-        else:
-            kernel_size = 5
-        if 'l8' in names[variant]:
-            n_layers = 8
-        else:
-            n_layers = 5
         dropout = 0.0
-        post_processing = False
-        batch_size = 512
-
         loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
-        cutoff = cutoffs[variant]
-        name = names[variant]
-        best_fold = best_folds[variant]
+        post_processing = False
+
+        if type(variant) == list:   # consensus model
+            mode, architecture, input_emb, batch_size, kernel_size, n_layers, cutoff, name, \
+            best_fold = [], [], [], [], [], [], [], [], []
+            for c_model in variant:
+                mode.append('disorder_only' if (c_model % 10) >= 2.0 else 'all')
+                architecture.append('CNN' if 'CNN' in names[c_model] or 'AAindex' in names[c_model] else 'FNN')  # 0, 1, 5, 6
+                input_emb.append(aaindex_rep if 'AAindex' in names[c_model] else embeddings)
+                batch_size.append(512)
+                if 'k7' in names[c_model]:
+                    kernel_size.append(7)
+                elif 'k3' in names[c_model]:
+                    kernel_size.append(3)
+                else:
+                    kernel_size.append(5)
+                if 'l8' in names[c_model]:
+                    n_layers.append(8)
+                else:
+                    n_layers.append(5)
+
+                cutoff.append(cutoffs[c_model])
+                name.append(names[c_model])
+                best_fold.append(best_folds[c_model])
+
+        else:
+            mode = 'disorder_only' if (variant % 10) >= 2.0 else 'all'
+            architecture = 'CNN' if 'CNN' in names[variant] or 'AAindex' in names[variant] else 'FNN'  # 0, 1, 5, 6
+            input_emb = aaindex_rep if 'AAindex' in names[variant] else embeddings
+            batch_size = 512
+            if 'k7' in names[variant]:
+                kernel_size = 7
+            elif 'k3' in names[variant]:
+                kernel_size = 3
+            else:
+                kernel_size = 5
+            if 'l8' in names[variant]:
+                n_layers = 8
+            else:
+                n_layers = 5
+
+            cutoff = cutoffs[variant]
+            name = names[variant]
+            best_fold = best_folds[variant]
 
         assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size,
                             loss_function, post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size,
@@ -1262,24 +1324,34 @@ if __name__ == '__main__':
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])
 
-    # Welch test for some specific models
-    """
-    print("Welch test, with vs without post-processing")
-    for k in per_model_metrics[0].keys():
-        print(k, "(statistic, pvalue)")
-        print(stats.ttest_ind(per_model_metrics[5][k], per_model_metrics[6][k], equal_var=True))
-    """
 
+    print("ANCHOR2")        # on validation and test set
+    anchor2_performance = assess_anchor2(dataset_dir, test_batch_size, validation, test)
+    performances.append(anchor2_performance[:-1])
+    per_model_metrics.append(anchor2_performance[-1])
+    variants.append(100.0)
+    names[100.0] = 'ANCHOR2'
     if test:
         # bindEmbed_performance = assess_bindEmbed()
-        print("ANCHOR2")
-        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size, validation, test)
         print("DeepDISOBind")
         deepdisobind_performance = assess_deepdisobind(dataset_dir, test_batch_size, validation)
-    else:
-        # special case: evaluate ANCHOR2 performance on validation sets
-        print("ANCHOR2")
-        anchor2_performance = assess_anchor2(dataset_dir, test_batch_size, validation, test)
+        performances.append(deepdisobind_performance[:-1])
+        per_model_metrics.append(deepdisobind_performance[-1])
+        variants.append(101.0)
+        names[101.0] = 'DeepDISOBind'
+
+    # Welch test for some specific models
+    """
+    print("Welch test: FNN_all vs reference models vs random")
+    for i, model_i in enumerate(variants):
+        for j, model_j in enumerate(variants):
+            if j > i:
+                print(f'i: {names[model_i]}, j: {names[model_j]}')
+                for k in per_model_metrics[0].keys():
+                    print(k, "(statistic, pvalue)")
+                    print(stats.ttest_ind(per_model_metrics[i][k], per_model_metrics[j][k], equal_var=False))
+    """
+
 
     output_name = f'../results/logs/performance_assessment_{assessment_name}.tsv' if not test else \
         f'../results/logs/performance_assessment_test_{assessment_name}.tsv'
@@ -1316,19 +1388,3 @@ if __name__ == '__main__':
                 for key in performances[0][2].keys():  # SEs of metrics
                     output.write(str(performances[i][2][key]) + "\t")
                 output.write("\n")
-
-
-        def write_other_models(name, performance):
-            output.write(name + "\t-\t")
-            for key in performance[0].keys():  # conf-matrix
-                output.write(str(performance[0][key]) + "\t")
-            for key in performance[1].keys():  # metrics
-                output.write(str(performance[1][key]) + "\t")
-            for key in performance[2].keys():  # SEs of metrics
-                output.write(str(performance[2][key]) + "\t")
-            output.write("\n")
-
-        # write_other_models("bindEmbed", bindEmbed_performance)
-        write_other_models("ANCHOR2", anchor2_performance)
-        if test:
-            write_other_models("DeepDISOBind", deepdisobind_performance)

@@ -1,9 +1,13 @@
 library(ggplot2)
 library(stringr)
 library(scales)
+library(data.table)
 
 test <- readLines("../dataset/MobiDB_dataset_2/test_set_stats.txt")
 train <- readLines("../dataset/MobiDB_dataset_2/train_set_stats.txt")
+test_old <- readLines("../dataset/MobiDB_dataset/test_set_4_stats.txt")
+test_old_reduced <- readLines("../dataset/MobiDB_dataset/test_set_stats.txt")
+train_old <- readLines("../dataset/MobiDB_dataset/train_set_stats.txt")
 #val_0 <- readLines("../dataset/MobiDB_dataset/val_fold_0_stats.txt")
 #val_1 <- readLines("../dataset/MobiDB_dataset/val_fold_1_stats.txt")
 #val_2 <- readLines("../dataset/MobiDB_dataset/val_fold_2_stats.txt")
@@ -19,9 +23,62 @@ extract_numerics <- function(x){
   data.frame(numerics)
 }
 
+##### violin plot for thesis ######
+test_length <- extract_numerics(test[2])
+train_length <- extract_numerics(train[2])
+test_old_length <- extract_numerics(test_old[2])
+test_old_reduced_length <- extract_numerics(test_old_reduced[2])
+train_old_length <- extract_numerics(train_old[2])
+
+test_d <- extract_numerics(test[4])
+train_d <- extract_numerics(train[4])
+test_old_d <- extract_numerics(test_old[4])
+test_old_reduced_d <- extract_numerics(test_old_reduced[4])
+train_old_d <- extract_numerics(train_old[4])
+
+test_b <- extract_numerics(test[8])
+train_b <- extract_numerics(train[8])
+test_old_b <- extract_numerics(test_old[8])
+test_old_reduced_b <- extract_numerics(test_old_reduced[8])
+train_old_b <- extract_numerics(train_old[8])
+
+ggplot()+
+  geom_violin(data = test_old_length, mapping = aes(x = 'old test', y = numerics))+
+  geom_boxplot(data = test_old_length, mapping = aes(x = 'old test', y = numerics), width=0.1)+
+  geom_violin(data = test_old_reduced_length, mapping = aes(x = 'old test reduced', y = numerics))+
+  geom_boxplot(data = test_old_reduced_length, mapping = aes(x = 'old test reduced', y = numerics), width=0.1)+
+  geom_violin(data = train_old_length, mapping = aes(x = 'old train', y = numerics))+
+  geom_boxplot(data = train_old_length, mapping = aes(x = 'old train', y = numerics), width=0.1)+
+  geom_violin(data = test_length, mapping = aes(x = 'new test', y = numerics))+
+  geom_boxplot(data = test_length, mapping = aes(x = 'new test', y = numerics), width=0.1)+
+  geom_violin(data = train_length, mapping = aes(x = 'new train', y = numerics))+
+  geom_boxplot(data = train_length, mapping = aes(x = 'new train', y = numerics), width=0.1)+
+  scale_y_log10()+
+  xlab('set')+
+  ylab('protein length')+
+  ggtitle('Distributions of Protein Length and Ratio of Binding Residues\nAcross Data Sets')+
+  theme_bw()
+
+ggplot()+
+  geom_violin(data = test_old_b/test_old_d*100, mapping = aes(x = 'old test', y = numerics))+
+  #geom_boxplot(data = test_old_b/test_old_d*100, mapping = aes(x = 'old test', y = numerics), width=0.1)+
+  geom_violin(data = test_old_reduced_b/test_old_reduced_d*100, mapping = aes(x = 'old test reduced', y = numerics))+
+  #geom_boxplot(data = test_old_reduced_b/test_old_reduced_d*100, mapping = aes(x = 'old test reduced', y = numerics), width=0.1)+
+  geom_violin(data = train_old_b/train_old_d*100, mapping = aes(x = 'old train', y = numerics))+
+  #geom_boxplot(data = train_old_b/train_old_d*100, mapping = aes(x = 'old train', y = numerics), width=0.1)+
+  geom_violin(data = test_b/test_d*100, mapping = aes(x = 'new test', y = numerics))+
+  #geom_boxplot(data = test_b/test_d*100, mapping = aes(x = 'new test', y = numerics), width=0.1)+
+  geom_violin(data = train_b/train_d*100, mapping = aes(x = 'new train', y = numerics))+
+  #geom_boxplot(data = train_b/train_d*100, mapping = aes(x = 'new train', y = numerics), width=0.1)+
+  xlab('set')+
+  ylab('binding residues in IDPRs [%]')+
+  #ggtitle('Distributions of Protein Length and Ratio of Binding Residues\nAcross Data Sets')+
+  theme_bw()
+
+
+##### histograms #########
 #length
 test_length <- extract_numerics(test[2])
-#test_new_length <- extract_numerics(test_new[2])
 train_length <- extract_numerics(train[2])
 #val_0_length <- extract_numerics(val_0[2])
 #val_1_length <- extract_numerics(val_1[2])

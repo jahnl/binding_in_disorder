@@ -350,6 +350,8 @@ def CNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '1_5l
         print("device: " + device)
         aa_mode = 'aaindex' if mode == 'all' else 'aaindex_D'
         model = CNN(n_layers, kernel_size, dropout, aa_mode if train_embeddings == '' else mode).to(device)
+        pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print("# trainable params: ", pytorch_total_params)
         criterion = nn.BCEWithLogitsLoss()  # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 

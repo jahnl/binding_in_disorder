@@ -10,6 +10,7 @@ scale_fill_colorblind7 = function(.ColorList = 2L:9L, ...){
 scale_fill_colorblind10 = function(.ColorList = 2L:13L, ...){
   scale_fill_discrete(..., type = colorblind_pal()(10)[.ColorList])
 }
+
 # Color
 scale_color_colorblind7 = function(.ColorList = 2L:9L, ...){
   scale_color_discrete(..., type = colorblind_pal()(9)[.ColorList])
@@ -357,6 +358,28 @@ ggplot(data = best_of_test)+
   scale_fill_colorblind10()+
   theme_bw()
 
+# only final models TEST selection
+palette <- c("#009E73", "#D55E00", "#CC79A7", "#999999")
+final_test <- rbind(best_of_test[3,], best_of_test[6:8,])
+ggplot(data = final_test)+
+  geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
+  geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Recall", ymin = D.Recall - SE_D.Recall, ymax = D.Recall + SE_D.Recall), position = position_dodge2())+
+  geom_text(aes(x = "Recall", y = -0.02, label = round(D.Recall*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  geom_bar(mapping = aes(x = "Balanced.Acc.", y = D.Balanced.Acc., fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "Balanced.Acc.", ymin = D.Balanced.Acc. - SE_D.Balanced.Acc., ymax = D.Balanced.Acc. + SE_D.Balanced.Acc.), position = position_dodge2())+
+  geom_text(aes(x = "Balanced.Acc.", y = -0.02, label = round(D.Balanced.Acc.*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  geom_bar(mapping = aes(x = "MCC", y = D.MCC, fill = model_name), stat = "identity", position = position_dodge2())+
+  geom_errorbar(mapping = aes(x = "MCC", ymin = D.MCC - SE_D.MCC, ymax = D.MCC + SE_D.MCC), position = position_dodge2())+
+  geom_text(aes(x = "MCC", y = -0.02, label = round(D.MCC*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
+  scale_y_continuous("Performance", sec.axis = sec_axis(~ .))+
+  xlab("")+
+  labs(fill='Model name')+
+  ggtitle("Performance on the Test Set")+
+  scale_fill_manual(values=palette)+
+  theme_bw()
 
 
 # prediction: selection,  val and Test difference

@@ -137,6 +137,40 @@ ggplot(mapping = aes(x = D_FP/(D_FP+D_TN)*100, y = D_Rec*100, color = Fold))+
   xlab('FPR')+
   ylab('TPR')
 
+# comparison IDPR only and all validation
+data_0 <- read.table('../results/logs/validation_mobidb_2_CNN_1.txt', sep = '\t', header = TRUE)
+data_0 <- data.table(data_0, model = '1. CNN_all')
+data_1 <- read.table('../results/logs/validation_mobidb_2_D_CNN_2.txt', sep = '\t', header = TRUE)
+data_1 <- data.table(data_1, model = '2. CNN_disorder')
+data_2 <- read.table('../results/logs/validation_mobidb_2_FNN_5.txt', sep = '\t', header = TRUE)
+data_2 <- data.table(data_2, model = '3. FNN_all')
+data_3 <- read.table('../results/logs/validation_mobidb_2_D_FNN_4.txt', sep = '\t', header = TRUE)
+data_3 <- data.table(data_3, model = '4. FNN_disorder')
+data_4 <- read.table('../results/logs/validation_AAindex_D_baseline_2.txt', sep = '\t', header = TRUE)
+data_4 <- data.table(data_4, model = '5. AAindex_disorder')
+data_all = rbindlist(list(data_0, data_1, data_2, data_3, data_4), fill = TRUE)
+data_all$D_Rec <- (data_all$D_TP/(data_all$D_TP+data_all$D_FN))*100
+
+ggplot(mapping = aes(x = FP/(FP+TN)*100, y = Rec, color = model, linetype = 'all'))+  
+  geom_point(data = data_all[data_all$model == '1. CNN_all' & data_all$Fold==1,], size = 2)+
+  geom_line(data = data_all[data_all$model == '1. CNN_all' & data_all$Fold==1,], size = 1)+
+  geom_point(data = data_all[data_all$model == '3. FNN_all' & data_all$Fold==4,], size = 2)+
+  geom_line(data = data_all[data_all$model == '3. FNN_all' & data_all$Fold==4,], size = 1)+
+  
+  geom_point(data = data_all[data_all$model == '1. CNN_all' & data_all$Fold==1,], size = 2, mapping = aes(x = D_FP/(D_FP+D_TN)*100, y = D_Rec))+
+  geom_line(data = data_all[data_all$model == '1. CNN_all' & data_all$Fold==1,], size = 1, mapping = aes(x = D_FP/(D_FP+D_TN)*100, y = D_Rec, linetype = 'IDPRs only'))+
+  geom_point(data = data_all[data_all$model == '3. FNN_all' & data_all$Fold==4,], size = 2, mapping = aes(x = D_FP/(D_FP+D_TN)*100, y = D_Rec))+
+  geom_line(data = data_all[data_all$model == '3. FNN_all' & data_all$Fold==4,], size = 1, mapping = aes(x = D_FP/(D_FP+D_TN)*100, y = D_Rec, linetype = 'IDPRs only'))+
+  
+  scale_color_discrete(type = c("#E69F00", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"))+
+  geom_abline(slope = 1, intercept = 0)+
+  xlim(0,100)+
+  ggtitle('Difference of ROC curves Between Validation Subsets')+
+  xlab('FPR')+
+  ylab('TPR')+
+  theme_bw()+
+  labs(linetype='Validation Subset', color = 'Model name')
+
 
 
 

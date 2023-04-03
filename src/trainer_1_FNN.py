@@ -302,6 +302,8 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
         else:
             input_size = 567 if train_embeddings == '' else 1025
         model = FNN(input_size=input_size, output_size=1, dropout=dropout).to(device)
+        pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print("# trainable params: ", pytorch_total_params)
         criterion = nn.BCEWithLogitsLoss()  # loss function for binary problem
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 

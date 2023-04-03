@@ -732,7 +732,7 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
             else:
                 output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
                 # f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
-                # print(f'{p_id}\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0: delimiter_1])}')
+                output_file.write(f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0: delimiter_1])}')
                 output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}')
                 if post_processing:
                     output_file.write(
@@ -783,7 +783,8 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
                 batch_size, cutoff_percent_min, cutoff_percent_max, step_percent, dropout, aaindex)
 
 
-def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model_name: str, fold: int, cutoff,
+def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model_name: str,
+            consensus_models: [str], consensus_folds: [str], fold: int, cutoff,
             mode: str = 'all',
             architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512,
             multilabel: bool = False, dropout: float = 0.3, test: bool = False, post_processing: bool = True):
@@ -797,6 +798,8 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
     :param cutoff: single float or list of floats[p, n, o] for classification cutoffs, between 0.0 and 1.0
     :param fold: fold ID of the validation fold, ignored if test==True
     :param model_name: name of the used model
+    :param consensus_models: list of model names for consensus assessment
+    :param consensus_folds: list of the consensus_models' chosen folds
     :param mode: residues considered in the model, 'all' or 'disorder_only'
     :param architecture: ML architecture, 'CNN' or 'FNN'
     :param n_layers: number of convolutional layers used in the CNN, ignored if architecture=='FNN'

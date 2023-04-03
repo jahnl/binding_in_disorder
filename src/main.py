@@ -21,7 +21,7 @@ def read_config():
     return config
 
 
-def check_config_items(step, config):
+def check_config_items(step, config, consensus_models, folds):
     # check parameters for correctness
     # for all steps
     if config['workflow']['overwrite'] not in ['True', 'False']:
@@ -140,10 +140,20 @@ def check_config_items(step, config):
             if not exists(config['input_files']['test_set_embeddings']) and not config['input_files']['test_set_embeddings'] == '':
                 raise ValueError(f"Config item 'test_set_embeddings': {config['input_files']['test_set_embeddings']} "
                                  f"is no existing file.")
+        if len(consensus_folds) != len(consensus_models):
+            raise ValueError(f"Config items 'consensus_models' and 'consensus_folds' must have the same number of "
+                             f"elements.")
+        if not set(config['parameters']['consensus_folds']) <= set(string.digits + ',' + ' '):
+            raise ValueError("Config item 'consensus_folds' must be a list of comma separated, positive integers")
+        for i, m in enumerate(consensus_models):
+            file = f'../results/models/binding_regions_model_{m}_fold_{str(folds[i])}.pth'
+            if not exists(file):
+                raise ValueError(f"Config item 'consensus_models': {file} is no existing file.")
 
 
 if __name__ == '__main__':
-    dt = str(datetime.now())[:19].replace(':', '-')
+    start = datetime.now()
+    dt = str(start)[:19].replace(':', '-')
     config = read_config()
 
     # determine workflow
@@ -152,10 +162,19 @@ if __name__ == '__main__':
         raise ValueError("Config item 'steps' must be a comma-separated list of digits 1...7")
     print('steps to do: ' + steps)
 
+    # parse list parameters
+    consensus_folds = config['parameters']['consensus_folds'].replace(' ', '').split(',')
+    consensus_models = config['parameters']['consensus_models'].replace(' ', '').split(',')
+    model_alias = {'CNN_all': 'mobidb_2_CNN_1',
+                   'CNN_disorder': 'mobidb_2_D_CNN_2',
+                   'FNN_all': 'mobidb_2_FNN_5',
+                   'FNN_disorder': 'mobidb_2_D_FNN_4'}
+    consensus_models = [model_alias[m] if m in model_alias else m for m in consensus_models]
+
     # check for parameter correctness
     for c in steps:
         if c.isdigit():
-            check_config_items(int(c), config)
+            check_config_items(int(c), config, consensus_models, consensus_folds)
 
     # parse bools
     wf_overwrite = config['workflow']['overwrite'] != 'False'
@@ -323,6 +342,8 @@ if __name__ == '__main__':
                                           test_embeddings=config['input_files']['test_set_embeddings'],
                                           dataset_dir=config["input_files"]["dataset_directory"],
                                           model_name=config['parameters']['model_name'],
+                                          consensus_models=consensus_models,
+                                          consensus_folds=consensus_folds,
                                           fold=int(config['parameters']['fold']),
                                           cutoff=cutoff,
                                           mode=config['parameters']['residues'],
@@ -338,3 +359,4 @@ if __name__ == '__main__':
 
     # copy config file for documentation of parameters
     shutil.copyfile(src='../config.ini', dst=f"../results/logs/config_{config['parameters']['model_name']}_{dt}.ini")
+    print("runtime: ", datetime.now()-start)
