@@ -304,7 +304,7 @@ def batch_formation(prediction, label, disorder, prediction_batches, label_batch
 
         done = False
         while not done:
-            if current_length % test_batch_size == 0:
+            if current_length in [0, 100]:
                 prediction_batches.append(prediction)
                 label_batches.append(label)
                 disorder_batches.append(disorder)
@@ -335,11 +335,11 @@ def batch_formation(prediction, label, disorder, prediction_batches, label_batch
     return prediction_batches, label_batches, disorder_batches, current_length
 
 
-def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random, cutoff):
+def conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, fold, random, cutoff, consensus):
     if fold is not None:
         batch_wise_loss.append(loss_function(prediction, label.to(torch.float32)).item())
     # apply activation function to prediction to enable classification and transpose matrices
-    if random:
+    if random or consensus:     # if consensus, sigmoid has been applied already!
         prediction_act = prediction  # no sigmoid needed for these values
     else:
         prediction_act = torch.sigmoid(prediction)
@@ -681,19 +681,16 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
                         for b, batch in enumerate(consensus_predictions[0]):
                             prediction = torch.zeros(len(batch), 1).to(device)
                             for model in consensus_predictions:
-                                prediction.add(model[b])
-                                print(model[b])
-                            print(prediction)       # TODO: bugfix: this is only zeros
+                                prediction_act = torch.sigmoid(model[b])        # special case consensus: activate here instead of in conf_matrix()
+                                prediction = prediction.add(prediction_act)
                             prediction_batches.append(prediction / len(consensus_predictions))
-                            print(prediction_batches)
-                            print("\n\n\n")
 
                 if not consensus or f_m == len(cutoff) - 1:    # evaluate consensus only if predictions have been merged
-                    this_cutoff = cutoff[f_m] if not consensus else sum(cutoff)/len(cutoff)     # TODO: is this optimal?
+                    this_cutoff = cutoff[f_m] if not consensus else sum(cutoff)/len(cutoff)     # tested to be optimal
                     print("set cutoff:", this_cutoff)
                     for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
                         batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss,
-                                                                  batch_wise, f_m, random, this_cutoff)
+                                                                  batch_wise, f_m, random, this_cutoff, consensus)
 
                     for k in batch_wise.keys():
                         all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -911,7 +908,7 @@ def submit_prediction(prediction, device, dataset_dir, test_batch_size, validati
 
     for (prediction, label, disorder) in zip(prediction_batches, label_batches, disorder_batches):
         batch_wise_loss, batch_wise = conf_matrix(prediction, label, disorder, batch_wise_loss, batch_wise, None,
-                                                  False, 0.5)
+                                                  False, 0.5, False)
 
     for k in batch_wise.keys():
         all_conf_matrices[k] = np.append(all_conf_matrices[k], batch_wise[k])
@@ -1096,8 +1093,8 @@ if __name__ == '__main__':
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
     """
-    variants = [12.2, 11.5, [12.2, 11.5]]
-    assessment_name = "mobidb_2_consensus"  # "mobidb" / "2.21_only" / ""
+    variants = [[12.2, 11.5]]
+    assessment_name = "mobidb_2_consensus_c38"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1380,7 +1377,10 @@ if __name__ == '__main__':
                         output.write(str(performances[i][2][j][key]) + "\t")
                     output.write("\n")
             else:
-                output.write(f"{names[v]}\t-\t")
+                if type(v) == list:
+                    output.write(f"{[names[n] for n in v]}\t-\t")
+                else:
+                    output.write(f"{names[v]}\t-\t")
                 for key in performances[0][0].keys():  # conf-matrix
                     output.write(str(performances[i][0][key]) + "\t")
                 for key in performances[0][1].keys():  # metrics
