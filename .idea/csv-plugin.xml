@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\dataset\MobiDB_dataset_2\seth_disorder_pred.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
       </map>
     </option>
   </component>

@@ -217,15 +217,15 @@ performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "1. CNN_al
                                                  "random_baseline", "random_disorder"))
 performance <- performance[c(1:8, 12, 10:11, 9, 13:21)] # make CNN_disorder (12) and FNN_all (9) switch places due to plotting problems with error-bars
 
-performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2.tsv", header = TRUE, sep = "\t"))
-performance_test <- cbind(performance_test, model_name = c("00 mobidb_2_CNN_0", "1. CNN_all", "02 mobidb_2_CNN_2",
-                                                           "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "3. FNN_all",
-                                                           "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "2. CNN_disorder", 
-                                                           "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "4. FNN_disorder",
-                                                           "17 AAindex_baseline", "5. AAindex_disorder",
-                                                           "random_baseline", "random_disorder",
+performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2_relevant_new.tsv", header = TRUE, sep = "\t"))
+performance_test <- cbind(performance_test, model_name = c("1. CNN_all", 
+                                                           "2. CNN_disorder", 
+                                                           "3. FNN_all",
+                                                           "4. FNN_disorder",
+                                                           "5. AAindex_disorder",
+                                                           "random_disorder",
                                                            "ref: ANCHOR2", "ref: DeepDISOBind"))
-performance_test <- performance_test[c(1:8, 12, 10:11, 9, 13:23)]
+#performance_test <- performance_test[c(1:8, 12, 10:11, 9, 13:23)]
 
 #### whole protein prediction ######
 ggplot(data = rbind(performance[1:9], performance[18]))+
@@ -316,7 +316,7 @@ ggplot(data = best_of_val)+
 
 # disorder only prediction TEST
 best_of_test = rbind(performance_test[2], performance_test[9], performance_test[12], performance_test[17], performance_test[19], performance_test[21:23])
-ggplot(data = best_of_test)+
+ggplot(data = performance_test)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_bar(mapping = aes(x = "Recall", y = D.Recall, fill = model_name), stat = "identity", position = position_dodge2())+
@@ -338,7 +338,7 @@ ggplot(data = best_of_test)+
   theme_bw()
 
 # disorder only prediction TEST, selection
-ggplot(data = best_of_test)+
+ggplot(data = performance_test)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+
@@ -360,7 +360,7 @@ ggplot(data = best_of_test)+
 
 # only final models TEST selection
 palette <- c("#009E73", "#D55E00", "#CC79A7", "#999999")
-final_test <- rbind(best_of_test[3,], best_of_test[6:8,])
+final_test <- rbind(performance_test[3,], performance_test[6:8,])
 ggplot(data = final_test)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+

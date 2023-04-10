@@ -1093,8 +1093,8 @@ if __name__ == '__main__':
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
     """
-    variants = [[12.2, 11.5]]
-    assessment_name = "mobidb_2_consensus_c38"  # "mobidb" / "2.21_only" / ""
+    variants = [11.5, 22.0]
+    assessment_name = "mobidb_2_additional_welch_new"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1338,7 +1338,7 @@ if __name__ == '__main__':
         names[101.0] = 'DeepDISOBind'
 
     # Welch test for some specific models
-    """
+
     print("Welch test: FNN_all vs reference models vs random")
     for i, model_i in enumerate(variants):
         for j, model_j in enumerate(variants):
@@ -1347,7 +1347,7 @@ if __name__ == '__main__':
                 for k in per_model_metrics[0].keys():
                     print(k, "(statistic, pvalue)")
                     print(stats.ttest_ind(per_model_metrics[i][k], per_model_metrics[j][k], equal_var=False))
-    """
+
 
 
     output_name = f'../results/logs/performance_assessment_{assessment_name}.tsv' if not test else \
