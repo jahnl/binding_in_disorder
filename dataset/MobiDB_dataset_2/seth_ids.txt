@@ -1,0 +1,195 @@
+>Q25733|sequence OS=Plasmodium falciparum (malaria parasite P. falciparum) OX=5833 GN=MCvar-1
+>P04775|sequence|Sodium channel protein type 2 subunit alpha OS=Rattus norvegicus (Rat) OX=10116 GN=Scn2a
+>P29539|sequence|Telomere length regulator protein RIF1 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=RIF1
+>Q8IZD2|sequence|Inactive histone-lysine N-methyltransferase 2E OS=Homo sapiens (Human) OX=9606 GN=KMT2E
+>Q96QB1|sequence|Rho GTPase-activating protein 7 OS=Homo sapiens (Human) OX=9606 GN=DLC1
+>O75533|sequence|Splicing factor 3B subunit 1 OS=Homo sapiens (Human) OX=9606 GN=SF3B1
+>Q48245|sequence|Vacuolating cytotoxin autotransporter OS=Helicobacter pylori (Campylobacter pylori) OX=210 GN=vacA
+>P28023|sequence|Dynactin subunit 1 OS=Rattus norvegicus (Rat) OX=10116 GN=Dctn1
+>P59594|sequence|Spike glycoprotein OS=Severe acute respiratory syndrome coronavirus (SARS-CoV) OX=694009 GN=S
+>P17120|sequence|Kinesin-like protein bimC OS=Emericella nidulans (strain FGSC A4 / ATCC 38163 / CBS 112.46 / NRRL 194 M139) (Aspergillus nidulans) OX=227321 GN=bimC
+>Q9UHB7|sequence|AF4/FMR2 family member 4 OS=Homo sapiens (Human) OX=9606 GN=AFF4
+>O43683|sequence|Mitotic checkpoint serine/threonine-protein kinase BUB1 OS=Homo sapiens (Human) OX=9606 GN=BUB1
+>Q8A6W3|sequence OS=Bacteroides thetaiotaomicron (strain ATCC 29148 / DSM 2079 / NCTC 10582 E50 / VPI-5482) OX=226186
+>P08514|sequence|Integrin alpha-IIb OS=Homo sapiens (Human) OX=9606 GN=ITGA2B
+>O95197|sequence|Reticulon-3 OS=Homo sapiens (Human) OX=9606 GN=RTN3
+>P22515|sequence|Ubiquitin-activating enzyme E1 1 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=UBA1
+>Q9Y6C2|sequence|EMILIN-1 OS=Homo sapiens (Human) OX=9606 GN=EMILIN1
+>A7UMX5|sequence OS=Meleagris gallopavo (Wild turkey) OX=9103
+>Q9HC35|sequence|Echinoderm microtubule-associated protein-like 4 OS=Homo sapiens (Human) OX=9606 GN=EML4
+>P06701|sequence|Regulatory protein SIR3 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=SIR3
+>Q703G9|sequence|Structural polyprotein OS=Infectious pancreatic necrosis virus (strain Sp) (IPNV) OX=11005
+>Q95ZK7|sequence|Defective in germ line development protein 3 OS=Caenorhabditis elegans OX=6239 GN=gld-3
+>Q8K4J6|sequence|Myocardin-related transcription factor A OS=Mus musculus (Mouse) OX=10090 GN=MrtfaSynonyms=Bsac
+>P32504|sequence|Centromere DNA-binding protein complex CBF3 subunit A OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=CBF2
+>P78953|sequence|Division mal foutue 1 protein OS=Schizosaccharomyces pombe (strain 972 / ATCC 24843) (Fission yeast) OX=284812 GN=mid1
+>Q8IYB3|sequence|Serine/arginine repetitive matrix protein 1 OS=Homo sapiens (Human) OX=9606 GN=SRRM1
+>P29590|sequence|Protein PML OS=Homo sapiens (Human) OX=9606 GN=PML
+>Q14974|sequence|Importin subunit beta-1 OS=Homo sapiens (Human) OX=9606 GN=KPNB1
+>A0A0J9X1Q5|sequence|Aminotransferase PigE OS=Serratia sp. (strain FS14) OX=1327989 GN=pigE
+>O60341|sequence|Lysine-specific histone demethylase 1A OS=Homo sapiens (Human) OX=9606 GN=KDM1A
+>E6Y5X0|sequence|Urease OS=Canavalia ensiformis (Jack bean) (Dolichos ensiformis) OX=3823
+>Q2JIZ5|sequence OS=Synechococcus sp. (strain JA-2-3B'a(2-13)) (Cyanobacteria bacteriuYellowstone B-Prime) OX=321332
+>P02640|sequence|Villin-1 OS=Gallus gallus (Chicken) OX=9031 GN=VIL1
+>P24394|sequence|Interleukin-4 receptor subunit alpha OS=Homo sapiens (Human) OX=9606 GN=IL4R
+>O35274|sequence|Neurabin-2 OS=Rattus norvegicus (Rat) OX=10116 GN=Ppp1r9b
+>P19634|sequence|Sodium/hydrogen exchanger 1 OS=Homo sapiens (Human) OX=9606 GN=SLC9A1
+>P22059|sequence|Oxysterol-binding protein 1 OS=Homo sapiens (Human) OX=9606 GN=OSBP
+>Q9UBK2|sequence|Peroxisome proliferator-activated receptor gamma coactivator 1-alpha OS=Homo sapiens (Human) OX=9606 GN=PPARGC1A
+>O50008|sequence|5-methyltetrahydropteroyltriglutamate--homocysteine methyltransferase 1 OS=Arabidopsis thaliana (Mouse-ear cress) OX=3702 GN=MS1
+>Q13619|sequence|Cullin-4A OS=Homo sapiens (Human) OX=9606 GN=CUL4A
+>Q9YIJ1|sequence OS=Adeno-associated virus - 5 OX=82300 GN=cap
+>P39007|sequence|Dolichyl-diphosphooligosaccharide--protein glycosyltransferase subunit STT3 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=STT3
+>P42099|sequence|Zona pellucida sperm-binding protein 2 OS=Sus scrofa (Pig) OX=9823 GN=ZP2
+>P49915|sequence|GMP synthase [glutamine-hydrolyzing] OS=Homo sapiens (Human) OX=9606 GN=GMPS
+>Q7LKB1|sequence|ERF-3 OS=Saccharomyces cerevisiae (Baker's yeast) OX=4932 GN=SUP35
+>P87666|sequence|Envelope glycoprotein OS=Zaire ebolavirus (strain Kikwit-95) (ZEBOV) (Zaire Ebola virus) OX=128951 GN=GP
+>P49757|sequence|Protein numb homolog OS=Homo sapiens (Human) OX=9606 GN=NUMB
+>P07140|sequence|Acetylcholinesterase OS=Drosophila melanogaster (Fruit fly) OX=7227 GN=Ace
+>P09446|sequence|Heat shock protein hsp-1 OS=Caenorhabditis elegans OX=6239 GN=hsp-1
+>Q9Z2X8|sequence|Kelch-like ECH-associated protein 1 OS=Mus musculus (Mouse) OX=10090 GN=Keap1
+>P41214|sequence|Eukaryotic translation initiation factor 2D OS=Homo sapiens (Human) OX=9606 GN=EIF2D
+>Q96AY2|sequence|Crossover junction endonuclease EME1 OS=Homo sapiens (Human) OX=9606 GN=EME1
+>Q99741|sequence|Cell division control protein 6 homolog OS=Homo sapiens (Human) OX=9606 GN=CDC6
+>Q8BH64|sequence|EH domain-containing protein 2 OS=Mus musculus (Mouse) OX=10090 GN=Ehd2
+>O88483|sequence|[Pyruvate dehydrogenase [acetyl-transferring]]-phosphatase 1, mitochondrial OS=Rattus norvegicus (Rat) OX=10116 GN=Pdp1
+>Q9BPZ7|sequence|Target of rapamycin complex 2 subunit MAPKAP1 OS=Homo sapiens (Human) OX=9606 GN=MAPKAP1
+>Q42521|sequence|Glutamate decarboxylase 1 OS=Arabidopsis thaliana (Mouse-ear cress) OX=3702 GN=GAD1
+>Q91YD9|sequence|Neural Wiskott-Aldrich syndrome protein OS=Mus musculus (Mouse) OX=10090 GN=Wasl
+>P05546|sequence|Heparin cofactor 2 OS=Homo sapiens (Human) OX=9606 GN=SERPIND1
+>Q9UM11|sequence|Fizzy-related protein homolog OS=Homo sapiens (Human) OX=9606 GN=FZR1
+>P0AFF6|sequence|Transcription termination/antitermination protein NusA OS=Escherichia coli (strain K12) OX=83333 GN=nusA
+>Q9P2K3|sequence|REST corepressor 3 OS=Homo sapiens (Human) OX=9606 GN=RCOR3
+>Q9NS91|sequence|E3 ubiquitin-protein ligase RAD18 OS=Homo sapiens (Human) OX=9606 GN=RAD18
+>P49189|sequence|4-trimethylaminobutyraldehyde dehydrogenase OS=Homo sapiens (Human) OX=9606 GN=ALDH9A1
+>Q8MK44|sequence|Diacylglycerol O-acyltransferase 1 OS=Bos taurus (Bovine) OX=9913 GN=DGAT1
+>O88998|sequence|Noelin OS=Mus musculus (Mouse) OX=10090 GN=Olfm1
+>P07986|sequence|Exoglucanase/xylanase OS=Cellulomonas fimi OX=1708 GN=cex
+>Q9UMX1|sequence|Suppressor of fused homolog OS=Homo sapiens (Human) OX=9606 GN=SUFU
+>P33322|sequence|H/ACA ribonucleoprotein complex subunit CBF5 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=CBF5
+>Q13547|sequence|Histone deacetylase 1 OS=Homo sapiens (Human) OX=9606 GN=HDAC1
+>Q61823|sequence|Programmed cell death protein 4 OS=Mus musculus (Mouse) OX=10090 GN=Pdcd4
+>S6B291|sequence OS=Homo sapiens (Human) OX=9606
+>O60260|sequence|E3 ubiquitin-protein ligase parkin OS=Homo sapiens (Human) OX=9606 GN=PRKN
+>P05371|sequence|Clusterin OS=Rattus norvegicus (Rat) OX=10116 GN=Clu
+>Q9BSQ5|sequence|Cerebral cavernous malformations 2 protein OS=Homo sapiens (Human) OX=9606 GN=CCM2
+>Q13363|sequence|C-terminal-binding protein 1 OS=Homo sapiens (Human) OX=9606 GN=CTBP1
+>P29083|sequence|General transcription factor IIE subunit 1 OS=Homo sapiens (Human) OX=9606 GN=GTF2E1
+>A0A384E149|sequence OS=Clostridium botulinum OX=1491
+>Q05919|sequence|Vacuolar protein sorting-associated protein 38 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=VPS38
+>P54274|sequence|Telomeric repeat-binding factor 1 OS=Homo sapiens (Human) OX=9606 GN=TERF1
+>Q96Q11|sequence|CCA tRNA nucleotidyltransferase 1, mitochondrial OS=Homo sapiens (Human) OX=9606 GN=TRNT1
+>P18075|sequence|Bone morphogenetic protein 7 OS=Homo sapiens (Human) OX=9606 GN=BMP7
+>P28347|sequence|Transcriptional enhancer factor TEF-1 OS=Homo sapiens (Human) OX=9606 GN=TEAD1
+>Q9Y6K9|sequence|NF-kappa-B essential modulator OS=Homo sapiens (Human) OX=9606 GN=IKBKG
+>Q9Y823|sequence|Homocitrate synthase, mitochondrial OS=Schizosaccharomyces pombe (strain 972 / ATCC 24843) (Fission yeast) OX=284812 GN=lys4
+>Q9UBB5|sequence|Methyl-CpG-binding domain protein 2 OS=Homo sapiens (Human) OX=9606 GN=MBD2
+>Q14186|sequence|Transcription factor Dp-1 OS=Homo sapiens (Human) OX=9606 GN=TFDP1
+>P60484|sequence|Phosphatidylinositol 3,4,5-trisphosphate 3-phosphatase and dual-specificity protein phosphatase PTEN OS=Homo sapiens (Human) OX=9606 GN=PTEN
+>P31153|sequence|S-adenosylmethionine synthase isoform type-2 OS=Homo sapiens (Human) OX=9606 GN=MAT2A
+>P14598|sequence|Neutrophil cytosol factor 1 OS=Homo sapiens (Human) OX=9606 GN=NCF1
+>Q9HC52|sequence|Chromobox protein homolog 8 OS=Homo sapiens (Human) OX=9606 GN=CBX8
+>K9MZ21|sequence|Phosphoprotein OS=Menangle virus OX=152219 GN=P
+>Q9UKT5|sequence|F-box only protein 4 OS=Homo sapiens (Human) OX=9606 GN=FBXO4
+>Q12373|sequence|HAT1-interacting factor 1 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=HIF1
+>P31321|sequence|cAMP-dependent protein kinase type I-beta regulatory subunit OS=Homo sapiens (Human) OX=9606 GN=PRKAR1B
+>D0NBE6|sequence|RxLR effector protein 54 OS=Phytophthora infestans (strain T30-4) (Potato late blight fungus) OX=403677 GN=PexRD54
+>P18615|sequence|Negative elongation factor E OS=Homo sapiens (Human) OX=9606 GN=NELFE
+>P68135|sequence|Actin, alpha skeletal muscle OS=Oryctolagus cuniculus (Rabbit) OX=9986 GN=ACTA1
+>Q5UPT2|sequence|Probable uracil-DNA glycosylase OS=Acanthamoeba polyphaga mimivirus (APMV) OX=212035 GN=UNG
+>O95149|sequence|Snurportin-1 OS=Homo sapiens (Human) OX=9606 GN=SNUPN
+>P50148|sequence|Guanine nucleotide-binding protein G(q) subunit alpha OS=Homo sapiens (Human) OX=9606 GN=GNAQ
+>Q8H1D4|sequence|Double-stranded RNA-binding protein 4 OS=Arabidopsis thaliana (Mouse-ear cress) OX=3702 GN=DBR4
+>Q8IYV9|sequence|Izumo sperm-egg fusion protein 1 OS=Homo sapiens (Human) OX=9606 GN=IZUMO1
+>P47110|sequence|DNA polymerase delta subunit 3 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=POL32
+>Q3L254|sequence|Protein Wnt-7b OS=Gallus gallus (Chicken) OX=9031 GN=WNT7B
+>C6KSX0|sequence|Merozoite surface protein P12 OS=Plasmodium falciparum (isolate 3D7) OX=36329 GN=PF12
+>P17810|sequence|Peripherin-2 OS=Bos taurus (Bovine) OX=9913 GN=PRPH2
+>Q12000|sequence|Translation machinery-associated protein 46 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=TMA46
+>P25685|sequence|DnaJ homolog subfamily B member 1 OS=Homo sapiens (Human) OX=9606 GN=DNAJB1
+>P0DJ89|sequence|Secreted effector protein EspF(U) OS=Escherichia coli O157:H7 OX=83334 GN=espF(U)
+>Q13426|sequence|DNA repair protein XRCC4 OS=Homo sapiens (Human) OX=9606 GN=XRCC4
+>O82132|sequence|Dehydration-responsive element-binding protein 2A OS=Arabidopsis thaliana (Mouse-ear cress) OX=3702 GN=DREB2A
+>Q92905|sequence|COP9 signalosome complex subunit 5 OS=Homo sapiens (Human) OX=9606 GN=COPS5
+>P45976|sequence|Pre-mRNA polyadenylation factor FIP1 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=FIP1
+>P06734|sequence|Low affinity immunoglobulin epsilon Fc receptor OS=Homo sapiens (Human) OX=9606 GN=FCER2
+>P40344|sequence|Autophagy-related protein 3 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=ATG3
+>Q87WW0|sequence|Sulfate adenylyltransferase subunit 2 OS=Pseudomonas syringae pv. tomato (strain ATCC BAA-871 / DC3000) OX=223283 GN=cysD
+>O14214|sequence|tRNA (guanine(9)-N1)-methyltransferase OS=Schizosaccharomyces pombe (strain 972 / ATCC 24843) (Fission yeast) OX=284812 GN=trm10
+>P56962|sequence|Syntaxin-17 OS=Homo sapiens (Human) OX=9606 GN=STX17
+>P45379|sequence|Troponin T, cardiac muscle OS=Homo sapiens (Human) OX=9606 GN=TNNT2
+>P90976|sequence OS=Caenorhabditis elegans OX=6239
+>Q0GBY3|sequence|Phosphoprotein OS=Rabies virus (strain China/MRV) (RABV) OX=445791 GN=P
+>Q03337|sequence|Trafficking protein particle complex subunit 31 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=TRS31
+>Q8IUQ4|sequence|E3 ubiquitin-protein ligase SIAH1 OS=Homo sapiens (Human) OX=9606 GN=SIAH1
+>P25942|sequence|Tumor necrosis factor receptor superfamily member 5 OS=Homo sapiens (Human) OX=9606 GN=CD40
+>P0A9D4|sequence|Serine acetyltransferase OS=Escherichia coli (strain K12) OX=83333 GN=cysE
+>Q03768|sequence|Protein GIR2 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=GIR2
+>P70447|sequence|Neurogenin-2 OS=Mus musculus (Mouse) OX=10090 GN=Neurog2
+>P12004|sequence|Proliferating cell nuclear antigen OS=Homo sapiens (Human) OX=9606 GN=PCNA
+>P04925|sequence|Major prion protein OS=Mus musculus (Mouse) OX=10090 GN=Prnp
+>P06836|sequence|Neuromodulin OS=Bos taurus (Bovine) OX=9913 GN=GAP43
+>P01127|sequence|Platelet-derived growth factor subunit B OS=Homo sapiens (Human) OX=9606 GN=PDGFB
+>Q5T1C6|sequence|Acyl-coenzyme A thioesterase THEM4 OS=Homo sapiens (Human) OX=9606 GN=THEM4
+>Q04884|sequence|Opacity protein opA60 OS=Neisseria gonorrhoeae OX=485 GN=opaH
+>P12301|sequence|Oxygen-evolving enhancer protein 3, chloroplastic OS=Spinacia oleracea (Spinach) OX=3562 GN=PSBQ
+>P15374|sequence|Ubiquitin carboxyl-terminal hydrolase isozyme L3 OS=Homo sapiens (Human) OX=9606 GN=UCHL3
+>P58753|sequence|Toll/interleukin-1 receptor domain-containing adapter protein OS=Homo sapiens (Human) OX=9606 GN=TIRAP
+>Q9UKK9|sequence|ADP-sugar pyrophosphatase OS=Homo sapiens (Human) OX=9606 GN=NUDT5
+>Q8BPB0|sequence|MOB kinase activator 1B OS=Mus musculus (Mouse) OX=10090 GN=Mob1b
+>P04861|sequence|Protein C' OS=Sendai virus (strain Harris) (SeV) OX=11196 GN=P/V/C
+>Q16667|sequence|Cyclin-dependent kinase inhibitor 3 OS=Homo sapiens (Human) OX=9606 GN=CDKN3
+>P09919|sequence|Granulocyte colony-stimulating factor OS=Homo sapiens (Human) OX=9606 GN=CSF3
+>P55789|sequence|FAD-linked sulfhydryl oxidase ALR OS=Homo sapiens (Human) OX=9606 GN=GFER
+>P19803|sequence|Rho GDP-dissociation inhibitor 1 OS=Bos taurus (Bovine) OX=9913 GN=ARHGDIA
+>P31431|sequence|Syndecan-4 OS=Homo sapiens (Human) OX=9606 GN=SDC4
+>P55957|sequence|BH3-interacting domain death agonist OS=Homo sapiens (Human) OX=9606 GN=BID
+>P0ADC1|sequence|LPS-assembly lipoprotein LptE OS=Escherichia coli (strain K12) OX=83333 GN=lptE
+>Q99ML1|sequence|Bcl-2-binding component 3 OS=Mus musculus (Mouse) OX=10090 GN=Bbc3
+>O75223|sequence|Gamma-glutamylcyclotransferase OS=Homo sapiens (Human) OX=9606 GN=GGCT
+>Q02521|sequence|Pre-mRNA-splicing factor SPP2 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=SPP2
+>P53193|sequence|J-type co-chaperone JAC1, mitochondrial OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=JAC1
+>P81019|sequence|Seminal plasma protein BSP-30 kDa OS=Bos taurus (Bovine) OX=9913
+>Q9BRG1|sequence|Vacuolar protein-sorting-associated protein 25 OS=Homo sapiens (Human) OX=9606 GN=VPS25
+>Q64364|sequence|Tumor suppressor ARF OS=Mus musculus (Mouse) OX=10090 GN=Cdkn2a
+>Q9FIX2|sequence|AIG2-like protein A OS=Arabidopsis thaliana (Mouse-ear cress) OX=3702 GN=AIG2LA
+>O60493|sequence|Sorting nexin-3 OS=Homo sapiens (Human) OX=9606 GN=SNX3
+>P53330|sequence|Regulator of Ty1 transposition protein 102 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=RTT102
+>Q03818|sequence|Autophagy protein 16 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=ATG16
+>P0AFC3|sequence|NADH-quinone oxidoreductase subunit A OS=Escherichia coli (strain K12) OX=83333 GN=nuoA
+>Q9V452|sequence|Chromatin accessibility complex 16kD protein OS=Drosophila melanogaster (Fruit fly) OX=7227 GN=Chrac-16
+>P0AE98|sequence|Curli production assembly/transport component CsgF OS=Escherichia coli (strain K12) OX=83333 GN=csgF
+>Q24570|sequence|Cell death protein Grim OS=Drosophila melanogaster (Fruit fly) OX=7227 GN=grim
+>Q02363|sequence|DNA-binding protein inhibitor ID-2 OS=Homo sapiens (Human) OX=9606 GN=ID2
+>P0C0S5|sequence|Histone H2A.Z OS=Homo sapiens (Human) OX=9606 GN=H2AZ1
+>Q9Y3M2|sequence|Protein chibby homolog 1 OS=Homo sapiens (Human) OX=9606 GN=CBY1
+>Q38151|sequence OS=Bacillus phage SPP1 (Bacteriophage SPP1) OX=10724 GN=39
+>O25555|sequence OS=Helicobacter pylori (strain ATCC 700392 / 26695) (Campylobacter pylori) OX=85962
+>C9ZUU9|sequence|Anamorsin homolog OS=Trypanosoma brucei gambiense (strain MHOM/CI/86/DAL972) OX=679716
+>P46984|sequence|EKC/KEOPS complex subunit GON7 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=GON7
+>P32774|sequence|Transcription initiation factor IIA subunit 2 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=TOA2
+>P09415|sequence|50S ribosomal protein L18 OS=Geobacillus stearothermophilus (Bacillus stearothermophilus) OX=1422 GN=rplR
+>Q9JLC3|sequence|Methionine-R-sulfoxide reductase B1 OS=Mus musculus (Mouse) OX=10090 GN=Msrb1
+>P53905|sequence|U6 snRNA-associated Sm-like protein LSm7 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) OX=559292 GN=LSM7
+>P9WHJ5|sequence|RNA polymerase-binding protein RbpA OS=Mycobacterium tuberculosis (strain ATCC 25618 / H37Rv) OX=83332 GN=rbpA
+>P23632|sequence|60S acidic ribosomal protein P2-A OS=Trypanosoma cruzi OX=5693
+>O61667|sequence|Programmed cell death activator egl-1 OS=Caenorhabditis elegans OX=6239 GN=egl-1
+>I1JLC8|sequence|Protein SLE2 OS=Glycine max (Soybean) (Glycine hispida) OX=3847 GN=SLE2Synonyms=GmD-19
+>P62805|sequence|Histone H4 OS=Homo sapiens (Human) OX=9606 GN=H4C1
+>P47910|sequence|30S ribosomal protein S31, chloroplastic OS=Spinacia oleracea (Spinach) OX=3562 GN=RPS31
+>Q6MRH6|sequence OS=Bdellovibrio bacteriovorus (strain ATCC 15356 / DSM 50701 / NCIB 9529 HD100) OX=264462
+>P76063|sequence|Uncharacterized protein YdaS OS=Escherichia coli (strain K12) OX=83333 GN=ydaS
+>P59636|sequence|ORF9b protein OS=Severe acute respiratory syndrome coronavirus (SARS-CoV) OX=694009
+>Q96273|sequence|Late embryogenesis abundant protein 18 OS=Arabidopsis thaliana (Mouse-ear cress) OX=3702 GN=LEA18
+>J9V8B5|sequence|Matrix protein 2 OS=Influenza A virus (A/England/250/2009(H1N1)) OX=873110 GN=M2
+>Q9BP37|sequence OS=Haliotis rufescens (California red abalone) OX=6454
+>P23873|sequence|Antitoxin HipB OS=Escherichia coli (strain K12) OX=83333 GN=hipB
+>P69346|sequence|Antitoxin YefM OS=Escherichia coli (strain K12) OX=83333 GN=yefM
+>P22995|sequence|Antitoxin ParD OS=Escherichia coli OX=562 GN=parD
+>O31818|sequence|UPF0291 protein YnzC OS=Bacillus subtilis (strain 168) OX=224308 GN=ynzC
+>Q9KJ82|sequence OS=Salmonella newport OX=108619 GN=parG
+>P0A968|sequence|Cold shock-like protein CspD OS=Escherichia coli (strain K12) OX=83333 GN=cspD
+>O25010|sequence OS=Helicobacter pylori (strain ATCC 700392 / 26695) (Campylobacter pylori) OX=85962
+>O34800|sequence|Stage II sporulation protein SB OS=Bacillus subtilis (strain 168) OX=224308 GN=spoIISB
+>Q7Z094|sequence|Iota-conotoxin RXIA OS=Conus radiatus (Rayed cone) OX=61198
+>P85800|sequence|Variegin OS=Amblyomma variegatum (Tropical bont tick) OX=34610

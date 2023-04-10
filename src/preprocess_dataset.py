@@ -203,7 +203,7 @@ def disprot_preprocessing(test_list, train_list, annotations: str, dataset_dir: 
     print('train bind counts: ', bind_counts_train)
 
 
-def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: str, overwrite: bool):
+def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: str, overwrite: bool):
     random.seed(303)
     # rather use a dict for the sequences than a sorted list
     test_dict = {}
@@ -213,51 +213,56 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
     for entry in train_list:
         train_dict[entry[0]] = [entry[1]]
 
-    with open(annotations, 'r') as annotation:
-        # add labels to specific set,  ML label generation from different annotation
-        # (bind_counts_test/train (per protein...))
-        # # binding residues, # non-binding residues, # disorder but non-binding residues
-        ann_no = 0
-        long_id = ''
-        lip_seq = ''
-        for record in SeqIO.parse(annotation, 'fasta'):
-            # first sequence, then lip-merge, then disorder-merge (different from output file)
-            if ann_no == 0:     # new entry
-                long_id = record.description
-                if long_id in test_dict:
-                    ann_no += 1
-                elif long_id in train_dict:
-                    ann_no += 11
-                else:   # has been excluded from development set
-                    ann_no = 0
+    if len(annotations) == 1:       # MobiDB annotation in FASTA format
+        with open(annotations[0], 'r') as annotation:
+            # add labels to specific set,  ML label generation from different annotation
+            # (bind_counts_test/train (per protein...))
+            # # binding residues, # non-binding residues, # disorder but non-binding residues
+            ann_no = 0
+            long_id = ''
+            lip_seq = ''
+            for record in SeqIO.parse(annotation, 'fasta'):
+                # first sequence, then lip-merge, then disorder-merge (different from output file)
+                if ann_no == 0:     # new entry
+                    long_id = record.description
+                    if long_id in test_dict:
+                        ann_no += 1
+                    elif long_id in train_dict:
+                        ann_no += 11
+                    else:   # has been excluded from development set
+                        ann_no = 0
 
-            elif ann_no == 1:   # in test set
-                if 'disorder' in record.id:
-                    # there was no lip annotation --> jump back to ann_no 0
+                elif ann_no == 1:   # in test set
+                    if 'disorder' in record.id:
+                        # there was no lip annotation --> jump back to ann_no 0
+                        test_dict[long_id].append(str(record.seq))
+                        ann_no = 0
+                    elif 'lip' in record.id:
+                        lip_seq = str(record.seq)
+                        ann_no += 1
+                elif ann_no == 2:       # there was LIP --> there is disorder annotation here
                     test_dict[long_id].append(str(record.seq))
+                    test_dict[long_id].append(lip_seq)
                     ann_no = 0
-                elif 'lip' in record.id:
-                    lip_seq = str(record.seq)
-                    ann_no += 1
-            elif ann_no == 2:       # there was LIP --> there is disorder annotation here
-                test_dict[long_id].append(str(record.seq))
-                test_dict[long_id].append(lip_seq)
-                ann_no = 0
-                lip_seq = ''
+                    lip_seq = ''
 
-            elif ann_no == 11:  # in train set
-                if 'disorder' in record.id:
-                    # there was no lip annotation --> jump back to ann_no 0
+                elif ann_no == 11:  # in train set
+                    if 'disorder' in record.id:
+                        # there was no lip annotation --> jump back to ann_no 0
+                        train_dict[long_id].append(str(record.seq))
+                        ann_no = 0
+                    elif 'lip' in record.id:
+                        lip_seq = str(record.seq)
+                        ann_no += 1
+                elif ann_no == 12:       # there was LIP --> there is disorder annotation here
                     train_dict[long_id].append(str(record.seq))
+                    train_dict[long_id].append(lip_seq)
                     ann_no = 0
-                elif 'lip' in record.id:
-                    lip_seq = str(record.seq)
-                    ann_no += 1
-            elif ann_no == 12:       # there was LIP --> there is disorder annotation here
-                train_dict[long_id].append(str(record.seq))
-                train_dict[long_id].append(lip_seq)
-                ann_no = 0
-                lip_seq = ''
+                    lip_seq = ''
+    else:       # SETH prediction in CSV and TXT format
+        # TODO: parse
+        pass
+
 
     for set in [test_dict, train_dict]:
         per_protein_counts = {'length': [], 'n_disordered': [], 'n_structured': [],
@@ -439,7 +444,8 @@ def mobidb_preprocessing(test_list, train_list, annotations: str, dataset_dir: s
                     out.write(element[0] + "\t" + str(element[1]) + "\n")
         """
 
-def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, database: str, dataset_dir: str,
+
+def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: list, database: str, dataset_dir: str,
                overwrite: bool):
     # match the annotation with the data actually used, different computation depending on database
     # write new, more useful annotation, if database==disprot
@@ -453,6 +459,6 @@ def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: str, data
         train_list = sort_dataset(train_set)
 
     if database == 'disprot':
-        disprot_preprocessing(test_list, train_list, annotations, dataset_dir, overwrite)
+        disprot_preprocessing(test_list, train_list, annotations[0], dataset_dir, overwrite)
     elif database == 'mobidb':  # based on mobidb's fasta-like output format, with merge and disorder annotation
         mobidb_preprocessing(test_list, train_list, annotations, dataset_dir, overwrite)
