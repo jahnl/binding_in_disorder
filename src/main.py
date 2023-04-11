@@ -151,15 +151,18 @@ def check_config_items(step, config, consensus_models, folds, annotations):
             if not exists(config['input_files']['test_set_embeddings']) and not config['input_files']['test_set_embeddings'] == '':
                 raise ValueError(f"Config item 'test_set_embeddings': {config['input_files']['test_set_embeddings']} "
                                  f"is no existing file.")
-        if len(consensus_folds) != len(consensus_models):
-            raise ValueError(f"Config items 'consensus_models' and 'consensus_folds' must have the same number of "
-                             f"elements.")
-        if not set(config['parameters']['consensus_folds']) <= set(string.digits + ',' + ' '):
-            raise ValueError("Config item 'consensus_folds' must be a list of comma separated, positive integers")
-        for i, m in enumerate(consensus_models):
-            file = f'../results/models/binding_regions_model_{m}_fold_{str(folds[i])}.pth'
-            if not exists(file):
-                raise ValueError(f"Config item 'consensus_models': {file} is no existing file.")
+        if consensus_models != ['']:
+            if len(consensus_folds) != len(consensus_models):
+                raise ValueError(f"Config items 'consensus_models' and 'consensus_folds' must have the same number of "
+                                 f"elements.")
+            if not set(config['parameters']['consensus_folds']) <= set(string.digits + ',' + ' '):
+                raise ValueError("Config item 'consensus_folds' must be a list of comma separated, positive integers")
+            for i, m in enumerate(consensus_models):
+                file = f'../results/models/binding_regions_model_{m}_fold_{str(folds[i])}.pth'
+                if not exists(file):
+                    raise ValueError(f"Config item 'consensus_models': {file} is no existing file.")
+        if config['parameters']['test'] == 'False' and len(annotations) > 1:
+            raise ValueError(f"Config item 'annotations': several input files are only allowed with 'test'==True.")
 
 
 if __name__ == '__main__':

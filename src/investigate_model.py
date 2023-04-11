@@ -14,9 +14,10 @@ from torch import nn
 from os.path import exists
 
 
-def read_labels(fold, oversampling, dataset_dir):
+def read_labels(fold, oversampling, dataset_dir, annotations):
     if fold is None:  # --> test set
-        file_name = f'{dataset_dir}test_set_input.txt'
+        seth = '_seth' if len(annotations) == 2 else ''
+        file_name = f'{dataset_dir}test_set{seth}_input.txt'
     else:
         if oversampling is None:  # no oversampling on validation set! (or mode with no oversampling)
             file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels.txt'
@@ -47,6 +48,7 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
         if mode == 'all' or multilabel:
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
+            print(conf_feature)
             conf_feature = np.array(conf_feature, dtype=float)
             disorder.append(conf_feature)
             if '*' not in id:
@@ -503,7 +505,8 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                              cutoff_percent_min, cutoff_percent_max, step_percent)
 
 
-def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers, kernel_size, dropout, mode, test, aaindex):
+def predictCNN(embeddings, dataset_dir, annotations, cutoff, fold, model_name: str, n_layers, kernel_size, dropout,
+               mode, test, aaindex):
     output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
         f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
     with open(output_name, "w") as output_file:
@@ -513,9 +516,9 @@ def predictCNN(embeddings, dataset_dir, cutoff, fold, model_name: str, n_layers,
 
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-            val_labels = read_labels(fold, None, dataset_dir)
+            val_labels = read_labels(fold, None, dataset_dir, annotations)
         else:
-            val_labels = read_labels(None, None, dataset_dir)
+            val_labels = read_labels(None, None, dataset_dir, annotations)
 
 
         # create the input and target data exactly how it's fed into the ML model
@@ -655,8 +658,8 @@ def post_process(prediction: torch.tensor):
     return torch.tensor(prediction_pp)
 
 
-def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name, batch_size,
-               dropout, aaindex):
+def predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multilabel, post_processing, test, model_name,
+               batch_size, dropout, aaindex):
     output_name = f"../results/logs/predict_val_{model_name}_{fold}_{cutoff}.txt" if not test else \
         f"../results/logs/predict_val_{model_name}_{cutoff}_test.txt"
 
@@ -666,9 +669,9 @@ def predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_pro
             # for validation use the training IDs in the current fold
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-            val_labels = read_labels(fold, None, dataset_dir)
+            val_labels = read_labels(fold, None, dataset_dir, annotations)
         else:
-            val_labels = read_labels(None, None, dataset_dir)
+            val_labels = read_labels(None, None, dataset_dir, annotations)
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
@@ -783,7 +786,7 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
                 batch_size, cutoff_percent_min, cutoff_percent_max, step_percent, dropout, aaindex)
 
 
-def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model_name: str,
+def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, annotations: list, model_name: str,
             consensus_models: [str], consensus_folds: [str], fold: int, cutoff,
             mode: str = 'all',
             architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512,
@@ -793,6 +796,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
     :param dataset_dir: directory where the dataset files are stored
     :param train_embeddings: path to the embedding file of the train set datapoints
     :param test_embeddings: path to the embedding file of the test set datapoints
+    :param annotations: list of paths to the annotation file(s). MobiDB or SETH, see config file
     :param post_processing: do the optional the post-processing step?
     :param test: prediction on the test set?
     :param cutoff: single float or list of floats[p, n, o] for classification cutoffs, between 0.0 and 1.0
@@ -830,9 +834,10 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, model
 
     # get predictions for chosen cutoff, fold
     if architecture == 'CNN':
-        predictCNN(embeddings, dataset_dir, cutoff, fold, model_name, n_layers, kernel_size, dropout, mode, test, aaindex)
+        predictCNN(embeddings, dataset_dir, annotations, cutoff, fold, model_name, n_layers, kernel_size, dropout,
+                   mode, test, aaindex)
     elif architecture == 'FNN':
-        predictFNN(embeddings, dataset_dir, cutoff, fold, mode, multilabel, post_processing, test, model_name,
-                   batch_size, dropout, aaindex)
+        predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multilabel, post_processing, test,
+                   model_name, batch_size, dropout, aaindex)
     else:
         raise ValueError("architecture must be 'CNN' or 'FNN'")
