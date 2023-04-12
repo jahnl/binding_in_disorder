@@ -26,15 +26,25 @@ def read_labels(fold, oversampling, dataset_dir, annotations):
         else:
             file_name = f'{dataset_dir}folds/CV_fold_{fold}_labels_{oversampling}.txt'
     with open(file_name, 'r') as handle:
-        records = SeqIO.parse(handle, "fasta")
         labels = dict()
-        for record in records:
-            # re-format input information to 3 sequences in a list per protein in dict labels{}
-            seqs = list()
-            seqs.append(record.seq[:int(len(record.seq) / 3)])
-            seqs.append(record.seq[int(len(record.seq) / 3):2 * int(len(record.seq) / 3)])
-            seqs.append(record.seq[2 * int(len(record.seq) / 3):])
-            labels[record.id] = seqs
+        if seth == '':
+            records = SeqIO.parse(handle, "fasta")
+            for record in records:
+                # re-format input information to 3 sequences in a list per protein in dict labels{}
+                seqs = list()
+                seqs.append(record.seq[:int(len(record.seq) / 3)])
+                seqs.append(record.seq[int(len(record.seq) / 3):2 * int(len(record.seq) / 3)])
+                seqs.append(record.seq[2 * int(len(record.seq) / 3):])
+                labels[record.id] = seqs
+        else:
+            for i, line in enumerate(handle.readlines()):
+                if i % 4 == 0:
+                    id = line[1:].split(' ')[0]  # only short ID, like SeqIO.parse does
+                    seqs = list()
+                else:
+                    seqs.append(line[:-1])  # without \n
+                if i % 4 == 3:
+                    labels[id] = seqs
     return labels
 
 
@@ -48,7 +58,6 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
         if mode == 'all' or multilabel:
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
-            print(conf_feature)
             conf_feature = np.array(conf_feature, dtype=float)
             disorder.append(conf_feature)
             if '*' not in id:
@@ -64,12 +73,12 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
             if architecture == 'FNN':
-                bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+                bool_list = [False if x == '-' else True for x in list(labels[id][1])]
                 input.append(embeddings[id][bool_list])
-                disorder.append([1]*len(labels[id][2]))
-            else:   # CNN
+                disorder.append([1] * len(labels[id][2]))
+            else:  # CNN
                 # separate regions of the same protein from each other!
-                bool_list = [False if x == '-' else True for x in list(labels[id][2])]
+                bool_list = [False if x == '-' else True for x in list(labels[id][1])]
                 starts = []
                 stops = []
                 current = bool_list[0]
@@ -80,7 +89,7 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
                         diso_start = i
                     elif diso_residue != current and not diso_residue:  # disorder to order conformation change
                         input.append(embeddings[id][diso_start:i])
-                        disorder.append([1] * (i-diso_start))
+                        disorder.append([1] * (i - diso_start))
                         starts.append(diso_start)
                         stops.append(i)
                         ids.append(id.split('|')[0] + ', disordered region ' + str(n_regions))
@@ -89,17 +98,20 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
                 # disorder at final residue?
                 if current:
                     input.append(embeddings[id][diso_start:])
-                    disorder.append([1] * (len(bool_list)-diso_start))
+                    disorder.append([1] * (len(bool_list) - diso_start))
                     starts.append(diso_start)
                     stops.append(len(bool_list))
                     ids.append(id.split('|')[0] + ', disordered region ' + str(n_regions))
 
                 # binding data for CNN + disorder_only
                 for i, s in enumerate(starts):
-                    binding = str(labels[id][2][starts[i]:stops[i]])
-                    binding = re.sub('_', '0', binding)
-                    binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
-                    binding = np.array(binding, dtype=float)
+                    if labels[id][2] != '/':
+                        binding = str(labels[id][2][starts[i]:stops[i]])
+                        binding = re.sub('_', '0', binding)
+                        binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
+                        binding = np.array(binding, dtype=float)
+                    else:
+                        binding = '/'
                     target.append(binding)
 
         if not multilabel:
@@ -111,7 +123,10 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
                 elif mode == 'disorder_only':
                     binding = binding.replace('-', '').replace('_', '0')
                 binding = list(re.sub(r'B|P|N|O|X|Y|Z|A', '1', binding))
-                binding = np.array(binding, dtype=float)
+                if binding != ['/']:  # seth input -> no target data
+                    binding = np.array(binding, dtype=float)
+                else:
+                    binding = '/'
                 target.append(binding)
         else:
             # for target: 0 = non-binding or not in disordered region, 1 = binding; 3-dimensions per residue
@@ -140,12 +155,12 @@ class BindingDataset(Dataset):
     def __len__(self):
         if self.architecture == 'CNN':
             # this time the batch size = number of proteins = number of datapoints for the dataloader
-            return len(self.labels)
+            return len(self.disorder)
         else:  # FNN
-            return sum([len(protein) for protein in self.labels])
+            return sum([len(protein) for protein in self.disorder])
 
     def number_residues(self):
-        return sum([len(protein) for protein in self.labels])
+        return sum([len(protein) for protein in self.disorder])
 
     def number_diso_residues(self):
         return sum([sum(d) for d in self.disorder])
@@ -154,19 +169,20 @@ class BindingDataset(Dataset):
         if self.architecture == 'CNN':
             # 3-dimensional input must be provided to conv1d, so proteins must be organised in batches
             try:
-                return torch.tensor(self.inputs[index]).float(), torch.tensor(self.labels[index], dtype=torch.long), \
+                label = torch.tensor(self.labels[index], dtype=torch.long) if type(self.labels[index]) != str else '/'
+                return torch.tensor(self.inputs[index]).float(), label, \
                        torch.tensor(self.disorder[index], dtype=torch.long)
             except IndexError:
                 return None
         else:  # FNN
             k = 0  # k is the current protein index, index gets transformed to the position in the sequence
-            protein_length = len(self.labels[k])
+            protein_length = len(self.disorder[k])
             while index >= protein_length:
                 index = index - protein_length
                 k += 1
-                protein_length = len(self.labels[k])
-            return torch.tensor(self.inputs[k][index]).float(), torch.tensor(self.labels[k][index]), \
-                torch.tensor(self.disorder[k][index])
+                protein_length = len(self.disorder[k])
+            label = torch.tensor(self.labels[k][index]) if type(self.labels[k]) != str else '/'
+            return torch.tensor(self.inputs[k][index]).float(), label, torch.tensor(self.disorder[k][index])
 
 
 class CNN(nn.Module):
@@ -210,7 +226,6 @@ class CNN(nn.Module):
             self.dropout = nn.Dropout(p=dropout)
             # --> out: (1, protein_length)
 
-
     def forward(self, input):
         input = torch.nan_to_num(input).transpose(1, 2).contiguous()  # sanitize and transpose input
         if self.n_layers == 2:
@@ -219,7 +234,7 @@ class CNN(nn.Module):
             x = self.dropout(x)
             x = self.relu(x)
             x = self.conv2(x)
-            x = x+2
+            x = x + 2
         elif self.n_layers == 5:
             # version 1: 5 C layers
             x = self.conv1(input)
@@ -292,7 +307,8 @@ def transform_output(p, n, o):
 
 def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all', multilabel: bool = False,
                 n_splits: int = 5,
-                architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512, cutoff_percent_min: int = 0,
+                architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512,
+                cutoff_percent_min: int = 0,
                 cutoff_percent_max: int = 100, step_percent: int = 5, dropout: float = 0.3, aaindex: bool = False):
     def criterion(loss_func, prediction, label):  # sum over all classification heads
         losses = 0
@@ -520,7 +536,6 @@ def predictCNN(embeddings, dataset_dir, annotations, cutoff, fold, model_name: s
         else:
             val_labels = read_labels(None, None, dataset_dir, annotations)
 
-
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
         this_fold_val_input, this_fold_val_target, disorder_labels, region_ids = \
@@ -540,7 +555,9 @@ def predictCNN(embeddings, dataset_dir, annotations, cutoff, fold, model_name: s
         model.eval()
         with torch.no_grad():
             for i, (input, label, disorder) in enumerate(test_loader):
-                input, label, disorder = input.to(device), label[None, :].to(device), disorder[None, :].to(device)
+                if label[0] != '/':
+                    label = label[None, :].to(device)
+                input, disorder = input.to(device), disorder[None, :].to(device)
                 prediction = model(input)
                 # apply activation function to prediction to enable classification
                 prediction_act = torch.sigmoid(prediction)
@@ -712,40 +729,44 @@ def predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multila
                         for i, _ in enumerate(prediction_max_p)]
                     all_prediction_max.extend(prediction_max)
                 else:
-                    input, label = input.to(device), label[:, None].to(device)
-                    all_labels.extend(label.flatten().tolist())
+                    if label[0] != '/':
+                        label = label[:, None].to(device)
+                        all_labels.extend(label.flatten().tolist())
+                    input = input.to(device)
                     prediction = model(input)
                     prediction_act = torch.sigmoid(prediction)
                     all_prediction_act.extend(prediction_act.flatten().tolist())
                     # apply activation function to prediction to enable classification
                     prediction_max = prediction_act > cutoff
                     all_prediction_max.extend(prediction_max.flatten().tolist())
-
         # group residues back to proteins again
         delimiter_0 = 0
         delimiter_1 = 0
         for p_id in val_labels.keys():
             if mode == 'disorder_only':
-                delimiter_1 += len(str(val_labels[p_id][2]).replace('-', ''))
+                delimiter_1 += len(str(val_labels[p_id][1]).replace('-', ''))   # without structured residues
             elif mode == 'all':
-                delimiter_1 += len(val_labels[p_id][2])
+                delimiter_1 += len(val_labels[p_id][1])
             if multilabel:
                 output_file.write(f'{p_id}\nlabels:\t{"".join(all_labels[delimiter_0: delimiter_1])}'
                                   f'\nprediction:\t{"".join(all_prediction_max[delimiter_0: delimiter_1])}\n')
             else:
-                output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
+                if label[0] != '/':
+                    output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
+                else:
+                    output_file.write(f'{p_id}\nlabels:\t/')
                 # f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
                 output_file.write(f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0: delimiter_1])}')
-                output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}')
+                output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}\n')
                 if post_processing:
                     output_file.write(
-                        f'\nprediction_pp:\t{post_process(torch.tensor(all_prediction_max[delimiter_0: delimiter_1]))}\n')
+                        f'prediction_pp:\t{post_process(torch.tensor(all_prediction_max[delimiter_0: delimiter_1]))}\n')
 
             delimiter_0 = delimiter_1
 
 
 def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str, mode: str = 'all', n_splits: int = 5,
-                        architecture: str = 'FNN', n_layers: int = 0, kernel_size: int =5, batch_size: int = 512,
+                        architecture: str = 'FNN', n_layers: int = 0, kernel_size: int = 5, batch_size: int = 512,
                         cutoff_percent_min: int = 0,
                         cutoff_percent_max: int = 100, step_percent: int = 5, multilabel: bool = False,
                         dropout: float = 0.3):
