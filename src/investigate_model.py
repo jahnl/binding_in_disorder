@@ -837,7 +837,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, annot
     # read input embeddings
     embeddings_in = test_embeddings if test else train_embeddings
     embeddings = dict()
-    if train_embeddings != "":
+    if train_embeddings != "" or test_embeddings != "":     # if both empty, AAindex, else use respective h5 file
         aaindex = False
         with h5py.File(embeddings_in, 'r') as f:
             for key, embedding in f.items():

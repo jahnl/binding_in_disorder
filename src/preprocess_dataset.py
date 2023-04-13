@@ -210,8 +210,9 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: 
     for entry in test_list:
         test_dict[entry[0]] = [entry[1]]    # test_dict[id[0]] = sequence
     train_dict = {}
-    for entry in train_list:
-        train_dict[entry[0]] = [entry[1]]
+    if train_list is not None:
+        for entry in train_list:
+            train_dict[entry[0]] = [entry[1]]
 
     if len(annotations) == 1:       # MobiDB annotation in FASTA format
         with open(annotations[0], 'r') as annotation:
@@ -278,7 +279,7 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: 
                     except KeyError:    # last entry without \n at the end...
                         test_dict[id[1:]].extend([disorder_str, '/'])
 
-    dicts = [test_dict, train_dict] if len(annotations) == 1 else [test_dict]
+    dicts = [test_dict, train_dict] if len(annotations) == 1 and train_list is not None else [test_dict]
     for set in dicts:
         per_protein_counts = {'length': [], 'n_disordered': [], 'n_structured': [],
                               'n_D_binding': [], 'n_D_nonbinding': [],
@@ -470,8 +471,11 @@ def preprocess(test_set_fasta: str, train_set_fasta: str, annotations: list, dat
     # sort the train and test set to enable fast access for a later point in the workflow
     with open(test_set_fasta, 'r') as test_set:
         test_list = sort_dataset(test_set)
-    with open(train_set_fasta, 'r') as train_set:
-        train_list = sort_dataset(train_set)
+    if train_set_fasta != '':
+        with open(train_set_fasta, 'r') as train_set:
+            train_list = sort_dataset(train_set)
+    else:
+        train_list = None
 
     if database == 'disprot':
         disprot_preprocessing(test_list, train_list, annotations[0], dataset_dir, overwrite)
