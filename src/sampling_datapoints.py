@@ -132,6 +132,8 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, ov
             labels = read_all_labels(None, oversampling, dataset_dir)
             representation = AAindex_rep(labels, aaindex)
             np.save(file=f'{dataset_dir}AAindex_representation.npy', arr=representation)
+        else:
+            print('skipping creation of AAindex representation, necessary files are already present')
         return
 
 

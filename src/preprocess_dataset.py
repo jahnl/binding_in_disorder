@@ -328,6 +328,7 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: 
                                 set[entry_id][2] = set[entry_id][2][:i] + '-' + set[entry_id][2][i + 1:]
 
                     # statistics
+                    """
                     b_c = set[entry_id][2].count('B')
                     length = len(set[entry_id][2])
                     bind_count += b_c
@@ -340,8 +341,10 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: 
                     else:
                         negative_proteins += 1
                         neg_prot_res += length
+                    """
 
                     # counts for distribution:
+                    """
                     per_protein_counts['length'].append(length)
                     per_protein_counts['n_disordered'].append(b_c + diso_nb_c)
                     per_protein_counts['n_structured'].append(length - (b_c + diso_nb_c))
@@ -362,10 +365,12 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: 
                     score = round(length + (500 * (diso_nb_c/length)), 2)
                     per_protein_score.append((entry_id.split('|')[0], score))
                     per_protein_score_2.append((entry_id.split('|')[0], round(length, 2)))
+                    """
 
                 # write ML input file
                 out.write('>' + entry_id + '\n' + set[entry_id][0] + '\n' + set[entry_id][1] + '\n' + set[entry_id][2]
                           + '\n')
+        """
         if seth == '':
             print(f'{name} set:\nbinding residues: {bind_count}\nnon-binding residues: {nbind_count}\n'
                   f'non-binding residues in disorder: {diso_nbind_count}\npositive proteins: {positive_proteins} with '
@@ -379,7 +384,7 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: 
                 out.write("protein\tscore\n")
                 for element in per_protein_score:
                     out.write(element[0] + "\t" + str(element[1]) + "\n")
-
+        """
         """
         # statistics for CV-folds (only possible if they already exist)
         for fold in range(5):
