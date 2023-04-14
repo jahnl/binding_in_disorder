@@ -370,7 +370,7 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, dataset_dir: 
             print(f'{name} set:\nbinding residues: {bind_count}\nnon-binding residues: {nbind_count}\n'
                   f'non-binding residues in disorder: {diso_nbind_count}\npositive proteins: {positive_proteins} with '
                   f'{pos_prot_res} residues\nnegative proteins: {negative_proteins} with {neg_prot_res} residues\n')
-            print(per_protein_counts)
+            # print(per_protein_counts)
 
             with open(f"{dataset_dir}{name}_set{seth}_stats.txt", 'w') as out:
                 for key in per_protein_counts.keys():
