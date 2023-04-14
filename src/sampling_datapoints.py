@@ -127,11 +127,11 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, ov
             representation = AAindex_rep(labels, aaindex)
             np.save(file=f'{dataset_dir}folds/AAindex_representation_{oversampling}_fold_{fold}.npy', arr=representation)
 
-        if not exists(f'{dataset_dir}AAindex_representation_test.npy'):
-            print("Test set")
+        if not exists(f'{dataset_dir}AAindex_representation.npy'):
+            # print("Test set")
             labels = read_all_labels(None, oversampling, dataset_dir)
             representation = AAindex_rep(labels, aaindex)
-            np.save(file=f'{dataset_dir}AAindex_representation_test.npy', arr=representation)
+            np.save(file=f'{dataset_dir}AAindex_representation.npy', arr=representation)
         return
 
 

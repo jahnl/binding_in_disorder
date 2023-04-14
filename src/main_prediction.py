@@ -6,6 +6,7 @@ import re
 
 import src.preprocess_dataset
 import src.investigate_model
+import src.sampling_datapoints
 
 
 # Method to read config file
@@ -161,6 +162,9 @@ def check_config_items(model_name, config, annotations):
                                                                             'test_set_embeddings'] == '':
         raise ValueError(f"Config item 'test_set_embeddings': {config['input_files']['test_set_embeddings']} "
                          f"is no existing file.")
+    if config['input_files']['test_set_embeddings'] != '' and 'AAindex' in model_name:
+        raise UserWarning("If you want to use AAindex input instead of ProtT5 embeddings, "
+                          "leave the config item 'test_set_embeddings' blank.")
 
 
 if __name__ == '__main__':
@@ -173,7 +177,8 @@ if __name__ == '__main__':
     model_alias = {'CNN_all': 'mobidb_2_CNN_1',
                    'CNN_disorder': 'mobidb_2_D_CNN_2',
                    'FNN_all': 'mobidb_2_FNN_5',
-                   'FNN_disorder': 'mobidb_2_D_FNN_4'}
+                   'FNN_disorder': 'mobidb_2_D_FNN_4',
+                   'AAindex_disorder': 'AAindex_D_baseline_2'}
     model_name = config['parameters']['model_name']
     if model_name in model_alias:
         model_name = model_alias[model_name]
@@ -185,6 +190,7 @@ if __name__ == '__main__':
     fold = get_optimal_fold(model_name) if fold == '' else int(fold)
     cutoff = config['parameters']['cutoff']
     cutoff = get_optimal_cutoff(model_name, fold) if cutoff == '' else float(cutoff)
+    residues = 'disorder_only' if '_D_' in model_name else 'all'
 
     # parse bools
     wf_overwrite = config['workflow']['overwrite'] != 'False'
@@ -193,9 +199,9 @@ if __name__ == '__main__':
     check_config_items(model_name, config, annotations)
 
     if not wf_overwrite and \
-            exists(config['input_files']['dataset_directory'] + 'test_set_input.txt') and \
-            exists(config['input_files']['dataset_directory'] + 'test_set_stats.txt'):
-        print('skipping preprocessing, necessary output files are already present')
+            ((len(annotations) == 1 and exists(config['input_files']['dataset_directory'] + 'test_set_input.txt')) or
+             (len(annotations) == 2 and exists(config['input_files']['dataset_directory'] + 'test_set_seth_input.txt'))):
+        print('skipping preprocessing, necessary files are already present')
     else:
         print('preprocessing dataset...')
         src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
@@ -204,6 +210,20 @@ if __name__ == '__main__':
                                           database='mobidb',
                                           dataset_dir=config['input_files']['dataset_directory'],
                                           overwrite=wf_overwrite)
+
+    # in case of AAindex usage, create AAindex representation, if not already there
+    if config['input_files']['test_set_embeddings'] == '':
+        if exists(config['input_files']['dataset_directory'] + 'AAindex_representation.npy') and not wf_overwrite:
+            print('skipping creation of AAindex representation, necessary files are already present')
+        else:
+            print('creating AAindex representation...')
+            src.sampling_datapoints.sample_datapoints(train_embeddings='',
+                                                      dataset_dir=config['input_files']['dataset_directory'],
+                                                      database='mobidb',
+                                                      oversampling='',
+                                                      mode=residues,
+                                                      n_splits=0)   # 0, because no representation must be created for any train set split
+
 
     if not wf_overwrite:
         all_val_files_present = False
@@ -222,7 +242,7 @@ if __name__ == '__main__':
                                       consensus_folds='',
                                       fold=fold,
                                       cutoff=cutoff,
-                                      mode='disorder_only' if '_D_' in model_name else 'all',
+                                      mode=residues,
                                       architecture='FNN' if 'FNN' in model_name else 'CNN',     # CNN also for AAindex models!
                                       multilabel=False,
                                       n_layers=8 if model_name.endswith('_l8') else 5,
@@ -234,5 +254,5 @@ if __name__ == '__main__':
                                       )
 
     # copy config file for documentation of parameters
-    shutil.copyfile(src='../config.ini', dst=f"../results/logs/config_prediction_{model_name}_{dt}.ini")
+    shutil.copyfile(src='../config_prediction.ini', dst=f"../results/logs/config_prediction_{model_name}_{dt}.ini")
     print("done.\nruntime: ", datetime.now() - start)

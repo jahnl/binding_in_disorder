@@ -848,7 +848,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, annot
         # load pre-computed datapoint representations from AAindex1
         aaindex = True
         if test:
-            fold_rep = np.load(f'{dataset_dir}AAindex_representation_test.npy', allow_pickle=True).item()
+            fold_rep = np.load(f'{dataset_dir}AAindex_representation.npy', allow_pickle=True).item()
         else:
             fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{fold}.npy', allow_pickle=True).item()
         embeddings.update(fold_rep)
