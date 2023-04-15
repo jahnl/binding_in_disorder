@@ -4,9 +4,9 @@ import shutil
 from datetime import datetime
 import re
 
-import src.preprocess_dataset
-import src.investigate_model
-import src.sampling_datapoints
+import preprocess_dataset
+import investigate_model
+import sampling_datapoints
 
 
 # Method to read config file
@@ -204,7 +204,7 @@ if __name__ == '__main__':
         print('skipping preprocessing, necessary files are already present')
     else:
         print('preprocessing dataset...')
-        src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
+        preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
                                           train_set_fasta='',
                                           annotations=annotations,
                                           database='mobidb',
@@ -217,7 +217,7 @@ if __name__ == '__main__':
             print('skipping creation of AAindex representation, necessary files are already present')
         else:
             print('creating AAindex representation...')
-            src.sampling_datapoints.sample_datapoints(train_embeddings='',
+            sampling_datapoints.sample_datapoints(train_embeddings='',
                                                       dataset_dir=config['input_files']['dataset_directory'],
                                                       database='mobidb',
                                                       oversampling='',
@@ -233,7 +233,7 @@ if __name__ == '__main__':
         print('skipping prediction, all output files are already present')
     else:
         print('predicting...')
-        src.investigate_model.predict(train_embeddings='',
+        investigate_model.predict(train_embeddings='',
                                       test_embeddings=config['input_files']['test_set_embeddings'],
                                       dataset_dir=config["input_files"]["dataset_directory"],
                                       annotations=annotations,
