@@ -249,6 +249,9 @@ if __name__ == '__main__':
                 elif not exists(f'{config["input_files"]["dataset_directory"]}folds/new_datapoints_{config["parameters"]["balancing"]}_fold_{i}.npy'):
                     all_datapoints_present = False
                     break
+            if not exists(f'{config["input_files"]["dataset_directory"]}AAindex_representation.npy') or not exists(f'{config["input_files"]["dataset_directory"]}AAindex_representation_test.npy'):
+                all_datapoints_present = False
+
         if not wf_overwrite and all_datapoints_present:
             print('Step 3 is skipped, all output files are already present')
         else:
