@@ -1093,8 +1093,8 @@ if __name__ == '__main__':
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
     """
-    variants = [11.5, 22.0]
-    assessment_name = "FNN_all_prec_cutoff"  # "mobidb" / "2.21_only" / ""
+    variants = [10.1, 12.2, 11.5, 13.4, 22.0, 42.0]
+    assessment_name = "mobidb_2_precision_cutoff"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1122,22 +1122,22 @@ if __name__ == '__main__':
              3.3: "mobidb_D_FNN_3",
              3.4: "mobidb_D_FNN_4",
              10.0: "mobidb_2_CNN_0",
-             10.1: "mobidb_2_CNN_1",
+             10.1: "mobidb_2_CNN_1",    # CNN_all
              10.2: "mobidb_2_CNN_2",
              11.0: "mobidb_2_FNN_0",
              11.1: "mobidb_2_FNN_1",
              11.2: "mobidb_2_FNN_2",
              11.3: "mobidb_2_FNN_3",
              11.4: "mobidb_2_FNN_4",
-             11.5: "mobidb_2_FNN_5",
+             11.5: "mobidb_2_FNN_5",    # FNN_all
              12.0: "mobidb_2_D_CNN_0",
              12.1: "mobidb_2_D_CNN_1",
-             12.2: "mobidb_2_D_CNN_2",
+             12.2: "mobidb_2_D_CNN_2",      # CNN_disorder
              13.0: "mobidb_2_D_FNN_0",
              13.1: "mobidb_2_D_FNN_1",
              13.2: "mobidb_2_D_FNN_2",
              13.3: "mobidb_2_D_FNN_3",
-             13.4: "mobidb_2_D_FNN_4",
+             13.4: "mobidb_2_D_FNN_4",      # FNN_disorder
              20.0: "random_binary",
              22.0: "random_D_only",
              30.0: "AAindex_baseline",  # based on mobidb_CNN_0
@@ -1172,22 +1172,22 @@ if __name__ == '__main__':
                3.3: [0.45, 0.45, 0.4, 0.45, 0.5],
                3.4: [0.6, 0.55, 0.55, 0.5, 0.5],
                10.0: [0.15, 0.55, 0.5, 0.5, 0.15],
-               10.1: [0.4, 0.35, 0.6, 0.55, 0.15],
+               10.1: [0.4, 0.35, 0.6, 0.55, 0.15],  # cutoff for fold 1 was 0.35 (via ROC), 0.85 if looking for better precision
                10.2: [0.4, 0.45, 0.55, 0.45, 0.15],
                11.0: [0.35, 0.45, 0.45, 0.4, 0.35],
                11.1: [0.85, 0.85, 0.85, 0.85, 0.85],
                11.2: [0.45, 0.5, 0.5, 0.5, 0.35],
                11.3: [0.4, 0.45, 0.4, 0.45, 0.25],
                11.4: [0.15, 0.5, 0.45, 0.45, 0.2],
-               11.5: [0.55, 0.4, 0.5, 0.35, 0.55],  # cutoff for fold 4 was 0.3 (via ROC), 0.55 if looking for better precision
+               11.5: [0.55, 0.4, 0.5, 0.35, 0.3],  # cutoff for fold 4 was 0.3 (via ROC), 0.55 if looking for better precision
                12.0: [0.4, 0.2, 0.4, 0.45, 0.2],
                12.1: [0.35, 0.25, 0.45, 0.2, 0.25],
-               12.2: [0.4, 0.35, 0.3, 0.45, 0.3],
+               12.2: [0.4, 0.35, 0.3, 0.45, 0.3],   # cutoff for fold 3 was 0.45 (via ROC), 0.55 if looking for better precision
                13.0: [0.4, 0.4, 0.4, 0.4, 0.4],
                13.1: [0.45, 0.5, 0.5, 0.45, 0.5],
                13.2: [0.45, 0.5, 0.4, 0.5, 0.3],
                13.3: [0.45, 0.45, 0.45, 0.45, 0.4],
-               13.4: [0.5, 0.45, 0.5, 0.45, 0.5],
+               13.4: [0.5, 0.45, 0.5, 0.45, 0.5],   # cutoff for fold 1 was 0.45 (ROC), 0.5 if looking for better precision
                20.0: [0.94, 0.94, 0.94, 0.94, 0.94],
                22.0: [0.63, 0.63, 0.63, 0.63, 0.63],
                30.0: [0.1, 0.1, 0.15, 0.1, 0.1],

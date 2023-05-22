@@ -217,15 +217,16 @@ performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "1. CNN_al
                                                  "random_baseline", "random_disorder"))
 performance <- performance[c(1:8, 12, 10:11, 9, 13:21)] # make CNN_disorder (12) and FNN_all (9) switch places due to plotting problems with error-bars
 
-performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2_relevant_new.tsv", header = TRUE, sep = "\t"))
+# performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2_relevant_new.tsv", header = TRUE, sep = "\t"))
+performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2_precision_cutoff.tsv", header = TRUE, sep = "\t"))
 performance_test <- cbind(performance_test, model_name = c("1. CNN_all", 
                                                            "2. CNN_disorder", 
                                                            "3. FNN_all",
                                                            "4. FNN_disorder",
-                                                           "5. AAindex_disorder",
                                                            "random_disorder",
+                                                           "5. AAindex_disorder",
                                                            "ref: ANCHOR2", "ref: DeepDISOBind"))
-#performance_test <- performance_test[c(1:8, 12, 10:11, 9, 13:23)]
+performance_test <- performance_test[c(1:4, 6, 5, 7:8)]
 
 #### whole protein prediction ######
 ggplot(data = rbind(performance[1:9], performance[18]))+
