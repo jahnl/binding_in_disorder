@@ -1093,8 +1093,8 @@ if __name__ == '__main__':
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
     """
-    variants = [10.1, 12.2, 11.5, 13.4, 22.0, 42.0]
-    assessment_name = "mobidb_2_precision_cutoff"  # "mobidb" / "2.21_only" / ""
+    variants = [13.4]
+    assessment_name = "mobidb_2_precision_cutoff_FNN_disorder"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1187,7 +1187,7 @@ if __name__ == '__main__':
                13.1: [0.45, 0.5, 0.5, 0.45, 0.5],
                13.2: [0.45, 0.5, 0.4, 0.5, 0.3],
                13.3: [0.45, 0.45, 0.45, 0.45, 0.4],
-               13.4: [0.5, 0.45, 0.5, 0.45, 0.5],   # cutoff for fold 1 was 0.45 (ROC), 0.5 if looking for better precision
+               13.4: [0.5, 0.45, 0.5, 0.45, 0.5],   # cutoff for fold 1 was 0.45 (ROC), 0.55 if looking for better precision
                20.0: [0.94, 0.94, 0.94, 0.94, 0.94],
                22.0: [0.63, 0.63, 0.63, 0.63, 0.63],
                30.0: [0.1, 0.1, 0.15, 0.1, 0.1],
