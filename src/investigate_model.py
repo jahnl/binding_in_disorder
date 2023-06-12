@@ -15,8 +15,10 @@ from os.path import exists
 
 
 def read_labels(fold, oversampling, dataset_dir, annotations):
+    seth = ''
     if fold is None:  # --> test set
-        seth = '_seth' if len(annotations) == 2 else ''
+        if len(annotations) == 2:
+            seth = '_seth'
         file_name = f'{dataset_dir}test_set{seth}_input.txt'
     else:
         if oversampling is None:  # no oversampling on validation set! (or mode with no oversampling)
@@ -61,7 +63,15 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
             conf_feature = np.array(conf_feature, dtype=float)
             disorder.append(conf_feature)
             if '*' not in id:
-                emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+                try:
+                    emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+                except KeyError:
+                    # for esm embeddings '/' has been removed from the id string
+                    emb_with_conf = np.column_stack((embeddings[id.replace('/', '')], conf_feature))
+                except ValueError:
+                    print(f'Warning: leaving out {id}. Value Error suggests that the embedding size is wrong.')
+                    disorder.pop()
+                    continue
             else:  # data points created by residue-wise oversampling
                 # use pre-computed embedding
                 emb_with_conf = new_datapoints[datapoint_counter]
@@ -479,12 +489,12 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
             output_file.write('Fold\tAvg_Loss\tCutoff\tAcc\tPrec\tRec\tTP\tFP\tTN\tFN\t'
                               'D_Acc\tD_NPrec\tD_NRec\tD_Loss\tD_TP\tD_FP\tD_TN\tD_FN\n')
 
-        for fold in range(n_splits):
+        for fold in [2,3,4]:# range(n_splits):
             print("Fold: " + str(fold))
             # for validation use the training IDs in the current fold
             # read target data y and disorder information
             # re-format input information to 3 sequences in a list per protein in dict val/train_labels{}
-            val_labels = read_labels(fold, None, dataset_dir)  # no oversampling on validation labels
+            val_labels = read_labels(fold, None, dataset_dir, [''])  # no oversampling on validation labels
             # create the input and target data exactly how it's fed into the ML model
             # and add the confounding feature of disorder to the embeddings
             this_fold_val_input, this_fold_val_target, this_fold_disorder, _ = \
@@ -500,7 +510,9 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
             """
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            if mode == 'disorder_only':
+            if '_ESM2' in model_name:  # special case: ESM2 embeddings instead of ProtT5 or AAindex rep.
+                input_size = 2561 if mode == 'all' else 2560
+            elif mode == 'disorder_only':
                 input_size = 566 if aaindex else 1024
             else:
                 input_size = 567 if aaindex else 1025
@@ -793,7 +805,11 @@ def investigate_cutoffs(train_embeddings: str, dataset_dir: str, model_name: str
     if train_embeddings != '':
         with h5py.File(train_embeddings, 'r') as f:
             for key, embedding in f.items():
-                original_id = embedding.attrs['original_id']
+                try:
+                    original_id = embedding.attrs['original_id']
+                except KeyError:
+                    # in esm embeddings there is no original_id attribute, additionally shorten the ID like for ProtT5
+                    original_id = key.split(' ')[0]
                 embeddings[original_id] = np.array(embedding)
         # now {IDs: embeddings} are written in the embeddings dictionary
     else:

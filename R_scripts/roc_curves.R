@@ -29,7 +29,7 @@ print(data[data$Prec == max(data$Prec) ,])
 
 
 # ROC curve, binary prediction, including curve within disorder
-model_name <- 'AAindex_D_baseline_2'
+model_name <- 'mobidb_2_FNN_5_ESM2'
 data_file <- paste(paste('../results/logs/validation_', model_name, sep = ''), '.txt', sep = '')
 data <- read.table(data_file, sep = '\t', header = TRUE)
 data['D_Rec'] <- data['D_TP']/(data['D_TP']+data['D_FN'])
@@ -88,33 +88,53 @@ for (fold in 0:4) {
 #print(data[data$Prec == max(data$Prec) ,])
 
 ##### visualization in thesis
-model_name <- 'mobidb_2_FNN_5'
-printed_name <- 'FNN_all'
-cutoffs <- c(0.55, 0.40, 0.50, 0.35, 0.30)
+model_name <- 'mobidb_2_FNN_5_ESM2'
+printed_name <- 'FNN_all_ESM2'
+cutoffs <- c(0.4, 0.35, 0.45, 0.4, 0.35)
 data_file <- paste(paste('../results/logs/validation_', model_name, sep = ''), '.txt', sep = '')
 data <- read.table(data_file, sep = '\t', header = TRUE)
 data['D_Rec'] <- data['D_TP']/(data['D_TP']+data['D_FN'])
 data['D_Prec'] <- data['D_TP']/(data['D_TP']+data['D_FP'])
-text_data <- rbind(data[data$Cutoff==cutoffs[data$Fold+1],], c(3
-                   ,0.196729
-                   ,0.35
-                   ,89.5
-                   ,43.6
-                   ,67.1
-                   ,12012
-                   ,15522
-                   ,170526
-                   ,5894
-                   ,59.8
-                   ,66.1
-                   ,53.7
-                   ,0
-                   ,12012
-                   ,9907
-                   ,11483
-                   ,5894
-                   ,0.6708365911
-                   ,0.5480177))
+text_data <- rbind(data[data$Cutoff==cutoffs[data$Fold+1],], c(1,
+                                                               0.224256,
+                                                               0.35,
+                                                               86.0,
+                                                               27.9,
+                                                               66.5,
+                                                               9474,
+                                                               24450,
+                                                               169396,
+                                                               4774,
+                                                               59.5,
+                                                               71.4,
+                                                               54.9,
+                                                               0,
+                                                               9474,
+                                                               9783,
+                                                               11915,
+                                                               4774,
+                                                               0.6649354295,
+                                                               0.49197694), 
+                   c(4,
+                     0.185949,
+                     0.35,
+                     92.4,
+                     34.6,
+                     41.8,
+                     4782,
+                     9051,
+                     186682,
+                     6671,
+                     65.2,
+                     69.9,
+                     78.9,
+                     0,
+                     4782,
+                     4143,
+                     15477,
+                     6671,
+                     0.4175325242,
+                     0.53579832))
 ggplot(mapping = aes(x = D_FP/(D_FP+D_TN)*100, y = D_Rec*100, color = Fold))+ 
   geom_point(data = data[data$Fold==0,], size = 2)+
   geom_line(data = data[data$Fold==0,], size = 1)+

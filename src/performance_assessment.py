@@ -52,7 +52,14 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel):
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
             disorder.append(conf_feature)
-            emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            try:
+                emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+            except KeyError:
+                # for esm embeddings '/' has been removed from the id string
+                emb_with_conf = np.column_stack((embeddings[id.replace('/', '')], conf_feature))
+            except ValueError:
+                print(f'Warning: leaving out {id}. Value Error suggests that the embedding size is wrong.')
+                continue
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
             if architecture == 'FNN':
@@ -509,7 +516,7 @@ def post_process(prediction: torch.tensor):
 
 
 def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size, loss_function,
-           post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size, validation):
+           post_processing, test, best_fold, dataset_dir, input_emb, embeddings_path, test_batch_size, validation):
     # predict and assess performance of 1 model
     if multilabel:
         all_conf_matrices = [{"correct": [], "TP": [], "FP": [], "TN": [], "FN": []},
@@ -558,9 +565,15 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         if mode[f_m] == 'disorder_only':
-            input_size = 566 if 'AAindex' in name[f_m] else 1024
+            if '_esm2' in embeddings_path:
+                input_size = 2560
+            else:
+                input_size = 566 if 'AAindex' in name[f_m] else 1024
         else:
-            input_size = 567 if 'AAindex' in name[f_m] else 1025
+            if '_esm2' in embeddings_path:
+                input_size = 2561
+            else:
+                input_size = 567 if 'AAindex' in name[f_m] else 1025
         output_size = 3 if multilabel else 1
 
         if architecture[f_m] == "FNN":
@@ -1013,11 +1026,16 @@ if __name__ == '__main__':
     test = True
     validation = "disorder_only"  # if disorder_only, the batches are formed after excluding structured regions
     dataset_dir = '../dataset/MobiDB_dataset_2/'
-    embeddings_in = dataset_dir + 'test_set.h5' if test else dataset_dir + 'train_set.h5'
+    embeddings_in = dataset_dir + 'test_set_esm23b.h5' if test else dataset_dir + 'train_set_esm23b.h5'
+    #embeddings_in = dataset_dir + 'test_set.h5' if test else dataset_dir + 'train_set.h5'
     embeddings = dict()
     with h5py.File(embeddings_in, 'r') as f:
         for key, embedding in f.items():
-            original_id = embedding.attrs['original_id']
+            try:
+                original_id = embedding.attrs['original_id']
+            except KeyError:
+                # in esm embeddings there is no original_id attribute, additionally shorten the ID like for ProtT5
+                original_id = key.split(' ')[0]
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 
@@ -1093,8 +1111,8 @@ if __name__ == '__main__':
                 13.0, 13.1, 13.2, 13.3, 13.4,
                 20.0, 22.0, 40.0, 42.0]
     """
-    variants = [13.4]
-    assessment_name = "mobidb_2_precision_cutoff_FNN_disorder"  # "mobidb" / "2.21_only" / ""
+    variants = [16.5]
+    assessment_name = "mobidb_2_FNN_5_ESM2"  # "mobidb" / "2.21_only" / ""
     test_batch_size = 100  # n AAs, or None --> 1 protein
 
     names = {0.0: "mobidb_CNN_0",  # 1: currently best model
@@ -1138,6 +1156,7 @@ if __name__ == '__main__':
              13.2: "mobidb_2_D_FNN_2",
              13.3: "mobidb_2_D_FNN_3",
              13.4: "mobidb_2_D_FNN_4",      # FNN_disorder
+             16.5: "mobidb_2_FNN_5_ESM2",   # FNN_all_ESM2
              20.0: "random_binary",
              22.0: "random_D_only",
              30.0: "AAindex_baseline",  # based on mobidb_CNN_0
@@ -1188,6 +1207,7 @@ if __name__ == '__main__':
                13.2: [0.45, 0.5, 0.4, 0.5, 0.3],
                13.3: [0.45, 0.45, 0.45, 0.45, 0.4],
                13.4: [0.5, 0.45, 0.5, 0.45, 0.5],   # cutoff for fold 1 was 0.45 (ROC), 0.55 if looking for better precision
+               16.5: [0.4, 0.35, 0.45, 0.4, 0.35],  #
                20.0: [0.94, 0.94, 0.94, 0.94, 0.94],
                22.0: [0.63, 0.63, 0.63, 0.63, 0.63],
                30.0: [0.1, 0.1, 0.15, 0.1, 0.1],
@@ -1237,6 +1257,7 @@ if __name__ == '__main__':
                   13.2: 0,
                   13.3: 4,
                   13.4: 1,
+                  16.5: 3,
                   20.0: 2,
                   22.0: 2,
                   30.0: 4,
@@ -1295,7 +1316,7 @@ if __name__ == '__main__':
                 best_fold.append(best_folds[c_model])
 
         else:
-            mode = 'disorder_only' if (variant % 10) >= 2.0 else 'all'
+            mode = 'disorder_only' if (variant % 10) >= 2.0 and variant != 16.5 else 'all'
             architecture = 'CNN' if 'CNN' in names[variant] or 'AAindex' in names[variant] else 'FNN'  # 0, 1, 5, 6
             input_emb = aaindex_rep if 'AAindex' in names[variant] else embeddings
             batch_size = 512
@@ -1315,8 +1336,8 @@ if __name__ == '__main__':
             best_fold = best_folds[variant]
 
         assessment = assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, batch_size,
-                            loss_function, post_processing, test, best_fold, dataset_dir, input_emb, test_batch_size,
-                            validation)
+                            loss_function, post_processing, test, best_fold, dataset_dir, input_emb, embeddings_in,
+                            test_batch_size, validation)
 
         performances.append(assessment[:-1])
         per_model_metrics.append(assessment[-1])

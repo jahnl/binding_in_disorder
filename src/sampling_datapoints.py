@@ -62,7 +62,12 @@ def get_ML_data(labels, embeddings, mode, database):
             print(f'building new embedding for data points of {id}...')
             indices = labels[id][3].split(', ')
             name = id[:-1] if database == 'disprot' else id[1:]
-            emb = np.array(embeddings[name][int(indices[0])], dtype=float)
+            try:
+                emb = np.array(embeddings[name][int(indices[0])], dtype=float)
+            except KeyError:
+                # for esm embeddings '/' has been removed from the id string
+                name = name.replace('/', '')
+                emb = np.array(embeddings[name][int(indices[0])], dtype=float)
             for i in indices[1:]:
                 emb = np.row_stack((emb, embeddings[name][int(i)]))
             emb_with_conf = np.column_stack((emb, conf_feature))
@@ -140,7 +145,11 @@ def sample_datapoints(train_embeddings: str, dataset_dir: str, database: str, ov
     embeddings = dict()
     with h5py.File(train_embeddings, 'r') as f:
         for key, embedding in f.items():
-            original_id = embedding.attrs['original_id']
+            try:
+                original_id = embedding.attrs['original_id']
+            except KeyError:
+                # in esm embeddings there is no original_id attribute, additionally shorten the ID like for ProtT5
+                original_id = key.split(' ')[0]
             embeddings[original_id] = np.array(embedding)
     # now {IDs: embeddings} are written in the embeddings dictionary
 

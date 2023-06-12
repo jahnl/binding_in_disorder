@@ -218,15 +218,12 @@ performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "1. CNN_al
 performance <- performance[c(1:8, 12, 10:11, 9, 13:21)] # make CNN_disorder (12) and FNN_all (9) switch places due to plotting problems with error-bars
 
 # performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2_relevant_new.tsv", header = TRUE, sep = "\t"))
-performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2_precision_cutoff.tsv", header = TRUE, sep = "\t"))
-performance_test <- cbind(performance_test, model_name = c("1. CNN_all", 
-                                                           "2. CNN_disorder", 
-                                                           "3. FNN_all",
-                                                           "4. FNN_disorder",
+performance_test <- data.table(read.table("../results/logs/performance_assessment_test_mobidb_2_additional_welch_new.tsv", header = TRUE, sep = "\t"))
+performance_test <- cbind(performance_test, model_name = c("3. FNN_all",
+                                                           "FNN_all_ESM2",
                                                            "random_disorder",
-                                                           "5. AAindex_disorder",
                                                            "ref: ANCHOR2", "ref: DeepDISOBind"))
-performance_test <- performance_test[c(1:4, 6, 5, 7:8)]
+#performance_test <- performance_test[c(1:3, 5:7)]
 
 #### whole protein prediction ######
 ggplot(data = rbind(performance[1:9], performance[18]))+
@@ -360,9 +357,9 @@ ggplot(data = performance_test)+
   theme_bw()
 
 # only final models TEST selection
-palette <- c("#009E73", "#D55E00", "#CC79A7", "#999999")
+palette <- c("#009E73", "#92D282", "#D55E00", "#CC79A7", "#999999")
 final_test <- rbind(performance_test[3,], performance_test[6:8,])
-ggplot(data = final_test)+
+ggplot(data = performance_test)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
   geom_text(aes(x = "Precision", y = -0.02, label = round(D.Precision*100, 0)), position = position_dodge2(width = 0.9), size = 3.3)+

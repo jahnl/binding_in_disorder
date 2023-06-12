@@ -51,7 +51,15 @@ def get_ML_data(labels, embeddings, mode, new_datapoints):
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
             if '*' not in id and '$' not in id:
-                emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+                # print(embeddings.keys())
+                try:
+                    emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+                except KeyError:
+                    # for esm embeddings '/' has been removed from the id string
+                    emb_with_conf = np.column_stack((embeddings[id.replace('/', '')], conf_feature))
+                except ValueError:
+                    print(f'Warning: leaving out {id}. Value Error suggests that the embedding size is wrong.')
+                    continue
             else:  # data points created by residue-oversampling
                 # use pre-computed embedding
                 if type(new_datapoints) == list:
@@ -240,7 +248,11 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
     if train_embeddings != '':
         with h5py.File(train_embeddings, 'r') as f:
             for key, embedding in f.items():
-                original_id = embedding.attrs['original_id']
+                try:
+                    original_id = embedding.attrs['original_id']
+                except KeyError:
+                    # in esm embeddings there is no original_id attribute, additionally shorten the ID like for ProtT5
+                    original_id = key.split(' ')[0]
                 embeddings[original_id] = np.array(embedding)
         # now {IDs: embeddings} are written in the embeddings dictionary
     else:
@@ -297,7 +309,9 @@ def FNN_trainer(train_embeddings: str, dataset_dir: str, model_name: str = '2-2_
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("device: " + device)
-        if mode == 'disorder_only':
+        if '_esm2' in train_embeddings:     # special case: ESM2 embeddings instead of ProtT5 or AAindex rep.
+            input_size = 2561 if mode == 'all' else 2560
+        elif mode == 'disorder_only':
             input_size = 566 if train_embeddings == '' else 1024
         else:
             input_size = 567 if train_embeddings == '' else 1025
