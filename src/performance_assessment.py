@@ -51,7 +51,6 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel):
             conf_feature = str(labels[id][1])
             conf_feature = list(conf_feature.replace('-', '0').replace('D', '1'))
             conf_feature = np.array(conf_feature, dtype=float)
-            disorder.append(conf_feature)
             try:
                 emb_with_conf = np.column_stack((embeddings[id], conf_feature))
             except KeyError:
@@ -60,6 +59,7 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel):
             except ValueError:
                 print(f'Warning: leaving out {id}. Value Error suggests that the embedding size is wrong.')
                 continue
+            disorder.append(conf_feature)
             input.append(emb_with_conf)
         elif mode == 'disorder_only':
             if architecture == 'FNN':
@@ -530,7 +530,6 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
     else:       # put every model-specific param. in lists, so that consensus and not-c. can be processed alike.
         consensus = False
         name = [name]
-        cutoff = [cutoff]
         mode = [mode]
         architecture = [architecture]
         n_layers = [n_layers]
@@ -540,7 +539,7 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
         best_fold = [best_fold]
         input_emb = [input_emb]
     if test:    # assess best fold(s) only
-        cutoff = [cutoff[i][best_fold[i]] for i, _ in enumerate(name)]
+        cutoff = [[cutoff][i][best_fold[i]] for i, _ in enumerate(name)]
         consensus_predictions = list()  # here, the predictions of all consensus models will be stored
     for f_m, _ in enumerate(cutoff):   # for each fold (val) / for each model (consensus + test)
         if test:
@@ -557,42 +556,50 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
 
         # create the input and target data exactly how it's fed into the ML model
         # and add the confounding feature of disorder to the embeddings
-        this_fold_val_input, this_fold_val_target, this_fold_disorder = \
-            get_ML_data(val_labels, input_emb[f_m], architecture[f_m], mode[f_m], multilabel)
+        if not test:
+            this_fold_val_input, this_fold_val_target, this_fold_disorder = \
+                get_ML_data(val_labels, input_emb[0], architecture[0], mode[0], multilabel)
+        else:
+            this_fold_val_input, this_fold_val_target, this_fold_disorder = \
+                get_ML_data(val_labels, input_emb[f_m], architecture[f_m], mode[f_m], multilabel)
         # instantiate the dataset
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, this_fold_disorder,
-                                            architecture[f_m])
+                                            architecture[f_m] if test else architecture[0])
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        if mode[f_m] == 'disorder_only':
+        if mode[f_m if test else 0] == 'disorder_only':
             if '_esm2' in embeddings_path:
                 input_size = 2560
             else:
-                input_size = 566 if 'AAindex' in name[f_m] else 1024
+                input_size = 566 if 'AAindex' in name[f_m if test else 0] else 1024
         else:
             if '_esm2' in embeddings_path:
                 input_size = 2561
             else:
-                input_size = 567 if 'AAindex' in name[f_m] else 1025
+                input_size = 567 if 'AAindex' in name[f_m if test else 0] else 1025
         output_size = 3 if multilabel else 1
 
-        if architecture[f_m] == "FNN":
+        if architecture[f_m if test else 0] == "FNN":
             model = FNN(input_size, output_size, dropout, multilabel).to(device)
         else:
-            aa_mode = 'aaindex' if mode[f_m] == 'all' else 'aaindex_D'
-            model = CNN(n_layers[f_m], kernel_size[f_m], dropout, aa_mode if 'AAindex' in name[f_m] else mode[f_m])\
-                .to(device)
+            aa_mode = 'aaindex' if mode[f_m if test else 0] == 'all' else 'aaindex_D'
+            if test:
+                model = CNN(n_layers[f_m], kernel_size[f_m], dropout, aa_mode if 'AAindex' in name[f_m] else mode[f_m])\
+                    .to(device)
+            else:
+                model = CNN(n_layers[0], kernel_size[0], dropout, aa_mode if 'AAindex' in name[0] else mode[0]) \
+                    .to(device)
 
-        if name[f_m].startswith("random"):
+        if name[f_m if test else 0].startswith("random"):
             model = None
         else:
             f = best_fold[f_m] if test else f_m
-            print(f"Load model {name[f_m]}, fold {f}...")
-            model.load_state_dict(torch.load(f"../results/models/binding_regions_model_{name[f_m]}_fold_{f}.pth"))
+            print(f"Load model {name[f_m if test else 0]}, fold {f}...")
+            model.load_state_dict(torch.load(f"../results/models/binding_regions_model_{name[f_m if test else 0]}_fold_{f}.pth"))
 
-        if architecture[f_m] == "CNN":
-            batch_size[f_m] = 1
-        test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size[f_m], shuffle=False)
+        if architecture[f_m if test else 0] == "CNN":
+            batch_size[f_m if test else 0] = 1
+        test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size[f_m if test else 0], shuffle=False)
         if model is not None:
             model.eval()
 
@@ -668,7 +675,7 @@ def assess(name, cutoff, mode, multilabel, architecture, n_layers, kernel_size, 
 
                 for input, label, disorder in test_loader:
                     input, label, disorder = input.to(device), label[:, None].to(device), disorder[:, None].to(device)
-                    if name[f_m].startswith("random"):
+                    if name[f_m if test else 0].startswith("random"):
                         prediction = torch.rand(len(label), 1).to(device)
                         random = True
                     else:
