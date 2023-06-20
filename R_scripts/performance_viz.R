@@ -210,10 +210,10 @@ ggplot(data = rbind(performance_t[7], performance_t[20], performance_t[8]))+
 
 performance <- data.table(read.table("../results/logs/performance_assessment_mobidb_2.tsv", header = TRUE, sep = "\t"))
 performance <- cbind(performance, model_name = c("00 mobidb_2_CNN_0", "1. CNN_all", "02 mobidb_2_CNN_2",
-                                                 "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "3. FNN_all", "3.5 FNN_all_ESM2",
+                                                 "03 mobidb_2_FNN_0", "04 mobidb_2_FNN_1", "05 mobidb_2_FNN_2", "06 mobidb_2_FNN_3", "07 mobidb_2_FNN_4", "3. FNN_all", "4. FNN_all_ESM2",
                                                  "09 mobidb_2_D_CNN_0", "10 mobidb_2_D_CNN_1", "2. CNN_disorder", 
-                                                 "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "4. FNN_disorder",
-                                                 "17 AAindex_baseline", "5. AAindex_disorder",
+                                                 "12 mobidb_2_D_FNN_0", "13 mobidb_2_D_FNN_1", "14 mobidb_2_D_FNN_2", "15 mobidb_2_D_FNN_3", "5. FNN_disorder",
+                                                 "17 AAindex_baseline", "6. AAindex_disorder",
                                                  "random_baseline", "random_disorder"))
 performance <- performance[c(1:8, 13, 11:12, 9:10, 14:22)] # make CNN_disorder (12) and FNN_all (9) switch places due to plotting problems with error-bars
 
@@ -292,6 +292,7 @@ ggplot(data = best_of_val)+
   theme_bw()
 
 # disorder only prediction, part X, selection + text
+palette_w_ESM <- cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#92D282", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
 ggplot(data = best_of_val)+
   geom_bar(mapping = aes(x = "Precision", y = D.Precision, fill = model_name), stat = "identity", position = position_dodge2())+
   geom_errorbar(mapping = aes(x = "Precision", ymin = D.Precision - SE_D.Precision, ymax = D.Precision + SE_D.Precision), position = position_dodge2())+
@@ -309,7 +310,7 @@ ggplot(data = best_of_val)+
   labs(fill='Model name')+
   scale_y_continuous("Performance", sec.axis = sec_axis(~ .))+
   ggtitle("Performance on the Validation Set")+
-  scale_fill_colorblind10()+
+  scale_fill_manual(values=palette_w_ESM)+
   theme_bw()
 
 # disorder only prediction TEST
