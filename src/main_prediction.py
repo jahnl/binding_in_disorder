@@ -185,6 +185,8 @@ if __name__ == '__main__':
     fold = get_optimal_fold(model_name) if fold == '' else int(fold)
     cutoff = config['parameters']['cutoff']
     cutoff = get_optimal_cutoff(model_name, fold) if cutoff == '' else float(cutoff)
+    disorder_param = config['parameters']['disorder_param'] if config['parameters']['disorder_param'] != '' \
+        else 'curated-disorder-merge'
 
     # parse bools
     wf_overwrite = config['workflow']['overwrite'] != 'False'
@@ -201,6 +203,7 @@ if __name__ == '__main__':
         src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
                                           train_set_fasta='',
                                           annotations=annotations,
+                                          disorder_param=disorder_param,
                                           database='mobidb',
                                           dataset_dir=config['input_files']['dataset_directory'],
                                           overwrite=wf_overwrite)

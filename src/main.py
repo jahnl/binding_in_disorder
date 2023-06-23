@@ -205,6 +205,9 @@ if __name__ == '__main__':
     if oversampling == '':
         oversampling = None
 
+    # parse default value
+    disorder_param = config['parameters']['disorder_param'] if config['parameters']['disorder_param'] != '' \
+        else 'curated-disorder-merge'
 
     if '1' in steps:
         print('step 1: preprocess dataset')
@@ -218,6 +221,7 @@ if __name__ == '__main__':
             src.preprocess_dataset.preprocess(test_set_fasta=config['input_files']['test_set_fasta'],
                                               train_set_fasta=config['input_files']['train_set_fasta'],
                                               annotations=annotations,
+                                              disorder_param=disorder_param,
                                               database=config['parameters']['database'],
                                               dataset_dir=config['input_files']['dataset_directory'],
                                               overwrite=wf_overwrite)
