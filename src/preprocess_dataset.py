@@ -241,11 +241,11 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, disorder_para
                             train_dict[long_id].append(diso_seq)
                             if lip_seq != '':
                                 train_dict[long_id].append(lip_seq)
-                    elif long_id != '':
+                    elif ann_no != 0:
                         print(f'Excluding {long_id} from development set for having inconsistent annotation lengths.')
                         if ann_no == 1:
                             test_dict.pop(long_id)
-                        elif ann_no == -1:
+                        else:
                             train_dict.pop(long_id)
                     lip_seq = ''
                     # start new entry
