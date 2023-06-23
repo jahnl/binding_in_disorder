@@ -61,7 +61,14 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
             conf_feature = np.array(conf_feature, dtype=float)
             disorder.append(conf_feature)
             if '*' not in id:
-                emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+                try:
+                    emb_with_conf = np.column_stack((embeddings[id], conf_feature))
+                    embeddings.pop(id)  # subsequently remove entries from embeddings dict to save RAM!
+                except ValueError:
+                    print(f'Warning: leaving out {id}. Value Error suggests that the embedding size is wrong.')
+                    disorder.pop()
+                    embeddings.pop(id)
+                    continue
             else:  # data points created by residue-wise oversampling
                 # use pre-computed embedding
                 emb_with_conf = new_datapoints[datapoint_counter]
@@ -76,6 +83,7 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
                 bool_list = [False if x == '-' else True for x in list(labels[id][1])]
                 input.append(embeddings[id][bool_list])
                 disorder.append([1] * len(labels[id][2]))
+                embeddings.pop(id)
             else:  # CNN
                 # separate regions of the same protein from each other!
                 bool_list = [False if x == '-' else True for x in list(labels[id][1])]
@@ -102,6 +110,7 @@ def get_ML_data(labels, embeddings, architecture, mode, multilabel, new_datapoin
                     starts.append(diso_start)
                     stops.append(len(bool_list))
                     ids.append(id.split('|')[0] + ', disordered region ' + str(n_regions))
+                    embeddings.pop(id)
 
                 # binding data for CNN + disorder_only
                 for i, s in enumerate(starts):
