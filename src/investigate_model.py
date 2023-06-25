@@ -7,10 +7,10 @@ import numpy as np
 import h5py
 from Bio import SeqIO
 import re
-import torch.tensor
+from torch import tensor, long, float32, nn, nan_to_num, sigmoid, no_grad, cuda, load
+from torch import float as t_float
 import torch.nn.functional as F
-from torch.utils.data import Dataset
-from torch import nn
+from torch.utils.data import Dataset, DataLoader
 from os.path import exists
 
 
@@ -178,9 +178,9 @@ class BindingDataset(Dataset):
         if self.architecture == 'CNN':
             # 3-dimensional input must be provided to conv1d, so proteins must be organised in batches
             try:
-                label = torch.tensor(self.labels[index], dtype=torch.long) if type(self.labels[index]) != str else '/'
-                return torch.tensor(self.inputs[index]).float(), label, \
-                       torch.tensor(self.disorder[index], dtype=torch.long)
+                label = tensor(self.labels[index], dtype=long) if type(self.labels[index]) != str else '/'
+                return tensor(self.inputs[index]).float(), label, \
+                       tensor(self.disorder[index], dtype=long)
             except IndexError:
                 return None
         else:  # FNN
@@ -190,8 +190,8 @@ class BindingDataset(Dataset):
                 index = index - protein_length
                 k += 1
                 protein_length = len(self.disorder[k])
-            label = torch.tensor(self.labels[k][index]) if type(self.labels[k]) != str else '/'
-            return torch.tensor(self.inputs[k][index]).float(), label, torch.tensor(self.disorder[k][index])
+            label = tensor(self.labels[k][index]) if type(self.labels[k]) != str else '/'
+            return tensor(self.inputs[k][index]).float(), label, tensor(self.disorder[k][index])
 
 
 class CNN(nn.Module):
@@ -236,7 +236,7 @@ class CNN(nn.Module):
             # --> out: (1, protein_length)
 
     def forward(self, input):
-        input = torch.nan_to_num(input).transpose(1, 2).contiguous()  # sanitize and transpose input
+        input = nan_to_num(input).transpose(1, 2).contiguous()  # sanitize and transpose input
         if self.n_layers == 2:
             # version 0: 2 C layers
             x = self.conv1(input)
@@ -289,13 +289,13 @@ class FNN(nn.Module):
         self.multilabel = multilabel
 
     def forward(self, input):
-        input = torch.nan_to_num(input)  # sanitize input
+        input = nan_to_num(input)  # sanitize input
         x = F.relu(self.input_layer(input))
         x = self.dropout(x)
         x = F.relu(self.hidden_layer(x))
         x = self.dropout(x)
         if self.multilabel:
-            output = torch.sigmoid(self.output_layer(x))
+            output = sigmoid(self.output_layer(x))
         else:
             output = self.output_layer(x)  # rather without sigmoid to apply BCEWithLogitsLoss later
         return output
@@ -329,12 +329,12 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
 
     def test_performance(dataset, model, loss_function, device, output, multilabel, batch_size, cutoff_percent_min,
                          cutoff_percent_max, step_percent):
-        test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        test_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         size = dataset.number_residues()
         diso_size = dataset.number_diso_residues()
         # print(size)
         model.eval()
-        with torch.no_grad():
+        with no_grad():
             # try out different cutoffs
             # multiplication works around floating point precision issue
             for cutoff in (0.01 * np.arange(cutoff_percent_min, cutoff_percent_max, step=step_percent)):
@@ -346,29 +346,29 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                     for input, label in test_loader:
                         input, label = input.to(device), label.to(device)
                         prediction = model(input)
-                        test_loss += criterion(loss_function, prediction, label.to(torch.float32)).item()
+                        test_loss += criterion(loss_function, prediction, label.to(float32)).item()
                         # apply activation function to prediction to get classification and transpose matrices
                         prediction_max = (prediction > cutoff).T
                         label = label.T
 
                         # metrics
-                        p_correct += (prediction_max[0] == label[0]).type(torch.float).sum().item()
-                        p_tp += (prediction_max[0] == label[0])[label[0] == 1].type(torch.float).sum().item()
-                        p_fp += (prediction_max[0] != label[0])[label[0] == 0].type(torch.float).sum().item()
-                        p_tn += (prediction_max[0] == label[0])[label[0] == 0].type(torch.float).sum().item()
-                        p_fn += (prediction_max[0] != label[0])[label[0] == 1].type(torch.float).sum().item()
+                        p_correct += (prediction_max[0] == label[0]).type(t_float).sum().item()
+                        p_tp += (prediction_max[0] == label[0])[label[0] == 1].type(t_float).sum().item()
+                        p_fp += (prediction_max[0] != label[0])[label[0] == 0].type(t_float).sum().item()
+                        p_tn += (prediction_max[0] == label[0])[label[0] == 0].type(t_float).sum().item()
+                        p_fn += (prediction_max[0] != label[0])[label[0] == 1].type(t_float).sum().item()
 
-                        n_correct += (prediction_max[1] == label[1]).type(torch.float).sum().item()
-                        n_tp += (prediction_max[1] == label[1])[label[1] == 1].type(torch.float).sum().item()
-                        n_fp += (prediction_max[1] != label[1])[label[1] == 0].type(torch.float).sum().item()
-                        n_tn += (prediction_max[1] == label[1])[label[1] == 0].type(torch.float).sum().item()
-                        n_fn += (prediction_max[1] != label[1])[label[1] == 1].type(torch.float).sum().item()
+                        n_correct += (prediction_max[1] == label[1]).type(t_float).sum().item()
+                        n_tp += (prediction_max[1] == label[1])[label[1] == 1].type(t_float).sum().item()
+                        n_fp += (prediction_max[1] != label[1])[label[1] == 0].type(t_float).sum().item()
+                        n_tn += (prediction_max[1] == label[1])[label[1] == 0].type(t_float).sum().item()
+                        n_fn += (prediction_max[1] != label[1])[label[1] == 1].type(t_float).sum().item()
 
-                        o_correct += (prediction_max[2] == label[2]).type(torch.float).sum().item()
-                        o_tp += (prediction_max[2] == label[2])[label[2] == 1].type(torch.float).sum().item()
-                        o_fp += (prediction_max[2] != label[2])[label[2] == 0].type(torch.float).sum().item()
-                        o_tn += (prediction_max[2] == label[2])[label[2] == 0].type(torch.float).sum().item()
-                        o_fn += (prediction_max[2] != label[2])[label[2] == 1].type(torch.float).sum().item()
+                        o_correct += (prediction_max[2] == label[2]).type(t_float).sum().item()
+                        o_tp += (prediction_max[2] == label[2])[label[2] == 1].type(t_float).sum().item()
+                        o_fp += (prediction_max[2] != label[2])[label[2] == 0].type(t_float).sum().item()
+                        o_tn += (prediction_max[2] == label[2])[label[2] == 0].type(t_float).sum().item()
+                        o_fn += (prediction_max[2] != label[2])[label[2] == 1].type(t_float).sum().item()
 
                     test_loss /= int(size / batch_size)
                     p_correct /= size
@@ -424,24 +424,24 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                         input, label, disorder = input.to(device), label[:, None].to(device), \
                                                  disorder[:, None].to(device)
                         prediction = model(input)
-                        test_loss += loss_function(prediction, label.to(torch.float32)).item()
+                        test_loss += loss_function(prediction, label.to(float32)).item()
                         # apply activation function to prediction to get classification
-                        prediction_act = torch.sigmoid(prediction)
+                        prediction_act = sigmoid(prediction)
                         prediction_max = prediction_act > cutoff
                         # metrics
-                        correct += (prediction_max == label).type(torch.float).sum().item()
-                        tp += (prediction_max == label)[label == 1].type(torch.float).sum().item()
-                        fp += (prediction_max != label)[label == 0].type(torch.float).sum().item()
-                        tn += (prediction_max == label)[label == 0].type(torch.float).sum().item()
-                        fn += (prediction_max != label)[label == 1].type(torch.float).sum().item()
+                        correct += (prediction_max == label).type(t_float).sum().item()
+                        tp += (prediction_max == label)[label == 1].type(t_float).sum().item()
+                        fp += (prediction_max != label)[label == 0].type(t_float).sum().item()
+                        tn += (prediction_max == label)[label == 0].type(t_float).sum().item()
+                        fn += (prediction_max != label)[label == 1].type(t_float).sum().item()
                         # metrics within disorder
-                        diso_correct += (prediction_max == label)[disorder == 1].type(torch.float).sum().item()
+                        diso_correct += (prediction_max == label)[disorder == 1].type(t_float).sum().item()
                         mask_0 = (label == 0) & (disorder == 1)
                         mask_1 = (label == 1) & (disorder == 1)
-                        diso_tp += (prediction_max == label)[mask_1].type(torch.float).sum().item()
-                        diso_fp += (prediction_max != label)[mask_0].type(torch.float).sum().item()
-                        diso_tn += (prediction_max == label)[mask_0].type(torch.float).sum().item()
-                        diso_fn += (prediction_max != label)[mask_1].type(torch.float).sum().item()
+                        diso_tp += (prediction_max == label)[mask_1].type(t_float).sum().item()
+                        diso_fp += (prediction_max != label)[mask_0].type(t_float).sum().item()
+                        diso_tn += (prediction_max == label)[mask_0].type(t_float).sum().item()
+                        diso_fn += (prediction_max != label)[mask_1].type(t_float).sum().item()
 
                     test_loss /= int(size / batch_size)
                     correct /= size
@@ -508,7 +508,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                print(f'Embedding input:\n {input}\nPrediction target:\n{label}\n\n')
             """
 
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            device = "cuda" if cuda.is_available() else "cpu"
             if mode == 'disorder_only':
                 input_size = 566 if aaindex else 1024
             else:
@@ -523,7 +523,7 @@ def try_cutoffs(model_name: str, dataset_dir: str, embeddings, mode: str = 'all'
                             mode=aa_mode if aaindex else mode).to(device)
                 batch_size = 1  # batch size is always 1 (protein) if the model is a CNN
             model.load_state_dict(
-                torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
+                load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
             # test performance again, should be the same
             loss_function = nn.BCELoss() if multilabel else nn.BCEWithLogitsLoss()
             test_performance(validation_dataset, model, loss_function, device, output_file, multilabel, batch_size,
@@ -553,23 +553,23 @@ def predictCNN(embeddings, dataset_dir, annotations, cutoff, fold, model_name: s
         # instantiate the dataset
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'CNN')
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if cuda.is_available() else "cpu"
         aa_mode = 'aaindex' if mode == 'all' else 'aaindex_D'
         model = CNN(n_layers, kernel_size, dropout, aa_mode if aaindex else mode).to(device)
         model.load_state_dict(
-            torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
+            load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
         # test performance again, should be the same
 
-        test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1, shuffle=False)
+        test_loader = DataLoader(validation_dataset, batch_size=1, shuffle=False)
         model.eval()
-        with torch.no_grad():
+        with no_grad():
             for i, (input, label, disorder) in enumerate(test_loader):
                 if label[0] != '/':
                     label = label[None, :].to(device)
                 input, disorder = input.to(device), disorder[None, :].to(device)
                 prediction = model(input)
                 # apply activation function to prediction to enable classification
-                prediction_act = torch.sigmoid(prediction)
+                prediction_act = sigmoid(prediction)
                 prediction_max = prediction_act > cutoff
                 if region_ids == []:
                     output_file.write(
@@ -622,7 +622,7 @@ class Zone:
         return self.type
 
 
-def post_process(prediction: torch.tensor):
+def post_process(prediction: tensor):
     # identify specific zones in prediction:
     # pos_short: positive, len < 5, not at the end
     # neg_short: negative, len < 10, not at the start or end
@@ -681,7 +681,7 @@ def post_process(prediction: torch.tensor):
     prediction_pp = np.empty(0)
     for zone in zones:
         prediction_pp = np.append(prediction_pp, np.repeat(zone.get_value(), zone.get_length()))
-    return torch.tensor(prediction_pp)
+    return tensor(prediction_pp)
 
 
 def predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multilabel, post_processing, test, model_name,
@@ -707,20 +707,20 @@ def predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multila
         # instantiate the dataset
         validation_dataset = BindingDataset(this_fold_val_input, this_fold_val_target, disorder_labels, 'FNN')
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if cuda.is_available() else "cpu"
         input_size = 1025 if mode == 'all' or multilabel else 1024
         output_size = 3 if multilabel else 1
         model = FNN(input_size, output_size, dropout, multilabel).to(device)
         model.load_state_dict(
-            torch.load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
+            load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
         # test performance again, should be the same
 
-        test_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
+        test_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
         model.eval()
         all_prediction_act = list()
         all_prediction_max = list()
         all_labels = list()
-        with torch.no_grad():
+        with no_grad():
             for i, (input, label, _) in enumerate(test_loader):
                 if multilabel:
                     input, label = input.to(device), label.to(device).T
@@ -743,7 +743,7 @@ def predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multila
                         all_labels.extend(label.flatten().tolist())
                     input = input.to(device)
                     prediction = model(input)
-                    prediction_act = torch.sigmoid(prediction)
+                    prediction_act = sigmoid(prediction)
                     all_prediction_act.extend(prediction_act.flatten().tolist())
                     # apply activation function to prediction to enable classification
                     prediction_max = prediction_act > cutoff
@@ -761,15 +761,15 @@ def predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multila
                                   f'\nprediction:\t{"".join(all_prediction_max[delimiter_0: delimiter_1])}\n')
             else:
                 if label[0] != '/':
-                    output_file.write(f'{p_id}\nlabels:\t{torch.tensor(all_labels[delimiter_0: delimiter_1])}')
+                    output_file.write(f'{p_id}\nlabels:\t{tensor(all_labels[delimiter_0: delimiter_1])}')
                 else:
                     output_file.write(f'{p_id}\nlabels:\t/')
                 # f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0 : delimiter_1])}'
-                output_file.write(f'\nprediction_0:\t{torch.tensor(all_prediction_act[delimiter_0: delimiter_1])}')
-                output_file.write(f'\nprediction_1:\t{torch.tensor(all_prediction_max[delimiter_0: delimiter_1])}\n')
+                output_file.write(f'\nprediction_0:\t{tensor(all_prediction_act[delimiter_0: delimiter_1])}')
+                output_file.write(f'\nprediction_1:\t{tensor(all_prediction_max[delimiter_0: delimiter_1])}\n')
                 if post_processing:
                     output_file.write(
-                        f'prediction_pp:\t{post_process(torch.tensor(all_prediction_max[delimiter_0: delimiter_1]))}\n')
+                        f'prediction_pp:\t{post_process(tensor(all_prediction_max[delimiter_0: delimiter_1]))}\n')
 
             delimiter_0 = delimiter_1
 
