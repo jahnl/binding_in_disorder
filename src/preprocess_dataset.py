@@ -277,8 +277,8 @@ def mobidb_preprocessing(test_list, train_list, annotations: list, disorder_para
 
     else:       # SETH prediction in CSV and TXT format, test set only
         annotations = sorted(annotations, key=lambda x: x[-3])  # csv before txt
-        with open(annotations[1]) as txt_id:
-            with open(annotations[0]) as csv:
+        with open(annotations[1], 'r') as txt_id:
+            with open(annotations[0], 'r') as csv:
                 csv_pr = csv.readlines()
                 for i, id in enumerate(txt_id.readlines()):
                     disorder_pr = csv_pr[i].split(', ')
