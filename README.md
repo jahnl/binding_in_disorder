@@ -1,11 +1,7 @@
-# binding_in_disorder
+# IDBindT5
 # Prediction of Binding Residues in Disordered Regions Based on Protein Embeddings
-TUM Master Praktikum Bioinformatics 2022 (Project #3) and Master's Thesis
 
-Here we provide a machine learning model that was trained to predict binding regions specifically in intrinsically disordered regions (IDPRs), utilizing embeddings
-from the protein language model (pLM) ProtT5 [1]. It is fast, performs with
-a balanced accuracy of 57.2 ± 3.6% in the IDPRs of our test set and can compete with
-established methods, that rely on classical expert-crafted features or sequence profiles. 
+Here, we presented a novel machine learning (ML) model trained to predict binding regions specifically in IDPRs. The proposed model, IDBindT5, leveraged embeddings from the protein language model (pLM) ProtT5 [1] to reach a balanced accuracy of 57.2±3.6% (95% confidence interval). This was numerically slightly higher than the performance of the state-of-the-art (SOTA) methods ANCHOR2 (52.4±2.7%) and DeepDISOBind (56.9±5.6%) that rely on expert-crafted features and/or evolutionary information from multiple sequence alignments (MSAs). IDBindT5’s SOTA predictions are much faster than other methods, easily enabling full-proteome analyses. 
 
 # How to use
 The repository consists of two public branches: main and prediction. 
