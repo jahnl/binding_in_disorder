@@ -1,11 +1,7 @@
-# binding_in_disorder
+# IDBindT5
 # Prediction of Binding Residues in Disordered Regions Based on Protein Embeddings
-TUM Master Praktikum Bioinformatics 2022 (Project #3) and Master's Thesis
 
-Here we provide a machine learning model that was trained to predict binding regions specifically in intrinsically disordered regions (IDPRs), utilizing embeddings
-from the protein language model (pLM) ProtT5 [1]. It is fast, performs with
-a balanced accuracy of 57.2 ± 3.6% in the IDPRs of our test set and can compete with
-established methods, that rely on classical expert-crafted features or sequence profiles. 
+[Here](https://www.biorxiv.org/content/10.1101/2024.03.05.583540v1.abstract), we presented a novel machine learning (ML) model trained to predict binding regions specifically in IDPRs. The proposed model, IDBindT5, leveraged embeddings from the protein language model (pLM) ProtT5 [1] to reach a balanced accuracy of 57.2±3.6% (95% confidence interval). This was numerically slightly higher than the performance of the state-of-the-art (SOTA) methods ANCHOR2 (52.4±2.7%) and DeepDISOBind (56.9±5.6%) that rely on expert-crafted features and/or evolutionary information from multiple sequence alignments (MSAs). IDBindT5’s SOTA predictions are much faster than other methods, easily enabling full-proteome analyses. 
 
 # How to use
 The repository consists of two public branches: main and prediction. 
@@ -38,3 +34,15 @@ Refer to the configuration file's comments for more detailed instructions.
 [2] Piovesan, D., Del Conte, A., Clementel, D., Monzon, A. M., Bevilacqua, M., Aspromonte, M. C., Iserte, J. A., Orti, F. E., Marino-Buslje, C., & Tosatto, S. C. E. (2022). MobiDB: 10 years of intrinsically disordered proteins. Nucleic Acids Res. https://doi.org/10.1093/nar/gkac1065 
 
 [3] Ilzhöfer, D., Heinzinger, M., & Rost, B. (2022). SETH predicts nuances of residue disorder from protein embeddings [Original Research]. Frontiers in Bioinformatics, 2. https://doi.org/10.3389/fbinf.2022.1019597 
+
+# Citation
+```
+@article{jahn2024IDBindT5,
+  title={Protein Embeddings Predict Binding Residues in Disordered Regions},
+  author={Jahn, Laura R and Marquet, Celine and Heinzinger, Michael and Rost, Burkhard},
+  journal={bioRxiv},
+  pages={2024--03},
+  year={2024},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
