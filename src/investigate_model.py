@@ -11,6 +11,7 @@ from torch import tensor, long, float32, nn, nan_to_num, sigmoid, no_grad, cuda,
 from torch import float as t_float
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+import torch
 from os.path import exists
 
 
@@ -712,7 +713,7 @@ def predictFNN(embeddings, dataset_dir, annotations, cutoff, fold, mode, multila
         output_size = 3 if multilabel else 1
         model = FNN(input_size, output_size, dropout, multilabel).to(device)
         model.load_state_dict(
-            load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth"))
+            load(f"../results/models/binding_regions_model_{model_name}_fold_{fold}.pth",  map_location=torch.device(device)))
         # test performance again, should be the same
 
         test_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
