@@ -263,6 +263,30 @@ FNN_all	4	6	val	0.187603
 FNN_all	4	7	val	0.235708
 FNN_all	4	8	val	0.242748
 FNN_all	4	9	val	0.302128
+FNN_all_ESM2	3	1	train	0.919591
+FNN_all_ESM2	3	2	train	0.620703
+FNN_all_ESM2	3	3	train	0.560589
+FNN_all_ESM2	3	4	train	0.538239
+FNN_all_ESM2	3	5	train	0.508984
+FNN_all_ESM2	3	6	train	0.447172
+FNN_all_ESM2	3	7	train	0.392931
+FNN_all_ESM2	3	8	train	0.370803
+FNN_all_ESM2	3	9	train	0.338496
+FNN_all_ESM2	3	10	train	0.340721
+FNN_all_ESM2	3	11	train	0.331995
+FNN_all_ESM2	3	12	train	0.312214
+FNN_all_ESM2	3	1	val	0.618736
+FNN_all_ESM2	3	2	val	0.679708
+FNN_all_ESM2	3	3	val	0.876113
+FNN_all_ESM2	3	4	val	0.750631
+FNN_all_ESM2	3	5	val	0.375241
+FNN_all_ESM2	3	6	val	0.514265
+FNN_all_ESM2	3	7	val	0.327891
+FNN_all_ESM2	3	8	val	0.357381
+FNN_all_ESM2	3	9	val	0.369481
+FNN_all_ESM2	3	10	val	0.567113
+FNN_all_ESM2	3	11	val	0.736910
+FNN_all_ESM2	3	12	val	0.537520
 FNN_disorder	0	1	train	0.709358
 FNN_disorder	0	2	train	0.710054
 FNN_disorder	0	3	train	0.701511
@@ -567,3 +591,4 @@ AAindex_disorder	4	20	val	0.008896
 AAindex_disorder	4	21	val	0.008906
 AAindex_disorder	4	22	val	0.008910
 AAindex_disorder	4	23	val	0.008914
+
