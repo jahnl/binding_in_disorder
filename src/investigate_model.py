@@ -862,7 +862,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, annot
         aaindex = False
         with h5py.File(embeddings_in, 'r') as f:
             for key, embedding in f.items():
-                original_id = embedding.attrs['original_id']
+                original_id = embedding.attrs['original_id']    # might need to use key here, if embedding.attrs not configured correctly
                 embeddings[original_id] = np.array(embedding)
         # now {IDs: embeddings} are written in the embeddings dictionary
     else:
@@ -874,6 +874,7 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, annot
             fold_rep = np.load(f'{dataset_dir}folds/AAindex_representation_fold_{fold}.npy', allow_pickle=True).item()
         embeddings.update(fold_rep)
 
+    torch.set_printoptions(threshold=10000)  # default was 1000
     # get predictions for chosen cutoff, fold
     if architecture == 'CNN':
         predictCNN(embeddings, dataset_dir, annotations, cutoff, fold, model_name, n_layers, kernel_size, dropout,
