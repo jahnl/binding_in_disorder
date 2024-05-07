@@ -862,7 +862,11 @@ def predict(train_embeddings: str, dataset_dir: str, test_embeddings: str, annot
         aaindex = False
         with h5py.File(embeddings_in, 'r') as f:
             for key, embedding in f.items():
-                original_id = embedding.attrs['original_id']    # might need to use key here, if embedding.attrs not configured correctly
+                try:
+                    original_id = embedding.attrs['original_id']
+                except KeyError:
+                    # in some embeddings (e.g. ESM-2) there is no original_id attribute, additionally shorten the ID like for ProtT5
+                    original_id = key.split(' ')[0]
                 embeddings[original_id] = np.array(embedding)
         # now {IDs: embeddings} are written in the embeddings dictionary
     else:
